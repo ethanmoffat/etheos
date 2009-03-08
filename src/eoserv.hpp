@@ -2,12 +2,13 @@
 #define EOSERV_HPP_INCLUDED
 
 #include <list>
-#include <map>
+#include <vector>
 #include <ctime>
 #include <string>
 
 class World;
 class Player;
+class Character;
 class Guild;
 class Party;
 class NPC;
@@ -15,65 +16,155 @@ class Map;
 class ActionQueue;
 
 #include "eoclient.hpp"
+#include "database.hpp"
+#include "util.hpp"
 
 class World
 {
+	private:
+		World();
+
 	public:
-		std::list<Player *> players;
+		std::list<Character *> characters;
 		std::list<Guild *> guilds;
 		std::list<Party *> partys;
 		std::list<NPC *> npcs;
-		std::map<int, Map *> maps;
+		std::vector<Map *> maps;
 
-		void Msg(Player *from, std::string message);
+		World(util::array<std::string, 5> dbinfo);
+
+		void Login(Character *);
+		void Logout(Character *);
+
+		void Msg(Character *from, std::string message);
+		void AdminMsg(Character *from, std::string message);
+		void AnnounceMsg(Character *from, std::string message);
+
+		void Reboot();
+		void Reboot(int seconds, std::string reason);
 };
 
 class Map
 {
 	public:
 		int id;
+		char rid[4];
 		int width;
 		int height;
-		std::list<Player *> players;
+		std::string filename;
+		std::list<Character *> characters;
 		std::list<NPC *> npcs;
 
-		World *world;
+		Map(int id);
 
-		void Msg(Player *from, std::string message);
+		void Enter(Character *);
+		void Leave(Character *);
+
+		void Msg(Character *from, std::string message);
+		void Walk(Character *from, int direction);
+		void Attack(Character *from, int direction);
+		void Face(Character *from, int direction);
+		void Sit(Character *from);
+		void Stand(Character *from);
+		void Emote(Character *from, int emote);
 };
 
 class Player
 {
 	public:
-		int admin;
-		std::string name;
-		int x,y;
-		int level, exp;
-		int hp, tp, sp, maxhp, maxtp, maxsp;
-		int str, intl, wis, agi, cha;
+		bool online;
+		unsigned int id;
+		std::string username;
+		std::string password;
 
-		std::list<std::pair<int,int> > inventory;
-		std::list<int> spells;
-		std::list<int> skills;
+		Player(std::string username);
+
+		std::list<Character *> characters;
+		Character *character;
+
+		static bool ValidName(std::string username);
+		static Player *Login(std::string username, std::string password);
+		static bool Create(std::string username, std::string password, std::string fullname, std::string location, std::string email, std::string computer, std::string hdid);
+		static bool Exists(std::string username);
+		bool AddCharacter(std::string name, int gender, int hairstyle, int haircolor, int race);
+		static bool Online(std::string username);
 
 		EOClient *client;
-		World *world;
-		Map *map;
-		Guild *guild;
-		int guild_rank;
-		Party *party;
 
-		void Msg(Player *from, std::string message);
+		~Player();
+};
+
+class Character
+{
+	public:
+		bool online;
+		unsigned int id;
+		int admin;
+		std::string name;
+		std::string title;
+		std::string home;
+		std::string partner;
+		int clas;
+		int gender;
+		int race;
+		int hairstyle, haircolor;
+		int mapid, x, y, direction;
+		int spawnmap, spawnx, spawny;
+		int level, exp;
+		int hp, tp;
+		int str, intl, wis, agi, con, cha;
+		int statpoints, skillpoints;
+		int weight, maxweight;
+		int karma;
+		bool sitting, visible;
+		int bankmax;
+		int goldbank;
+		int usage;
+
+		int maxsp;
+		int maxhp, maxtp;
+		int accuracy, evade, armor;
+		int mindam, maxdam;
+
+		enum EquipLocation
+		{
+
+		};
+
+		std::list<std::pair<int,int> > inventory;
+		std::list<std::pair<int,int> > bank;
+		util::array<int, 15> paperdoll;
+		std::list<std::pair<int,int> > spells;
+
+		Character(std::string name);
+
+		static bool ValidName(std::string name);
+		static Character *Create(Player *, std::string name, int gender, int hairstyle, int haircolor, int race);
+
+		void Msg(Character *from, std::string message);
+		void Walk(int direction);
+		void Attack(int direction);
+		void Sit();
+		void Stand();
+		void Emote(int emote);
+
+		~Character();
+
+		Player *player;
+		Guild *guild;
+		char guild_rank;
+		Party *party;
+		Map *map;
 };
 
 class NPC
 {
 	public:
 		int type;
-		int x,y;
+		int x, y;
 		bool attack;
 		int hp, maxhp;
-		std::map<Player *, int> damagelist;
+		std::map<Character *, int> damagelist;
 		Player *owner;
 
 		Map *map;
@@ -84,24 +175,24 @@ class Guild
 	public:
 		std::string tag;
 		std::string name;
-		std::list<Player *> members;
+		std::list<Character *> members;
 		std::map<std::string, int> ranks;
 		std::time_t created;
 
-		void Msg(Player *from, std::string message);
+		void Msg(Character *from, std::string message);
 };
 
 class Party
 {
 	public:
-		Party(Player *host, Player *);
+		Party(Character *host, Character *other);
 
-		Player *host;
-		std::list<Player *> members;
+		Character *host;
+		std::list<Character *> members;
 
-		void Msg(Player *from, std::string message);
-		void JoinPlayer(Player *);
-		void PartPlayer(Player *);
+		void Msg(Character *from, std::string message);
+		void Join(Character *);
+		void Part(Character *);
 };
 
 #endif // EOSERV_HPP_INCLUDED

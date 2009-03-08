@@ -8,30 +8,66 @@ CLIENT_F_FUNC(Talk)
 	switch (action)
 	{
 		case PACKET_REQUEST: // Guild chat message
+		{
 
-			break;
+		}
+		break;
 
 		case PACKET_OPEN: // Party chat messagea
+		{
 
-			break;
+		}
+		break;
 
-		case PACKET_REPORT:
 		case PACKET_MSG: // Global chat message
+		{
+			if (!this->player || !this->player->character) return false;
 
 			reader.GetByte(); // Ordering byte
 			message = reader.GetEndString(); // message
 
-			this->player->world->Msg(this->player, message);
-
-			break;
+			the_world->Msg(this->player->character, message);
+		}
+		break;
 
 		case PACKET_TELL: // Private chat message
+		{
 
-			break;
+		}
+		break;
 
-		//case PACKET_REPORT: // Public chat message
+		case PACKET_REPORT: // Public chat message
+		{
+			if (!this->player || !this->player->character || !this->player->character->map) return false;
 
-			break;
+			reader.GetByte(); // Ordering byte
+			message = reader.GetEndString(); // message
+
+			this->player->character->map->Msg(this->player->character, message);
+		}
+		break;
+
+		case PACKET_MOVEADMIN: // Admin chat message
+		{
+			if (!this->player || !this->player->character || !this->player->character->map) return false;
+
+			reader.GetByte(); // Ordering byte
+			message = reader.GetEndString(); // message
+
+			the_world->AdminMsg(this->player->character, message);
+		}
+		break;
+
+		case PACKET_ANNOUNCE: // Announcement message
+		{
+			if (!this->player || !this->player->character || !this->player->character->map) return false;
+
+			reader.GetByte(); // Ordering byte
+			message = reader.GetEndString(); // message
+
+			the_world->AnnounceMsg(this->player->character, message);
+		}
+		break;
 
 		default:
 			return false;

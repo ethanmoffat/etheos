@@ -1,23 +1,33 @@
 
 CLIENT_F_FUNC(Walk)
 {
-// All walk actions are stored in a queue for later handling
-// The queue is read as fast as a normal client should be sending walk packets.
-// NOTE: This is the stored in the same queue as PACKET_ATTACK
-
 	PacketBuilder reply;
 
 	switch (action)
 	{
-		case PACKET_PLAYER: // Player walking
-
-			break;
-
+		case PACKET_PLAYER: // Player walking (normal)
 		case PACKET_MOVESPEC: // Player walking (ghost)
-		// Ghost walking is only available 5 seconds after not moving
-		// This is the shortest amount of time possible with the EO client.
+		case PACKET_MOVEADMIN: // Player walking (admin)
+		{
+			if (!this->player || !this->player->character || !this->player->character->map) return false;
 
-			break;
+			reader.GetByte(); // Ordering byte
+			int direction = reader.GetChar();
+			int timestamp = reader.GetThree();
+			int x = reader.GetChar();
+			int y = reader.GetChar();
+
+			if (direction >= 0 && direction <= 3)
+			{
+				this->player->character->Walk(direction);
+			}
+
+			if (this->player->character->x != x || this->player->character->y != y)
+			{
+				// TODO: refresh out-of-sync players
+			}
+		}
+		break;
 
 		default:
 			return false;

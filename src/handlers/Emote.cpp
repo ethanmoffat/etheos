@@ -1,16 +1,23 @@
 
 CLIENT_F_FUNC(Emote)
 {
-// In order to prevent going out of sync with walking, requests will be stored
-// in the same queue.
-
 	PacketBuilder reply;
 
 	switch (action)
 	{
 		case PACKET_REPORT: // Player sending an emote
+		{
+			if (!this->player || !this->player->character || !this->player->character->map) return false;
 
-			break;
+			reader.GetByte(); // Ordering byte
+			int emote = reader.GetChar();
+
+			if ((emote >= 0 && emote <= 10) || emote == 14)
+			{
+				this->player->character->Emote(emote);
+			}
+		}
+		break;
 
 		default:
 			return false;
