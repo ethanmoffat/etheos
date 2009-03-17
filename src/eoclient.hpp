@@ -1,9 +1,8 @@
 #ifndef EOCLIENT_HPP_INCLUDED
 #define EOCLIENT_HPP_INCLUDED
 
-#include <cstdio>
+#include <string>
 #include <cstddef>
-#include <stdint.h>
 
 template <class T> class EOServer;
 class EOClient;
@@ -11,19 +10,21 @@ class EOClient;
 #include "socket.hpp"
 #include "packet.hpp"
 #include "eoserv.hpp"
+#include "util.hpp"
+#include "config.hpp"
 
 #define CLIENT_F_FUNC(FUNC) bool Handle_##FUNC(int action, PacketReader &reader)
 
 template <class T> class EOServer : public Server<T>
 {
 	private:
-		void Initialize() { this->world = new World; }
+		void Initialize(util::array<std::string, 5> dbinfo, Config config) { this->world = new World(dbinfo, config); }
+		EOServer(){};
 
 	public:
 		World *world;
 
-		EOServer() : Server<T>() { this->Initialize(); };
-		EOServer(IPAddress addr, uint16_t port) : Server<T>(addr, port) { this->Initialize(); };
+		EOServer(IPAddress addr, unsigned short port, util::array<std::string, 5> dbinfo, Config config) : Server<T>(addr, port) { this->Initialize(dbinfo, config); };
 };
 
 class EOClient : public Client
@@ -33,7 +34,9 @@ class EOClient : public Client
 		EOClient();
 
 	public:
+		int version;
 		Player *player;
+		unsigned int id;
 
 		enum State
 		{
@@ -43,8 +46,8 @@ class EOClient : public Client
 		};
 
 		int state;
-		uint8_t raw_length[2];
-		uint32_t length;
+		unsigned char raw_length[2];
+		unsigned int length;
 		std::string data;
 
 		PacketProcessor processor;
@@ -92,6 +95,7 @@ class EOClient : public Client
 		//CLIENT_F_FUNC(Quest);
 		CLIENT_F_FUNC(Book);
 
+		virtual ~EOClient();
 };
 
 #endif // EOCLIENT_HPP_INCLUDED

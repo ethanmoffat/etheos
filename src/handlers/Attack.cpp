@@ -1,17 +1,23 @@
 
 CLIENT_F_FUNC(Attack)
 {
-// All attack actions are stored in a queue for later handling
-// The queue is read as fast as a normal client should be sending walk packets.
-// NOTE: This is the stored in the same queue as PACKET_WALK
-
 	PacketBuilder reply;
 
 	switch (action)
 	{
-		case PACKET_USE: // Player attacking
+		case PACKET_USE: // Player walking
+		{
+			if (!this->player || !this->player->character) return false;
 
-			break;
+			int direction = reader.GetChar();
+			/*int timestamp = */reader.GetThree();
+
+			if (direction >= 0 && direction <= 3)
+			{
+				this->player->character->Attack(direction);
+			}
+		}
+		break;
 
 		default:
 			return false;

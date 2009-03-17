@@ -1,16 +1,22 @@
 
 CLIENT_F_FUNC(Face)
 {
-// In order to prevent going out of sync with walking, requests will be stored
-// in the same queue.
-
 	PacketBuilder reply;
 
 	switch (action)
 	{
 		case PACKET_PLAYER: // Player changing direction
+		{
+			if (!this->player || !this->player->character) return false;
 
-			break;
+			int direction = reader.GetChar();
+
+			if (direction >= 0 && direction <= 3)
+			{
+				this->player->character->map->Face(this->player->character, direction);
+			}
+		}
+		break;
 
 		default:
 			return false;

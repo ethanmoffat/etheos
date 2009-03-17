@@ -1,4 +1,4 @@
-
+#include <vector>
 CLIENT_F_FUNC(Login)
 {
 	PacketBuilder reply;
@@ -7,47 +7,65 @@ CLIENT_F_FUNC(Login)
 	{
 		case PACKET_REQUEST: // Logging in to an account
 		{
-			reader.GetByte();
-			std::string username = reader.GetBreakString();
+			if (this->player) return false;
+
+			std::string username =  reader.GetBreakString();
 			std::string password = reader.GetBreakString();
 
-			this->player->name = username;
+			std::transform(username.begin(), username.end(), username.begin(), static_cast<int(*)(int)>(std::tolower));
 
 			reply.SetID(PACKET_LOGIN, PACKET_REPLY);
+
+			if (Player::Online(username))
+			{
+				reply.AddShort(5);
+				CLIENT_SEND(reply);
+				return true;
+			}
+
+			if ((this->player = Player::Login(username, password)) == 0)
+			{
+				reply.AddShort(2);
+				CLIENT_SEND(reply);
+				return true;
+			}
+			this->player->id = this->id;
+			this->player->client = this;
 
 			reply.AddShort(3); // Reply code
 			// 1 = Wrong user (shouldn't be used)
 			// 2 = Wrong user or password
 			// 3 = OK (character list follows)
-			// 4 = ?? (banned?)
+			// 4 = ??
 			// 5 = Already logged in
-			reply.AddChar(1); // Number of characters
+			// 6 = Character deleted / refresh?
+			reply.AddChar(this->player->characters.size()); // Number of characters
 			reply.AddByte(1); // ??
-			reply.AddByte(255); // ??
-			reply.AddBreakString(username); // Character name
-			reply.AddChar(250); // ??
-			reply.AddThree(1337); // character id
-			reply.AddChar(100); // level
-			reply.AddChar(0); // sex (0 = female, 1 = male)
-			reply.AddChar(11); // hair style
-			reply.AddChar(8); // hair color
-			reply.AddChar(5); // race (0 = white, 1 = azn, 2 = nigger, 3 = orc, 4 = skeleton, 5 = panda)
-			reply.AddChar(100); // admin level
-			reply.AddShort(0); // shoes
-			reply.AddShort(26); // armor
-			reply.AddShort(27); // hat
-			reply.AddShort(10); // shield
-			reply.AddShort(58); // weapon
-			reply.AddByte(255); // end of character marker
-
+			reply.AddByte(255);
+			UTIL_FOREACH(this->player->characters, character)
+			{
+				reply.AddBreakString(character->name);
+				reply.AddInt(character->id);
+				reply.AddChar(character->level);
+				reply.AddChar(character->gender);
+				reply.AddChar(character->hairstyle);
+				reply.AddChar(character->haircolor);
+				reply.AddChar(character->race);
+				reply.AddChar(character->admin);
+				reply.AddShort(eoserv_items->GetDollGraphic(character->paperdoll[Character::Boots]));
+				reply.AddShort(eoserv_items->GetDollGraphic(character->paperdoll[Character::Armor]));
+				reply.AddShort(eoserv_items->GetDollGraphic(character->paperdoll[Character::Hat]));
+				reply.AddShort(eoserv_items->GetDollGraphic(character->paperdoll[Character::Shield]));
+				reply.AddShort(eoserv_items->GetDollGraphic(character->paperdoll[Character::Weapon]));
+				reply.AddByte(255); // end of character marker
+			}
 			CLIENT_SEND(reply);
 
-		} break;
+		}
+		break;
 
 		default:
-		{
 			return false;
-		}
 	}
 
 	return true;

@@ -14,12 +14,12 @@ case ID: \
 
 void EOClient::Initialize()
 {
+static unsigned int eoserv_player_id = 1;
+	this->id = eoserv_player_id++;
 	this->length = 0;
 	this->state = 0;
-	this->player = new Player;
-	this->player->client = this;
-	this->player->world = static_cast<EOServer<EOClient> *>(this->server)->world;
-	this->player->world->players.push_back(this->player);
+	this->player = 0;
+	this->version = 0;
 }
 
 void EOClient::Execute(std::string data)
@@ -32,11 +32,15 @@ void EOClient::Execute(std::string data)
 	family = data[1];
 	action = data[0];
 
-	printf("%s[%i]_%s[%i] from %s\n", PacketProcessor::GetFamilyName(family).c_str(), family, PacketProcessor::GetActionName(action).c_str(), action, static_cast<std::string>(this->GetRemoteAddr()).c_str());
-
 	PacketReader reader(data.substr(2));
 
 	bool result = false;
+
+	if (family != PACKET_INIT)
+	{
+		reader.GetChar(); // Ordering Byte
+	}
+
 	switch (family)
 	{
 		CLIENT_F_HANDLE(PACKET_INIT,Init);
@@ -75,18 +79,34 @@ void EOClient::Execute(std::string data)
 		CLIENT_F_HANDLE(PACKET_CITIZEN,Citizen);
 		//CLIENT_F_HANDLE(PACKET_QUEST,Quest);
 		CLIENT_F_HANDLE(PACKET_BOOK,Book);
+#ifndef DEBUG
 		default:
-			this->connected = false;
+			this->Close();
+#endif // DEBUG
 	}
 
+#ifdef DEBUG
+	std::printf("Packet %s[%i]_%s[%i] from %s\n", PacketProcessor::GetFamilyName(family).c_str(), family, PacketProcessor::GetActionName(action).c_str(), action, static_cast<std::string>(this->GetRemoteAddr()).c_str());
+#endif
+
+#ifndef DEBUG
 	if (!result)
 	{
-		puts("Action handler failed");
+		this->Close();
 	}
+#endif // DEBUG
 }
 
 void EOClient::SendBuilder(PacketBuilder &builder)
 {
-	std::string packet = static_cast<std::string>(builder);
+	std::string packet = static_cast<std::string >(builder);
 	this->Send(this->processor.Encode(packet));
+}
+
+EOClient::~EOClient()
+{
+	if (this->player)
+	{
+		delete this->player; // Player handles removing himself from the world
+	}
 }

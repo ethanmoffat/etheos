@@ -60,21 +60,33 @@ CLIENT_F_FUNC(Init)
 	unsigned int challenge;
 	unsigned int response;
 
+	if (this->version) return false;
+
 	reply.SetID(0); // 0 is a special case which sends the connection data
 
 	challenge = reader.GetThree();
 
+	reader.GetChar(); // ?
+	reader.GetChar(); // ?
+	this->version = reader.GetChar();
+
+	/*if (this->version < 27 || this->version > 28)
+	{
+		// insert "wrong version code" here
+		return false;
+	}*/
+#ifdef DEBUG
+	std::printf("Client version: v%i\n", this->version);
+#endif // DEBUG
+
 	response = stupid_hash(challenge);
 
-	// not sure what most of this does...
 	reply.AddByte(2); // ? (changing breaks EO)
-	// "eID" initial value is 70
-	reply.AddByte(1); // "eID" starting value (1 = +7)
-	reply.AddByte(5); // "eID" starting value (1 = +1)
+	reply.AddByte(10); // "eID" starting value (1 = +7)
+	reply.AddByte(10); // "eID" starting value (1 = +1)
 	reply.AddByte(10); // dickwinder multiple
 	reply.AddByte(8); // dickwinder multiple
-	reply.AddByte(92); // player id (todo: merge to short)
-	reply.AddByte(70); // player id (todo: merge to short)
+	reply.AddShort(this->id); // player id
 	reply.AddThree(response); // hash result
 
 	this->processor.SetEMulti(10,8);

@@ -1,9 +1,24 @@
 
+#include <algorithm>
 #include <string>
+#include <cstdio>
+#include <cmath>
+#include <list>
+#include <vector>
 
 #include "eoclient.hpp"
 #include "eoserv.hpp"
 #include "packet.hpp"
+#include "eoconst.hpp"
+#include "eodata.hpp"
+
+extern Database eoserv_db;
+extern World *the_world;
+extern EIF *eoserv_items;
+extern ENF *eoserv_npcs;
+extern ESF *eoserv_spells;
+extern ECF *eoserv_classes;
+extern Config eoserv_config;
 
 #ifdef CLIENT_F_FUNC
 #undef CLIENT_F_FUNC
@@ -13,6 +28,9 @@
 
 #define CLIENT_SENDRAW(REPLY) this->Send(REPLY)
 #define CLIENT_SEND(REPLY) this->Send(this->processor.Encode(REPLY))
+
+// Stop doxygen generating a gigantic include graph
+#ifndef DOXYGEN
 
 #include "handlers/Account.cpp"
 #include "handlers/AdminInteract.cpp"
@@ -48,3 +66,5 @@
 #include "handlers/Walk.cpp"
 #include "handlers/Warp.cpp"
 #include "handlers/Welcome.cpp"
+
+#endif // DOXYGEN
