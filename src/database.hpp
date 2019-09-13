@@ -88,7 +88,8 @@ class Database
 		enum Engine
 		{
 			MySQL,
-			SQLite
+			SQLite,
+			SqlServer
 		};
 
 	protected:

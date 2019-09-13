@@ -32,7 +32,9 @@
 
 #ifndef DATABASE_MYSQL
 #ifndef DATABASE_SQLITE
+#ifndef DATABASE_SQLSERVER
 #error At least one database driver must be selected
+#endif // DATABASE_SQLSERVER
 #endif // DATABASE_SQLITE
 #endif // DATABASE_MYSQL
 
@@ -46,6 +48,9 @@ struct Database::impl_
 #ifdef DATABASE_SQLITE
 		sqlite3 *sqlite_handle;
 #endif // DATABASE_SQLITE
+#ifdef DATABASE_SQLSERVER
+		//todo: sql server handle
+#endif //DATABASE_SQLSERVER
 	};
 };
 
@@ -244,6 +249,12 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			break;
 #endif // DATABASE_SQLITE
 
+#ifdef DATABASE_SQLSERVER
+		case SqlServer:
+			// todo: connect to SQL server
+			break;
+#endif // DATABASE_SQLSERVER
+
 		default:
 			throw Database_OpenFailed("Invalid database engine.");
 	}
@@ -271,6 +282,12 @@ void Database::Close()
 			sqlite3_close(this->impl->sqlite_handle);
 			break;
 #endif // DATABASE_SQLITE
+
+#ifdef DATABASE_SQLSERVER
+		case SqlServer:
+			//todo: close connection to SQL server
+			break;
+#endif // DATABASE_SQLSERVER
 	}
 }
 
@@ -482,6 +499,12 @@ Database_Result Database::RawQuery(const char* query, bool tx_control)
 			break;
 #endif // DATABASE_SQLITE
 
+#ifdef DATABASE_SQLSERVER
+		case SqlServer:
+			//todo: query SQL server
+			break;
+#endif // DATABASE_SQLSERVER
+
 		default:
 			throw Database_QueryFailed("Unknown database engine");
 	}
@@ -539,6 +562,12 @@ Database_Result Database::Query(const char *format, ...)
 					sqlite3_free(escret);
 					break;
 #endif // DATABASE_SQLITE
+
+#ifdef DATABASE_SQLSERVER
+		case SqlServer:
+			//todo: query SQL server
+			break;
+#endif // DATABASE_SQLSERVER
 			}
 		}
 		else
@@ -576,6 +605,12 @@ std::string Database::Escape(const std::string& raw)
 			sqlite3_free(escret);
 			break;
 #endif // DATABASE_SQLITE
+
+#ifdef DATABASE_SQLSERVER
+		case SqlServer:
+			//todo: escape query string
+			break;
+#endif // DATABASE_SQLSERVER
 	}
 
 	for (std::string::iterator it = result.begin(); it != result.end(); ++it)
@@ -671,6 +706,12 @@ bool Database::BeginTransaction()
 					this->RawQuery("BEGIN", true);
 					break;
 #endif // DATABASE_SQLITE
+
+#ifdef DATABASE_SQLSERVER
+				case SqlServer:
+					this->RawQuery("BEGIN TRANSACTION", true);
+					break;
+#endif // DATABASE_SQLSERVER
 			}
 
 			break;
@@ -695,7 +736,15 @@ void Database::Commit()
 	if (!this->in_transaction)
 		throw Database_Exception("No transaction to commit");
 
-	this->RawQuery("COMMIT", true);
+	if (this->engine != SqlServer)
+	{
+		this->RawQuery("COMMIT", true);
+	}
+	else
+	{
+		this->RawQuery("COMMIT TRANSACTION", true);
+	}
+
 	this->in_transaction = false;
 	this->transaction_log.clear();
 }
@@ -705,7 +754,15 @@ void Database::Rollback()
 	if (!this->in_transaction)
 		throw Database_Exception("No transaction to rollback");
 
-	this->RawQuery("ROLLBACK", true);
+	if (this->engine != SqlServer)
+	{
+		this->RawQuery("ROLLBACK", true);
+	}
+	else
+	{
+		this->RawQuery("ROLLBACK TRANSACTION", true);
+	}
+
 	this->in_transaction = false;
 	this->transaction_log.clear();
 }

@@ -305,7 +305,6 @@ void World::UpdateConfig()
 {
 	this->timer.SetMaxDelta(this->config["ClockMaxDelta"]);
 
-
 	double rate_face = this->config["PacketRateFace"];
 	double rate_walk = this->config["PacketRateWalk"];
 	double rate_attack = this->config["PacketRateAttack"];
@@ -317,7 +316,6 @@ void World::UpdateConfig()
 	Handlers::SetDelay(PACKET_WALK, PACKET_SPEC, rate_walk);
 
 	Handlers::SetDelay(PACKET_ATTACK, PACKET_USE, rate_attack);
-
 
 	std::array<double, 7> npc_speed_table;
 
@@ -333,9 +331,7 @@ void World::UpdateConfig()
 
 	NPC::SetSpeedTable(npc_speed_table);
 
-
 	this->i18n.SetLangFile(this->config["ServerLanguage"]);
-
 
 	this->instrument_ids.clear();
 
@@ -346,7 +342,6 @@ void World::UpdateConfig()
 	{
 		this->instrument_ids.push_back(int(util::tdparse(instrument_list[i])));
 	}
-
 
 	if (this->db.Pending() && !this->config["TimedSave"])
 	{
@@ -391,12 +386,25 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	}
 	else
 	{
-		engine = Database::MySQL;
-		dbdesc = std::string("MySQL: ")
+		std::string engineStr;
+		if (util::lowercase(dbinfo[0]).compare("sqlserver") == 0)
+		{
+			engine = Database::SqlServer;
+			engineStr = "SqlServer";
+		}
+		else
+		{
+			engine = Database::MySQL;
+			engineStr = "MySQL";
+		}
+
+		dbdesc = engineStr
 		       + dbinfo[2] + "@"
 		       + dbinfo[1];
 
-		if (dbinfo[5] != "0" && dbinfo[5] != "3306")
+		if (dbinfo[5] != "0" &&
+		    ((dbinfo[5] != "3306" && engine == Database::MySQL) ||
+			 (dbinfo[5] != "1433" && engine == Database::SqlServer)))
 			dbdesc += ":" + dbinfo[5];
 
 		dbdesc += "/" + dbinfo[4];
