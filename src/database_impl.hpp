@@ -26,6 +26,7 @@ typedef unsigned int uint;
 #endif // DATABASE_SQLITE
 
 #ifdef DATABASE_SQLSERVER
+#include "eoserv_windows.h"
 #include <sql.h>
 #include <sqlext.h>
 #endif

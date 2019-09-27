@@ -598,8 +598,83 @@ Database_Result Database::RawQuery(const char* query, bool tx_control)
 
 #ifdef DATABASE_SQLSERVER
 		case SqlServer:
-			//todo: query SQL server
+		{
+			SQLRETURN ret = SQLExecDirect(this->impl->hstmt, (SQLCHAR*)query, SQL_NTS);
+
+			if (ret == SQL_SUCCESS)
+			{
+				SQLSMALLINT numCols = 0;
+				ret = SQLNumResultCols(this->impl->hstmt, &numCols);
+				if (ret == SQL_SUCCESS)
+				{
+					if (numCols > 0)
+					{
+						// select data - get column names
+						std::vector<std::string> fields;
+						fields.reserve(numCols);
+
+						for (int colNdx = 1; colNdx <= numCols; ++colNdx)
+						{
+							char titleBuf[50] = { 0 };
+							SQLColAttribute(this->impl->hstmt, colNdx, SQL_DESC_NAME, titleBuf, sizeof(titleBuf), NULL, NULL);
+							fields.push_back(std::string(titleBuf));
+						}
+
+						// get data values
+						while (SQLFetch(this->impl->hstmt) == SQL_SUCCESS && ret == SQL_SUCCESS)
+						{
+							std::unordered_map<std::string, util::variant> resrow;
+
+							for (SQLUSMALLINT colNdx = 1; colNdx <= numCols && ret == SQL_SUCCESS; ++colNdx)
+							{
+								SQLLEN colType;
+								ret = SQLColAttribute(this->impl->hstmt, colNdx, SQL_DESC_CONCISE_TYPE, NULL, 0, NULL, &colType);
+								if (ret == SQL_SUCCESS)
+								{
+									if (colType == SQL_CHAR || colType == SQL_VARCHAR || colType == SQL_LONGVARCHAR)
+									{
+										// handle string data
+										SQLCHAR resultStr[2048] = { 0 };
+										ret = SQLGetData(this->impl->hstmt, colNdx, SQL_C_CHAR, resultStr, 2048, NULL);
+										if (ret == SQL_SUCCESS)
+											resrow[fields[colNdx]] = util::variant(resultStr);
+									}
+									else
+									{
+										// handle numeric data
+										SQLINTEGER resultInt;
+										ret = SQLGetData(this->impl->hstmt, colNdx, static_cast<SQLSMALLINT>(colType), &resultInt, 0, NULL);
+										if (ret == SQL_SUCCESS)
+											resrow[fields[colNdx]] = util::variant(resultInt);
+									}
+								}
+							}
+
+							if (ret == SQL_SUCCESS)
+								result.push_back(resrow);
+						}
+					}
+					else
+					{
+						// insert/update/delete data
+						SQLLEN rowCount = 0;
+						ret = SQLRowCount(this->impl->hstmt, &rowCount);
+						if (ret == SQL_SUCCESS && rowCount >= 0)
+						{
+							result.affected_rows = static_cast<int>(rowCount);
+						}
+					}
+				}
+			}
+
+			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret);
+			}
+
+			SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
 			break;
+		}
 #endif // DATABASE_SQLSERVER
 
 		default:
