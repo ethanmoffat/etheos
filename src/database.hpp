@@ -149,7 +149,7 @@ class Database
 		 * @throw Database_QueryFailed
 		 * @throw Database_OpenFailed
 		 */
-		Database_Result RawQuery(const char* query, bool tx_control = false);
+		Database_Result RawQuery(const char* query, bool tx_control = false, bool prepared = false);
 
 		/**
 		 * Executes a formatted query and returns it's result. Reconnects to the database if required
