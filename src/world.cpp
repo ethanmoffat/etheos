@@ -399,6 +399,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 		}
 
 		dbdesc = engineStr
+		       + ": "
 		       + dbinfo[2] + "@"
 		       + dbinfo[1];
 

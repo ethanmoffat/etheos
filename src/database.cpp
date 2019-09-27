@@ -58,7 +58,7 @@ struct Database::impl_
 
 
 #ifdef DATABASE_SQLSERVER
-void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code)
+void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...))
 {
     SQLSMALLINT iRec = 0;
     SQLINTEGER iError;
@@ -83,7 +83,7 @@ void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN co
         // Hide data truncated..
         if (strncmp((const char *)stateBuff, "01004", 5))
         {
-            Console::Err("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
+            consoleFunc("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
         }
     }
 }
@@ -291,26 +291,29 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			this->connected = true;
 
 			SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &this->impl->hEnv);
-			if (ret != SQL_SUCCESS)
+			if (!SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret);
+					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
+				this->connected = false;
 				throw Database_OpenFailed("Unable to allocate ODBC environment handle");
 			}
 
 			ret = SQLSetEnvAttr(this->impl->hEnv, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
-			if (ret != SQL_SUCCESS)
+			if (!SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret);
+					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
+				this->connected = false;
 				throw Database_OpenFailed("Unable to set ODBC version attribute");
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_DBC, this->impl->hEnv, &this->impl->hConn);
-			if (ret != SQL_SUCCESS)
+			if (!SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret);
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err);
+				this->connected = false;
 				throw Database_OpenFailed("Unable to allocate ODBC connection handle");
 			}
 
@@ -330,18 +333,21 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 				1024,
 				NULL,
 				SQL_DRIVER_NOPROMPT);
-			if (ret != SQL_SUCCESS)
+
+			if (!SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret);
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err);
+				this->connected = false;
 				throw Database_OpenFailed("Unable to connect to target server");
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_STMT, this->impl->hConn, &this->impl->hstmt);
-			if (ret != SQL_SUCCESS)
+			if (!SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret);
+					HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Err);
+				this->connected = false;
 				throw Database_OpenFailed("Unable to allocate ODBC statement handle");
 			}
 
@@ -607,11 +613,11 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 				? SQLExecute(this->impl->hstmt)
 				: SQLExecDirect(this->impl->hstmt, (SQLCHAR*)query, SQL_NTS);
 
-			if (ret == SQL_SUCCESS)
+			if (SUCCEEDED(ret))
 			{
 				SQLSMALLINT numCols = 0;
 				ret = SQLNumResultCols(this->impl->hstmt, &numCols);
-				if (ret == SQL_SUCCESS)
+				if (SUCCEEDED(ret))
 				{
 					if (numCols > 0)
 					{
@@ -627,36 +633,36 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 						}
 
 						// get data values
-						while (SQLFetch(this->impl->hstmt) == SQL_SUCCESS && ret == SQL_SUCCESS)
+						while (SQLFetch(this->impl->hstmt) == SQL_SUCCESS && SUCCEEDED(ret))
 						{
 							std::unordered_map<std::string, util::variant> resrow;
 
-							for (SQLUSMALLINT colNdx = 1; colNdx <= numCols && ret == SQL_SUCCESS; ++colNdx)
+							for (SQLUSMALLINT colNdx = 1; colNdx <= numCols && SUCCEEDED(ret); ++colNdx)
 							{
 								SQLLEN colType;
 								ret = SQLColAttribute(this->impl->hstmt, colNdx, SQL_DESC_CONCISE_TYPE, NULL, 0, NULL, &colType);
-								if (ret == SQL_SUCCESS)
+								if (SUCCEEDED(ret))
 								{
 									if (colType == SQL_CHAR || colType == SQL_VARCHAR || colType == SQL_LONGVARCHAR)
 									{
 										// handle string data
 										SQLCHAR resultStr[2048] = { 0 };
 										ret = SQLGetData(this->impl->hstmt, colNdx, SQL_C_CHAR, resultStr, 2048, NULL);
-										if (ret == SQL_SUCCESS)
-											resrow[fields[colNdx]] = util::variant(resultStr);
+										if (SUCCEEDED(ret))
+											resrow[fields[colNdx-1]] = util::variant(resultStr);
 									}
 									else
 									{
 										// handle numeric data
 										SQLINTEGER resultInt;
 										ret = SQLGetData(this->impl->hstmt, colNdx, static_cast<SQLSMALLINT>(colType), &resultInt, 0, NULL);
-										if (ret == SQL_SUCCESS)
-											resrow[fields[colNdx]] = util::variant(resultInt);
+										if (SUCCEEDED(ret))
+											resrow[fields[colNdx-1]] = util::variant(resultInt);
 									}
 								}
 							}
 
-							if (ret == SQL_SUCCESS)
+							if (SUCCEEDED(ret))
 								result.push_back(resrow);
 						}
 					}
@@ -665,7 +671,7 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 						// insert/update/delete data
 						SQLLEN rowCount = 0;
 						ret = SQLRowCount(this->impl->hstmt, &rowCount);
-						if (ret == SQL_SUCCESS && rowCount >= 0)
+						if (SUCCEEDED(ret) && rowCount >= 0)
 						{
 							result.affected_rows = static_cast<int>(rowCount);
 						}
@@ -675,7 +681,9 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 
 			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
 			{
-				HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret);
+				HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, ret == SQL_ERROR ? Console::Err : Console::Dbg);
+				SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
+				throw Database_QueryFailed("Error querying the database");
 			}
 
 			SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
