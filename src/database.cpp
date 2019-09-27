@@ -49,10 +49,45 @@ struct Database::impl_
 		sqlite3 *sqlite_handle;
 #endif // DATABASE_SQLITE
 #ifdef DATABASE_SQLSERVER
-		//todo: sql server handle
+		SQLHENV hEnv;
+		SQLHDBC hConn;
+		HSTMT hstmt;
 #endif //DATABASE_SQLSERVER
 	};
 };
+
+
+#ifdef DATABASE_SQLSERVER
+void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code)
+{
+    SQLSMALLINT iRec = 0;
+    SQLINTEGER iError;
+    SQLCHAR messageBuff[1000];
+    SQLCHAR stateBuff[SQL_SQLSTATE_SIZE+1];
+
+    if (code == SQL_INVALID_HANDLE)
+    {
+        fwprintf(stderr, L"Invalid handle!\n");
+        return;
+    }
+
+    while (SQLGetDiagRec(handleType,
+                         handle,
+                         ++iRec,
+                         stateBuff,
+                         &iError,
+                         messageBuff,
+                         (SQLSMALLINT)1000,
+                         (SQLSMALLINT*)NULL) == SQL_SUCCESS)
+    {
+        // Hide data truncated..
+        if (strncmp((const char *)stateBuff, "01004", 5))
+        {
+            Console::Err("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
+        }
+    }
+}
+#endif
 
 static int sqlite_callback(void *data, int num, char *fields[], char *columns[])
 {
@@ -251,8 +286,67 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 
 #ifdef DATABASE_SQLSERVER
 		case SqlServer:
-			// todo: connect to SQL server
+		{
+			// Set connected so that if a failure occurs the handles get closed properly in the destructor
+			this->connected = true;
+
+			SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &this->impl->hEnv);
+			if (ret != SQL_SUCCESS)
+			{
+				if (ret == SQL_ERROR)
+					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret);
+				throw Database_OpenFailed("Unable to allocate ODBC environment handle");
+			}
+
+			ret = SQLSetEnvAttr(this->impl->hEnv, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
+			if (ret != SQL_SUCCESS)
+			{
+				if (ret == SQL_ERROR)
+					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret);
+				throw Database_OpenFailed("Unable to set ODBC version attribute");
+			}
+
+			ret = SQLAllocHandle(SQL_HANDLE_DBC, this->impl->hEnv, &this->impl->hConn);
+			if (ret != SQL_SUCCESS)
+			{
+				if (ret == SQL_ERROR)
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret);
+				throw Database_OpenFailed("Unable to allocate ODBC connection handle");
+			}
+
+			char connStrBuff[4096] = { 0 };
+			sprintf_s(connStrBuff, "DRIVER={SQL Server};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+				this->host.c_str(),
+				this->port,
+				this->db.c_str(),
+				this->user.c_str(),
+				this->pass.c_str());
+
+			char sqlRetConnStr[1024] = { 0 };
+			ret = SQLDriverConnect(this->impl->hConn, NULL,
+				reinterpret_cast<SQLCHAR*>(connStrBuff),
+				SQL_NTS,
+				reinterpret_cast<SQLCHAR*>(sqlRetConnStr),
+				1024,
+				NULL,
+				SQL_DRIVER_NOPROMPT);
+			if (ret != SQL_SUCCESS)
+			{
+				if (ret == SQL_ERROR)
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret);
+				throw Database_OpenFailed("Unable to connect to target server");
+			}
+
+			ret = SQLAllocHandle(SQL_HANDLE_STMT, this->impl->hConn, &this->impl->hstmt);
+			if (ret != SQL_SUCCESS)
+			{
+				if (ret == SQL_ERROR)
+					HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret);
+				throw Database_OpenFailed("Unable to allocate ODBC statement handle");
+			}
+
 			break;
+		}
 #endif // DATABASE_SQLSERVER
 
 		default:
@@ -285,7 +379,10 @@ void Database::Close()
 
 #ifdef DATABASE_SQLSERVER
 		case SqlServer:
-			//todo: close connection to SQL server
+			SQLFreeHandle(SQL_HANDLE_STMT, this->impl->hstmt);
+			SQLDisconnect(this->impl->hConn);
+			SQLFreeHandle(SQL_HANDLE_DBC, this->impl->hConn);
+			SQLFreeHandle(SQL_HANDLE_ENV, this->impl->hEnv);
 			break;
 #endif // DATABASE_SQLSERVER
 	}

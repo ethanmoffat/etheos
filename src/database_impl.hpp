@@ -26,7 +26,8 @@ typedef unsigned int uint;
 #endif // DATABASE_SQLITE
 
 #ifdef DATABASE_SQLSERVER
-//todo: includes for sql server
+#include <sql.h>
+#include <sqlext.h>
 #endif
 
 #endif // DATABASE_IMPL_HPP_INCLUDED
