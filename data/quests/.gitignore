@@ -1,0 +1,4 @@
+# Ignore everything in this directory except the .gitignore file
+# This allows the directory to be checked in (empty)
+*
+!.gitignore

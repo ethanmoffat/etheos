@@ -7,7 +7,7 @@
 #include "eoserv_config.hpp"
 
 #include "config.hpp"
- 
+
 #include "console.hpp"
 
 #include <string>

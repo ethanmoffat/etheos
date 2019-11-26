@@ -1215,7 +1215,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		{
 			from->DeathRespawn();
 			return WalkWarped;
-		}	
+		}
 	}
 
 	return WalkOK;
@@ -2581,7 +2581,7 @@ void Map::TimedDrains()
 			}
 		}
 	}
-	
+
 	if (this->effect == EffectTPDrain)
 	{
 		double tpdrain_damage = this->world->config["DrainTPDamage"];
@@ -2594,7 +2594,7 @@ void Map::TimedDrains()
 			if (tpdrain_damage > 0.0)
 			{
 				int amount = character->maxtp * tpdrain_damage;
-				
+
 				amount = std::min(amount, int(character->tp));
 
 				character->tp -= amount;

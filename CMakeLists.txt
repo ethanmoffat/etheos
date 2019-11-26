@@ -92,7 +92,7 @@ OR (eoserv_CLANG AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "3.5"))
 endif()
 
 if(eoserv_GCC OR eoserv_CLANG)
-	if(NOT " ${CMAKE_CXX_FLAGS} " MATCHES " -std=")	
+	if(NOT " ${CMAKE_CXX_FLAGS} " MATCHES " -std=")
 		if(eoserv_CXX1Y)
 			set(eoserv_STDFLAG "-std=c++1y")
 		else()

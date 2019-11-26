@@ -260,7 +260,6 @@ void world_timed_save(void *world_void)
 void world_spikes(void *world_void)
 {
 	World *world = static_cast<World *>(world_void);
-	
 	for (Map* map : world->maps)
 	{
 		if (map->exists)
@@ -271,7 +270,6 @@ void world_spikes(void *world_void)
 void world_drains(void *world_void)
 {
 	World *world = static_cast<World *>(world_void);
-	
 	for (Map* map : world->maps)
 	{
 		if (map->exists)
@@ -282,7 +280,6 @@ void world_drains(void *world_void)
 void world_quakes(void *world_void)
 {
 	World *world = static_cast<World *>(world_void);
-	
 	for (Map* map : world->maps)
 	{
 		if (map->exists)

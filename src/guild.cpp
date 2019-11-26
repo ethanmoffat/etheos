@@ -451,7 +451,7 @@ void Guild::SetMemberRank(std::string name, int rank)
 					{
 						character->guild_rank = rank;
 						character->guild_rank_string = rank_str;
-						
+
 						if (character->online)
 							return;
 						else

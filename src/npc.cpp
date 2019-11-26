@@ -285,7 +285,7 @@ void NPC::Act()
 			attacker = closest;
 		}
 	}
-	
+
 	if (attacker)
 	{
 		int xdiff = this->x - attacker->x;

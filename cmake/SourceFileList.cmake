@@ -183,7 +183,7 @@ set(eoserv_WIN32_SOURCE_FILES
 set(ConfigFiles
 	admin.ini
 	config.ini
-	
+
 	config/boards.ini
 	config/console.ini
 	config/database.ini
@@ -197,7 +197,7 @@ set(ConfigFiles
 	config/rates.ini
 	config/server.ini
 	config/sln.ini
-	
+
 	config/database/mysql.ini
 	config/database/sqlite.ini
 )
