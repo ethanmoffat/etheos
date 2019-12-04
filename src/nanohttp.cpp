@@ -43,6 +43,7 @@ HTTP::HTTP(std::string host, unsigned short port, std::string path, const IPAddr
 			}
 			catch (Socket_BindFailed &e)
 			{
+				(void)e;
 				if (++retry >= 10)
 					throw;
 			}

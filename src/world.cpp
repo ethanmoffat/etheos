@@ -250,6 +250,7 @@ void world_timed_save(void *world_void)
 	}
 	catch (Database_Exception& e)
 	{
+		(void)e;
 		Console::Wrn("Database commit failed - no data was saved!");
 		world->db.Rollback();
 	}
@@ -342,6 +343,7 @@ void World::UpdateConfig()
 		}
 		catch (Database_Exception& e)
 		{
+			(void)e;
 			Console::Wrn("Database commit failed - no data was saved!");
 			this->db.Rollback();
 		}

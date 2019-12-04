@@ -84,6 +84,7 @@ void Config::Read(const std::string& filename)
 			}
 			catch (std::runtime_error &e)
 			{
+				(void)e;
 #ifndef DEBUG
 				if (key != "INCLUDE_NOWARN")
 				{

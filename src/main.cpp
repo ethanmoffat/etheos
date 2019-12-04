@@ -102,6 +102,7 @@ static void exception_test() throw()
 	catch (std::exception& e)
 	{
 		// Ignore
+		(void)e;
 	}
 }
 
@@ -237,6 +238,7 @@ int eoserv_main(int argc, char *argv[])
 		}
 		catch (std::runtime_error &e)
 		{
+			(void)e;
 			Console::Wrn("Could not load config.ini - using defaults");
 		}
 
@@ -246,6 +248,7 @@ int eoserv_main(int argc, char *argv[])
 		}
 		catch (std::runtime_error &e)
 		{
+			(void)e;
 			Console::Err("Could not load admin.ini - using defaults");
 		}
 

@@ -193,6 +193,7 @@ void QuestState(const std::vector<std::string>& arguments, Character* from)
 		}
 		catch (EOPlus::Runtime_Error& e)
 		{
+			(void)e;
 			from->ServerMsg(world->i18n.Format("quest_state_not_found"));
 		}
 	}

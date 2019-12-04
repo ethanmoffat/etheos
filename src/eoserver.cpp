@@ -222,6 +222,7 @@ void EOServer::Tick()
 	}
 	catch (Socket_SelectFailed &e)
 	{
+		(void)e;
 		if (errno != EINTR)
 			throw;
 	}

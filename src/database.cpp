@@ -623,6 +623,7 @@ void Database::ExecuteFile(const std::string& filename)
 	}
 	catch (std::exception &e)
 	{
+		(void)e;
 		std::fclose(fh);
 		throw;
 	}
