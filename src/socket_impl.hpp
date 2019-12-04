@@ -11,15 +11,22 @@
 
 #ifdef WIN32
 #include "eoserv_windows.h"
-#if defined(NTDDI_WIN2K) && !defined(__MINGW32__)
-#include <Wspiapi.h>
-#else // NTDDI_WIN2K
-#ifdef __MINGW32__
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
-#endif //  __MINGW32__
-#include <ws2tcpip.h>
-#endif // NTDDI_WIN2K
+
+// Don't do this weird include logic when compiling on MSVC
+//
+#ifndef _MSC_VER
+  #if defined(NTDDI_WIN2K) && !defined(__MINGW32__)
+    #include <Wspiapi.h>
+  #else // NTDDI_WIN2K
+    #ifdef __MINGW32__
+      #undef _WIN32_WINNT
+      #define _WIN32_WINNT 0x0501
+    #endif //  __MINGW32__
+    #include <ws2tcpip.h>
+  #endif // NTDDI_WIN2K
+#else
+  #include <ws2tcpip.h>
+#endif // _MSC_VER
 
 /**
  * Type for storing the size of a POSIX sockaddr_in struct.
