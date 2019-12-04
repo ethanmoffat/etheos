@@ -25,4 +25,14 @@
 #undef PlaySound
 #endif // PlaySound
 
+// std::min conflicts with min in winmindef.h
+#ifdef min
+#undef min
+#endif
+
+// std::max conflicts with max in winmindef.h
+#ifdef max
+#undef max
+#endif
+
 #endif // EOSERV_WINDOWS_H_INCLUDED
