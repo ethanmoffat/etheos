@@ -173,7 +173,11 @@ if (NOT EOSERV_WANT_MYSQL AND NOT EOSERV_WANT_SQLITE)
 endif()
 
 if(WIN32)
-        list(APPEND eoserv_LIBRARIES winmm ws2_32)
+	list(APPEND eoserv_LIBRARIES winmm ws2_32)
+
+	if (EOSERV_WANT_MYSQL)
+		list(APPEND eoserv_LIBRARIES shlwapi)
+	endif()
 endif()
 
 target_link_libraries(eoserv ${eoserv_LIBRARIES})
