@@ -82,7 +82,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
 		set(eoserv_COMPILER_SUPPORTED FALSE)
 	else()
-		message(WARNING "Visual C++ is untested and may not work at all. Please report your reuslts at http://eoserv.net/forum/")
+		message(WARNING "Visual C++ is untested and may not work at all. Please report your results at http://eoserv.net/forum/")
 	endif()
 endif()
 
@@ -151,11 +151,6 @@ add_executable(eoserv
 # -----------
 #  Libraries
 # -----------
-
-find_package(PThreads REQUIRED)
-
-include_directories(${PTHREADS_INCLUDE_DIR})
-list(APPEND eoserv_LIBRARIES ${PTHREADS_LIBRARY})
 
 if(EOSERV_WANT_MYSQL)
 	find_package(MariaDB REQUIRED)

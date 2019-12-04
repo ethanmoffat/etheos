@@ -4,10 +4,6 @@
  * See LICENSE.txt for more info.
  */
 
-#ifdef CLANG_MODULES_WORKAROUND
-#include <pthread.h>
-#endif // CLANG_MODULES_WORKAROUND
-
 #include "../src/config.cpp"
 #include "../src/console.cpp"
 #include "../src/database.cpp"

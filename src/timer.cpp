@@ -4,10 +4,6 @@
  * See LICENSE.txt for more info.
  */
 
-#ifdef CLANG_MODULES_WORKAROUND
-#include <pthread.h>
-#endif // CLANG_MODULES_WORKAROUND
-
 #include "timer.hpp"
 
 #include "database.hpp"
@@ -20,6 +16,7 @@
 #include <exception>
 #include <memory>
 #include <stdexcept>
+#include <mutex>
 
 #include "platform.h"
 
@@ -29,8 +26,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #endif // WIN32
-
-#include <pthread.h>
 
 #ifdef WIN32
 static int rres = 0;
@@ -114,28 +109,18 @@ std::unique_ptr<Clock> Timer::clock;
 
 struct Timer::impl_t
 {
-	pthread_mutex_t m;
+	std::mutex m;
 
-	impl_t()
-		: m(PTHREAD_MUTEX_INITIALIZER)
-	{
-		if (pthread_mutex_init(&m, 0) != 0)
-			throw std::runtime_error("Timer mutex init failed");
-	}
+	impl_t() { }
 
 	void lock()
 	{
-		pthread_mutex_lock(&m);
+		m.lock();
 	}
 
 	void unlock()
 	{
-		pthread_mutex_unlock(&m);
-	}
-
-	~impl_t()
-	{
-		pthread_mutex_destroy(&m);
+		m.unlock();
 	}
 };
 

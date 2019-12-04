@@ -122,7 +122,6 @@
 		</Compiler>
 		<Linker>
 			<Add library="ws2_32" />
-			<Add library="pthreadGC2" />
 			<Add library="winmm" />
 		</Linker>
 		<Unit filename="../src/arena.cpp">

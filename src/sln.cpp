@@ -4,10 +4,6 @@
  * See LICENSE.txt for more info.
  */
 
-#ifdef CLANG_MODULES_WORKAROUND
-#include <pthread.h>
-#endif // CLANG_MODULES_WORKAROUND
-
 #include "sln.hpp"
 
 #include "character.hpp"
@@ -22,10 +18,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "version.h"
-
-#include <pthread.h>
 
 struct SLN_Request
 {
@@ -100,14 +95,18 @@ void SLN::Request()
 	request->host = std::string(this->server->world->config["Host"]);
 	request->period = int(this->server->world->config["SLNPeriod"]);
 
-	static pthread_t thread;
+	try
+	{
+		static std::thread thread(SLN::RequestThread, request);
+		if (!thread.native_handle())
+			throw std::runtime_error("Failed to create SLN request thread");
 
-	if (pthread_create(&thread, 0, SLN::RequestThread, request) != 0)
+		thread.detach();
+	}
+	catch (...)
 	{
 		throw std::runtime_error("Failed to create SLN request thread");
 	}
-
-	pthread_detach(thread);
 }
 
 void* SLN::RequestThread(void* void_request)
