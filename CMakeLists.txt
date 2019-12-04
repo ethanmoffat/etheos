@@ -7,6 +7,8 @@ project(eoserv C CXX)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+cmake_policy(SET CMP0054 NEW)
+
 # ---------
 #  Options
 # ---------
