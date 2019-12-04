@@ -81,6 +81,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(eoserv_MSVC TRUE)
 	set(eoserv_COMPILER_SUPPORTED TRUE)
 
+	# Fix warnings due to not using the _s version of a lot of different functions on MSVC
+	#
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
 	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
 		set(eoserv_COMPILER_SUPPORTED FALSE)
 	else()
