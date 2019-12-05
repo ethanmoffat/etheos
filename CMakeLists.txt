@@ -87,8 +87,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 
 	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
 		set(eoserv_COMPILER_SUPPORTED FALSE)
-	else()
-		message(WARNING "Visual C++ is untested and may not work at all. Please report your results at http://eoserv.net/forum/")
 	endif()
 endif()
 
