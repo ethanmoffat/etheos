@@ -59,7 +59,7 @@ static void open_quest_dialog(Character* character, NPC* npc, int quest_id, int 
 		character->npc_type = ENF::Quest;
 
 		PacketBuilder reply(PACKET_QUEST, PACKET_DIALOG, 10);
-		reply.AddChar(dialogs.size()); // quest count
+		reply.AddChar(static_cast<unsigned char>(dialogs.size())); // quest count
 		reply.AddShort(vendor_id); // ?
 		reply.AddShort(dialogs[this_dialog].quest_id);
 		reply.AddShort(0); // session
@@ -170,7 +170,7 @@ void Quest_Accept(Character *character, PacketReader &reader)
 
 		if (quest && !quest->GetQuest()->Disabled())
 		{
-			bool result = action ? quest->DialogInput(action) : quest->TalkedNPC(vendor_id);
+			bool result = action ? quest->DialogInput(action) : quest->TalkedNPC(static_cast<char>(vendor_id));
 
 			// Run dialog for next quest state
 			quest = character->GetQuest(quest_id);
@@ -190,7 +190,7 @@ void Quest_List(Character *character, PacketReader &reader)
 
 	PacketBuilder reply(PACKET_QUEST, PACKET_LIST, 4);
 	reply.AddChar(page);
-	reply.AddShort(character->quests.size());
+	reply.AddShort(static_cast<unsigned short>(character->quests.size()));
 
 	std::size_t reserve = 0;
 

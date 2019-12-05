@@ -94,8 +94,8 @@ void world_recover(void *world_void)
 
 		if (character->hp != character->maxhp)
 		{
-			if (character->sitting != SIT_STAND) character->hp += character->maxhp * double(world->config["SitHPRecoverRate"]);
-			else                                 character->hp += character->maxhp * double(world->config["HPRecoverRate"]);
+			if (character->sitting != SIT_STAND) character->hp += static_cast<short>(character->maxhp * double(world->config["SitHPRecoverRate"]));
+			else                                 character->hp += static_cast<short>(character->maxhp * double(world->config["HPRecoverRate"]));
 
 			character->hp = std::min(character->hp, character->maxhp);
 			updated = true;
@@ -108,8 +108,8 @@ void world_recover(void *world_void)
 
 		if (character->tp != character->maxtp)
 		{
-			if (character->sitting != SIT_STAND) character->tp += character->maxtp * double(world->config["SitTPRecoverRate"]);
-			else                                 character->tp += character->maxtp * double(world->config["TPRecoverRate"]);
+			if (character->sitting != SIT_STAND) character->tp += static_cast<short>(character->maxtp * double(world->config["SitTPRecoverRate"]));
+			else                                 character->tp += static_cast<short>(character->maxtp * double(world->config["TPRecoverRate"]));
 
 			character->tp = std::min(character->tp, character->maxtp);
 			updated = true;
@@ -136,7 +136,7 @@ void world_npc_recover(void *world_void)
 		{
 			if (npc->alive && npc->hp < npc->ENF().hp)
 			{
-				npc->hp += npc->ENF().hp * double(world->config["NPCRecoverRate"]);
+				npc->hp += static_cast<int>(npc->ENF().hp * double(world->config["NPCRecoverRate"]));
 
 				npc->hp = std::min(npc->hp, npc->ENF().hp);
 			}
@@ -420,7 +420,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	for (std::size_t i = 0; i < num_npcs; ++i)
 	{
 		auto& npc = this->npc_data[i];
-		npc.reset(new NPC_Data(this, i));
+		npc.reset(new NPC_Data(this, static_cast<short>(i)));
 		if (npc->id != 0)
 			npc->LoadShopDrop();
 	}

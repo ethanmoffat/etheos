@@ -35,7 +35,7 @@ Player::Player(std::string username, World *world)
 	}
 	std::unordered_map<std::string, util::variant> row = res.front();
 
-	this->login_time = std::time(0);
+	this->login_time = static_cast<int>(std::time(0));
 
 	this->online = true;
 	this->character = nullptr;

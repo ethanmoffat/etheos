@@ -615,8 +615,8 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 				builder.AddShort(0); // UID
 				builder.AddShort(id);
 				builder.AddThree(amount);
-				builder.AddChar(this->character->weight);
-				builder.AddChar(this->character->maxweight);
+				builder.AddChar(static_cast<unsigned char>(this->character->weight));
+				builder.AddChar(static_cast<unsigned char>(this->character->maxweight));
 				this->character->Send(builder);
 			}
 			else
@@ -624,7 +624,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 				PacketBuilder builder(PACKET_ITEM, PACKET_OBTAIN, 6);
 				builder.AddShort(id);
 				builder.AddThree(amount);
-				builder.AddChar(this->character->weight);
+				builder.AddChar(static_cast<unsigned char>(this->character->weight));
 				this->character->Send(builder);
 			}
 		}
@@ -639,7 +639,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 			PacketBuilder builder(PACKET_ITEM, PACKET_KICK, 7);
 			builder.AddShort(id);
 			builder.AddInt(this->character->HasItem(id));
-			builder.AddChar(this->character->weight);
+			builder.AddChar(static_cast<unsigned char>(this->character->weight));
 			this->character->Send(builder);
 		}
 	}

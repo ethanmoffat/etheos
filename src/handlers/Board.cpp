@@ -175,8 +175,10 @@ void Board_Open(Character *character, PacketReader &reader)
 		{
 			for (std::size_t x = 0; x < character->map->width; ++x)
 			{
-				if (character->InRange(x, y)
-				 && character->map->GetSpec(x, y) == static_cast<Map_Tile::TileSpec>(Map_Tile::Board1 + boardid))
+				auto xChar = static_cast<unsigned char>(x);
+				auto yChar = static_cast<unsigned char>(y);
+				if (character->InRange(xChar, yChar)
+				 && character->map->GetSpec(xChar, yChar) == static_cast<Map_Tile::TileSpec>(Map_Tile::Board1 + boardid))
 				{
 					character->board = character->world->boards[boardid];
 				}

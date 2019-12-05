@@ -89,7 +89,7 @@ int variant::GetInt() const
 			break;
 
 		case type_string:
-			this->val_int = tdparse(this->val_string);
+			this->val_int = static_cast<int>(tdparse(this->val_string));
 			break;
 
 		case type_bool:

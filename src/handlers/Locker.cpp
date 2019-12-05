@@ -31,8 +31,8 @@ static PacketBuilder add_common(Character *character, short item, int amount)
 	PacketBuilder reply(PACKET_LOCKER, PACKET_REPLY, 8 + character->bank.size() * 5);
 	reply.AddShort(item);
 	reply.AddInt(character->HasItem(item));
-	reply.AddChar(character->weight);
-	reply.AddChar(character->maxweight);
+	reply.AddChar(static_cast<unsigned char>(character->weight));
+	reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 	UTIL_FOREACH(character->bank, item)
 	{
@@ -130,8 +130,8 @@ void Locker_Take(Character *character, PacketReader &reader)
 					PacketBuilder reply(PACKET_LOCKER, PACKET_GET, 7 + character->bank.size() * 5);
 					reply.AddShort(item);
 					reply.AddThree(taken);
-					reply.AddChar(character->weight);
-					reply.AddChar(character->maxweight);
+					reply.AddChar(static_cast<unsigned char>(character->weight));
+					reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 					it->amount -= taken;
 

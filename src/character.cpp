@@ -377,7 +377,7 @@ Character::Character(std::string name, World *world)
 	"`nointeract` FROM `characters` WHERE `name` = '$'", name.c_str());
 	std::unordered_map<std::string, util::variant> row = res.front();
 
-	this->login_time = std::time(0);
+	this->login_time = static_cast<int>(std::time(0));
 
 	this->online = false;
 	this->nowhere = false;
@@ -965,7 +965,7 @@ void Character::SpellAct()
 			if (spell.target_restrict == ESF::Friendly || spell.target != ESF::Normal)
 				return;
 
-			npc_victim = this->map->GetNPCIndex(spell_target_id);
+			npc_victim = this->map->GetNPCIndex(static_cast<unsigned char>(spell_target_id));
 
 			if (npc_victim)
 				this->map->SpellAttack(this, npc_victim, spell_id);
@@ -1324,7 +1324,7 @@ void Character::Refresh()
 	}
 
 	PacketBuilder builder(PACKET_REFRESH, PACKET_REPLY, 3 + updatecharacters.size() * 60 + updatenpcs.size() * 6 + updateitems.size() * 9);
-	builder.AddChar(updatecharacters.size()); // Number of players
+	builder.AddChar(static_cast<char>(updatecharacters.size())); // Number of players
 	builder.AddByte(255);
 
 	UTIL_FOREACH(updatecharacters, character)
@@ -1388,7 +1388,7 @@ void Character::ShowBoard(Board *board)
 
 	PacketBuilder builder(PACKET_BOARD, PACKET_OPEN, 2 + board->posts.size() * (17 + int(this->world->config["BoardMaxSubjectLength"]) + date_res));
 	builder.AddChar(board->id + 1);
-	builder.AddChar(board->posts.size());
+	builder.AddChar(static_cast<unsigned char>(board->posts.size()));
 
 	int post_count = 0;
 	int recent_post_count = 0;
@@ -1487,7 +1487,7 @@ std::string Character::HomeString() const
 
 int Character::Usage()
 {
-	return this->usage + (std::time(0) - this->login_time) / 60;
+	return this->usage + (static_cast<int>(std::time(0)) - this->login_time) / 60;
 }
 
 short Character::SpawnMap()
@@ -1578,10 +1578,10 @@ void Character::CalculateStats(bool trigger_quests)
 	std::unordered_map<std::string, double> formula_vars;
 	this->FormulaVars(formula_vars);
 
-	this->maxhp += rpn_eval(rpn_parse(this->world->formulas_config["hp"]), formula_vars);
-	this->maxtp += rpn_eval(rpn_parse(this->world->formulas_config["tp"]), formula_vars);
-	this->maxsp += rpn_eval(rpn_parse(this->world->formulas_config["sp"]), formula_vars);
-	this->maxweight = rpn_eval(rpn_parse(this->world->formulas_config["weight"]), formula_vars);
+	this->maxhp += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["hp"]), formula_vars));
+	this->maxtp += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["tp"]), formula_vars));
+	this->maxsp += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["sp"]), formula_vars));
+	this->maxweight = static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["weight"]), formula_vars));
 
 	if (this->hp > this->maxhp || this->tp > this->maxtp)
 	{
@@ -1610,13 +1610,13 @@ void Character::CalculateStats(bool trigger_quests)
 
 	if (this->world->config["UseClassFormulas"])
 	{
-		auto dam = rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".damage"]), formula_vars);
+		auto dam = static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".damage"]), formula_vars));
 
 		this->mindam += dam;
 		this->maxdam += dam;
-		this->armor += rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".defence"]), formula_vars);
-		this->accuracy += rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".accuracy"]), formula_vars);
-		this->evade += rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".evade"]), formula_vars);
+		this->armor += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".defence"]), formula_vars));
+		this->accuracy += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".accuracy"]), formula_vars));
+		this->evade += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".evade"]), formula_vars));
 	}
 	else
 	{
@@ -1678,8 +1678,8 @@ void Character::DropAll(Character *killer)
 			builder.AddShort(map_item->uid);
 			builder.AddChar(this->x);
 			builder.AddChar(this->y);
-			builder.AddChar(this->weight);
-			builder.AddChar(this->maxweight);
+			builder.AddChar(static_cast<unsigned char>(this->weight));
+			builder.AddChar(static_cast<unsigned char>(this->maxweight));
 			this->Send(builder);
 		}
 
@@ -1753,8 +1753,8 @@ void Character::DropAll(Character *killer)
 			builder.AddShort(map_item->uid);
 			builder.AddChar(this->x);
 			builder.AddChar(this->y);
-			builder.AddChar(this->weight);
-			builder.AddChar(this->maxweight);
+			builder.AddChar(static_cast<unsigned char>(this->weight));
+			builder.AddChar(static_cast<unsigned char>(this->maxweight));
 			this->Send(builder);
 		}
 
@@ -1849,7 +1849,7 @@ void Character::SpikeDamage(int amount)
 
 	PacketBuilder builder3(PACKET_EFFECT, PACKET_ADMIN, 7);
 	builder3.AddShort(this->PlayerID());
-	builder3.AddChar(util::clamp<int>(double(this->hp) / double(this->maxhp) * 100.0, 0, 100));
+	builder3.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->maxhp) * 100.0), 0, 100)));
 	builder3.AddChar(this->hp == 0);
 	builder3.AddThree(amount);
 
@@ -1892,10 +1892,10 @@ void Character::DeathRespawn()
 
 void Character::Mute(const Command_Source *by)
 {
-	this->muted_until = time(0) + int(this->world->config["MuteLength"]);
-    PacketBuilder builder(PACKET_TALK, PACKET_SPEC, by->SourceName().length());
-    builder.AddString(by->SourceName());
-    this->Send(builder);
+	this->muted_until = static_cast<int>(time(0)) + int(this->world->config["MuteLength"]);
+	PacketBuilder builder(PACKET_TALK, PACKET_SPEC, by->SourceName().length());
+	builder.AddString(by->SourceName());
+	this->Send(builder);
 }
 
 void Character::PlaySound(unsigned char id)

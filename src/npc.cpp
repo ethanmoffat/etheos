@@ -436,7 +436,7 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 		builder.AddChar(from->direction);
 		builder.AddShort(this->index);
 		builder.AddThree(amount);
-		builder.AddShort(util::clamp<int>(double(this->hp) / double(this->ENF().hp) * 100.0, 0, 100));
+		builder.AddShort(static_cast<short>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->ENF().hp) * 100.0), 0, 100)));
 
 		if (spell_id != -1)
 			builder.AddShort(from->tp);
@@ -958,7 +958,7 @@ void NPC::Attack(Character *target)
 	formula_vars["damage"] = amount;
 	formula_vars["critical"] = critical;
 
-	amount = rpn_eval(rpn_parse(this->map->world->formulas_config["damage"]), formula_vars);
+	amount = static_cast<int>(rpn_eval(rpn_parse(this->map->world->formulas_config["damage"]), formula_vars));
 	double hit_rate = rpn_eval(rpn_parse(this->map->world->formulas_config["hit_rate"]), formula_vars);
 
 	if (rand > hit_rate)
@@ -1014,7 +1014,7 @@ void NPC::Attack(Character *target)
 	builder.AddChar(this->direction);
 	builder.AddShort(target->PlayerID());
 	builder.AddThree(amount);
-	builder.AddThree(util::clamp<int>(double(target->hp) / double(target->maxhp) * 100.0, 0, 100));
+	builder.AddThree(util::clamp<int>(static_cast<int>(double(target->hp) / double(target->maxhp) * 100.0), 0, 100));
 	builder.AddByte(255);
 	builder.AddByte(255);
 

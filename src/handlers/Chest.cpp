@@ -53,8 +53,8 @@ void Chest_Add(Character *character, PacketReader &reader)
 						PacketBuilder reply(PACKET_CHEST, PACKET_REPLY, 8 + chest->items.size() * 5);
 						reply.AddShort(id);
 						reply.AddInt(character->HasItem(id));
-						reply.AddChar(character->weight);
-						reply.AddChar(character->maxweight);
+						reply.AddChar(static_cast<unsigned char>(character->weight));
+						reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 						UTIL_CIFOREACH(chest->items, item)
 						{
@@ -101,8 +101,8 @@ void Chest_Take(Character *character, PacketReader &reader)
 						PacketBuilder reply(PACKET_CHEST, PACKET_GET, 7 + (chest->items.size() + 1) * 5);
 						reply.AddShort(id);
 						reply.AddThree(taken);
-						reply.AddChar(character->weight);
-						reply.AddChar(character->maxweight);
+						reply.AddChar(static_cast<unsigned char>(character->weight));
+						reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 						UTIL_CIFOREACH(chest->items, item)
 						{

@@ -292,8 +292,8 @@ void Info(const std::vector<std::string>& arguments, Character* from)
 			reply.AddShort(0); // water
 			reply.AddShort(0); // earth
 			reply.AddShort(0); // wind
-			reply.AddChar(victim->weight);
-			reply.AddChar(victim->maxweight);
+			reply.AddChar(static_cast<unsigned char>(victim->weight));
+			reply.AddChar(static_cast<unsigned char>(victim->maxweight));
 
 			from->Send(reply);
 		}

@@ -76,7 +76,7 @@ void Character_Create(Player *player, PacketReader &reader)
 		Console::Out("New character: %s (%s)", name.c_str(), player->username.c_str());
 
 		reply.AddShort(CHARACTER_OK);
-		reply.AddChar(player->characters.size());
+		reply.AddChar(static_cast<unsigned char>(player->characters.size()));
 		reply.AddByte(1); // ??
 		reply.AddByte(255);
 		UTIL_FOREACH(player->characters, character)
@@ -122,7 +122,7 @@ void Character_Remove(Player *player, PacketReader &reader)
 
 	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 5 + player->characters.size() * 34);
 	reply.AddShort(CHARACTER_DELETED); // Reply code
-	reply.AddChar(player->characters.size());
+	reply.AddChar(static_cast<unsigned char>(player->characters.size()));
 	reply.AddByte(1); // ??
 	reply.AddByte(255);
 	UTIL_FOREACH(player->characters, character)

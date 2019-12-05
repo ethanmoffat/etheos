@@ -156,12 +156,12 @@ void Welcome_Request(Player *player, PacketReader &reader)
 
 	if (!player->world->config["OldVersionCompat"] && player->client->version < 28)
 	{
-		reply.AddChar(player->character->display_str);
-		reply.AddChar(player->character->display_wis);
-		reply.AddChar(player->character->display_intl);
-		reply.AddChar(player->character->display_agi);
-		reply.AddChar(player->character->display_con);
-		reply.AddChar(player->character->display_cha);
+		reply.AddChar(static_cast<unsigned char>(player->character->display_str));
+		reply.AddChar(static_cast<unsigned char>(player->character->display_wis));
+		reply.AddChar(static_cast<unsigned char>(player->character->display_intl));
+		reply.AddChar(static_cast<unsigned char>(player->character->display_agi));
+		reply.AddChar(static_cast<unsigned char>(player->character->display_con));
+		reply.AddChar(static_cast<unsigned char>(player->character->display_cha));
 	}
 	else
 	{
@@ -309,8 +309,8 @@ void Welcome_Msg(Player *player, PacketReader &reader)
 		+ updatecharacters.size() * 60 + updatenpcs.size() * 6 + updateitems.size() * 9);
 
 	// ??
-	reply.AddChar(player->character->weight); // Weight
-	reply.AddChar(player->character->maxweight); // Max Weight
+	reply.AddChar(static_cast<unsigned char>(player->character->weight));
+	reply.AddChar(static_cast<unsigned char>(player->character->maxweight));
 	UTIL_FOREACH(player->character->inventory, item)
 	{
 		reply.AddShort(item.id);
@@ -319,12 +319,12 @@ void Welcome_Msg(Player *player, PacketReader &reader)
 	reply.AddByte(255);
 	UTIL_FOREACH(player->character->spells, spell)
 	{
-		reply.AddShort(spell.id); // Spell ID
-		reply.AddShort(spell.level); // Spell Level
+		reply.AddShort(spell.id);
+		reply.AddShort(spell.level);
 	}
 	reply.AddByte(255);
 
-	reply.AddChar(updatecharacters.size()); // Number of players
+	reply.AddChar(static_cast<unsigned char>(updatecharacters.size()));
 	reply.AddByte(255);
 	UTIL_FOREACH(updatecharacters, character)
 	{

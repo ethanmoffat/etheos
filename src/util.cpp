@@ -288,7 +288,7 @@ struct rand_init
 
 	void init() const
 	{
-		std::srand(std::time(0));
+		std::srand(static_cast<unsigned int>(std::time(0)));
 	}
 };
 

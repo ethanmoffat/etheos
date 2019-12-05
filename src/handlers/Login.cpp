@@ -112,7 +112,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + client->player->characters.size() * 34);
 	reply.AddShort(LOGIN_OK);
-	reply.AddChar(client->player->characters.size());
+	reply.AddChar(static_cast<unsigned char>(client->player->characters.size()));
 	reply.AddByte(2);
 	reply.AddByte(255);
 	UTIL_FOREACH(client->player->characters, character)

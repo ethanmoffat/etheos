@@ -74,7 +74,7 @@ void Warp_Accept(Character *character, PacketReader &reader)
 	reply.AddChar(2); // ?
 	reply.AddShort(character->mapid);
 	reply.AddChar(anim);
-	reply.AddChar(updatecharacters.size());
+	reply.AddChar(static_cast<unsigned char>(updatecharacters.size()));
 	reply.AddByte(255);
 	UTIL_FOREACH(updatecharacters, character)
 	{

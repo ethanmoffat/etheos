@@ -505,7 +505,7 @@ void Guild_Tell(Character *character, PacketReader &reader)
 		else
 		{
 			PacketBuilder reply(PACKET_GUILD, PACKET_TELL, 3 + guild->members.size() * 19);
-			reply.AddShort(guild->members.size());
+			reply.AddShort(static_cast<short>(guild->members.size()));
 			reply.AddByte(255);
 
 			std::for_each(UTIL_CRANGE(guild->members), [&](std::shared_ptr<Guild_Member> member)
@@ -616,7 +616,7 @@ void Guild_Report(Character *character, PacketReader &reader)
 				reply.AddBreakString(rank);
 			}
 
-			reply.AddShort(leaders.size() + recruiters.size());
+			reply.AddShort(static_cast<short>(leaders.size() + recruiters.size()));
 			reply.AddByte(255);
 
 			UTIL_FOREACH(leaders, member)

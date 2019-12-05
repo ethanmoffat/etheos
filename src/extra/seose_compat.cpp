@@ -59,7 +59,7 @@ std::string seose_str_hash(const std::string& input, const std::string& key)
 		if (kc == '#')
 			kc = char(0xA3); // '�'
 
-		result += seose_to_base62(seose_hash(input.data(), input.length(), (i + 1) * kc));
+		result += seose_to_base62(seose_hash(input.data(), input.length(), static_cast<uint16_t>((i + 1) * kc)));
 	}
 
 	return result;

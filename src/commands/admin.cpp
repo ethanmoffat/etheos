@@ -190,12 +190,12 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 
 		if (!world->config["OldVersionCompat"] && player->client->version < 28)
 		{
-			reply.AddChar(swap->display_str);
-			reply.AddChar(swap->display_wis);
-			reply.AddChar(swap->display_intl);
-			reply.AddChar(swap->display_agi);
-			reply.AddChar(swap->display_con);
-			reply.AddChar(swap->display_cha);
+			reply.AddChar(static_cast<unsigned char>(swap->display_str));
+			reply.AddChar(static_cast<unsigned char>(swap->display_wis));
+			reply.AddChar(static_cast<unsigned char>(swap->display_intl));
+			reply.AddChar(static_cast<unsigned char>(swap->display_agi));
+			reply.AddChar(static_cast<unsigned char>(swap->display_con));
+			reply.AddChar(static_cast<unsigned char>(swap->display_cha));
 		}
 		else
 		{
@@ -251,8 +251,8 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 		}
 
 		// ??
-		reply.AddChar(swap->weight); // Weight
-		reply.AddChar(swap->maxweight); // Max Weight
+		reply.AddChar(static_cast<unsigned char>(swap->weight));
+		reply.AddChar(static_cast<unsigned char>(swap->maxweight));
 		UTIL_FOREACH(swap->inventory, item)
 		{
 			reply.AddShort(item.id);
@@ -261,8 +261,8 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 		reply.AddByte(255);
 		UTIL_FOREACH(swap->spells, spell)
 		{
-			reply.AddShort(spell.id); // Spell ID
-			reply.AddShort(spell.level); // Spell Level
+			reply.AddShort(spell.id);
+			reply.AddShort(spell.level);
 		}
 		reply.AddByte(255);
 

@@ -157,7 +157,7 @@ void* SLN::RequestThread(void* void_request)
 			}
 		}
 
-		request->period -= std::floor(clock.GetTime() - start_adjust_time);
+		request->period -= static_cast<int>(std::floor(clock.GetTime() - start_adjust_time));
 
 		if (request->period < 45 || request->timeout)
 			request->period = 45;

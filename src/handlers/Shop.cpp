@@ -51,8 +51,8 @@ void Shop_Create(Character *character, PacketReader &reader)
 				{
 					PacketBuilder reply(PACKET_SHOP, PACKET_CREATE, 4 + checkitem->ingredients.size() * 6);
 					reply.AddShort(item);
-					reply.AddChar(character->weight);
-					reply.AddChar(character->maxweight);
+					reply.AddChar(static_cast<unsigned char>(character->weight));
+					reply.AddChar(static_cast<unsigned char>(character->maxweight));
 					UTIL_FOREACH(checkitem->ingredients, ingredient)
 					{
 						character->DelItem(ingredient.id, ingredient.amount);
@@ -104,8 +104,8 @@ void Shop_Buy(Character *character, PacketReader &reader)
 				reply.AddInt(character->HasItem(1));
 				reply.AddShort(item);
 				reply.AddInt(amount);
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 				character->Send(reply);
 
 				break;
@@ -148,8 +148,8 @@ void Shop_Sell(Character *character, PacketReader &reader)
 				reply.AddInt(character->HasItem(item));
 				reply.AddShort(item);
 				reply.AddInt(character->HasItem(1));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 				character->Send(reply);
 
 				break;

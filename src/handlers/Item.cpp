@@ -70,8 +70,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(6);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				if (item.scrollmap == 0)
 				{
@@ -118,8 +118,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(14);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				reply.AddInt(hpgain);
 				reply.AddShort(character->hp);
@@ -128,7 +128,7 @@ void Item_Use(Character *character, PacketReader &reader)
 				PacketBuilder builder(PACKET_RECOVER, PACKET_AGREE, 7);
 				builder.AddShort(character->PlayerID());
 				builder.AddInt(hpgain);
-				builder.AddChar(util::clamp<int>(double(character->hp) / double(character->maxhp) * 100.0, 0, 100));
+				builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
 
 				UTIL_FOREACH(character->map->characters, updatecharacter)
 				{
@@ -160,8 +160,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(7);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				reply.AddChar(item.haircolor);
 
@@ -191,8 +191,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(6);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				character->Send(reply);
 
@@ -206,8 +206,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(8);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 				reply.AddShort(item.effect);
 
 				character->Effect(item.effect, false);
@@ -240,8 +240,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(32);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				reply.AddShort(character->maxhp);
 				reply.AddShort(character->maxtp);
@@ -301,8 +301,8 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				reply.ReserveMore(21);
 				reply.AddInt(character->HasItem(id));
-				reply.AddChar(character->weight);
-				reply.AddChar(character->maxweight);
+				reply.AddChar(static_cast<unsigned char>(character->weight));
+				reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
 				reply.AddInt(character->exp);
 
@@ -417,8 +417,8 @@ void Item_Drop(Character *character, PacketReader &reader)
 			reply.AddShort(item->uid);
 			reply.AddChar(x);
 			reply.AddChar(y);
-			reply.AddChar(character->weight);
-			reply.AddChar(character->maxweight);
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
 			character->Send(reply);
 		}
 	}
@@ -443,8 +443,8 @@ void Item_Junk(Character *character, PacketReader &reader)
 		reply.AddShort(id);
 		reply.AddThree(amount); // Overflows, does it matter?
 		reply.AddInt(character->HasItem(id));
-		reply.AddChar(character->weight);
-		reply.AddChar(character->maxweight);
+		reply.AddChar(static_cast<unsigned char>(character->weight));
+		reply.AddChar(static_cast<unsigned char>(character->maxweight));
 		character->Send(reply);
 	}
 }
@@ -480,8 +480,8 @@ void Item_Get(Character *character, PacketReader &reader)
 			reply.AddShort(uid);
 			reply.AddShort(item->id);
 			reply.AddThree(taken);
-			reply.AddChar(character->weight);
-			reply.AddChar(character->maxweight);
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
 			character->Send(reply);
 
 			character->map->DelSomeItem(item->uid, taken, character);
