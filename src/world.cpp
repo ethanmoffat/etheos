@@ -1152,7 +1152,7 @@ Map *World::GetMap(short id)
 
 const NPC_Data* World::GetNpcData(short id) const
 {
-	if (id >= 0 && id < npc_data.size())
+	if (id >= 0 && static_cast<unsigned short>(id) < npc_data.size())
 		return npc_data[id].get();
 	else
 		return npc_data[0].get();

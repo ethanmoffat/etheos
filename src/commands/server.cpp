@@ -39,7 +39,7 @@ void ReloadMap(const std::vector<std::string>& arguments, Character* from)
 		if (mapid < 1)
 			mapid = 1;
 
-		if (world->maps.size() > mapid - 1)
+		if (world->maps.size() > static_cast<size_t>(mapid - 1))
 		{
 			map = world->maps[mapid - 1];
 		}
@@ -47,7 +47,7 @@ void ReloadMap(const std::vector<std::string>& arguments, Character* from)
 		{
 			isnew = true;
 
-			while (world->maps.size() < mapid)
+			while (world->maps.size() < static_cast<size_t>(mapid))
 			{
 				int newmapid = world->maps.size() + 1;
 				world->maps.push_back(new Map(newmapid, world));

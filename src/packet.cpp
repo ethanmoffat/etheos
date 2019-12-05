@@ -167,7 +167,7 @@ std::string PacketProcessor::Decode(const std::string &str)
 		}
 		else if (newstr[i] == 0)
 		{
-			newstr[i] = 128;
+			newstr[i] = (char)128;
 		}
 	}
 
@@ -217,7 +217,7 @@ std::string PacketProcessor::Encode(const std::string &rawstr)
 		}
 		else if (newstr[i] == 0)
 		{
-			newstr[i] = 128;
+			newstr[i] = (char)128;
 		}
 	}
 

@@ -129,12 +129,14 @@ namespace EOPlus
 		{
 			if (escape)
 			{
-				switch (c)
-				{
-					// No real need for any explicit escape codes...
-					default: s += c; break;
-				};
-
+				// Original functionality:
+				//
+				// switch (c)
+				// {
+				// 	// No real need for any explicit escape codes...
+				// 	default: s += c; break;
+				// };
+				s += c;
 				escape = false;
 			}
 			else if (c == '\\')
