@@ -182,6 +182,8 @@ if(WIN32)
 	if (EOSERV_WANT_MYSQL)
 		list(APPEND eoserv_LIBRARIES shlwapi)
 	endif()
+else()
+	list(APPEND eoserv_LIBRARIES pthread)
 endif()
 
 target_link_libraries(eoserv ${eoserv_LIBRARIES})
