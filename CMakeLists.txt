@@ -15,6 +15,7 @@ cmake_policy(SET CMP0054 NEW)
 
 option(EOSERV_WANT_MYSQL "Enables MariaDB/MySQL server database support." ON)
 option(EOSERV_WANT_SQLITE "Enables SQLite3 embedded database support." ON)
+option(EOSERV_WANT_SQLSERVER "Enables Microsoft SQL Server database support." OFF)
 
 option(EOSERV_USE_PRECOMPILED_HEADERS "Uses a precompiled header to speed up compilation." ON)
 option(EOSERV_USE_UNITY_BUILD "Compiles multiple source files in one translation unit to speed up compilation." ON)
@@ -172,8 +173,19 @@ if(EOSERV_WANT_SQLITE)
 	add_definitions(-DDATABASE_SQLITE)
 endif()
 
-if (NOT EOSERV_WANT_MYSQL AND NOT EOSERV_WANT_SQLITE)
-	message(FATAL_ERROR "Either MySQL or SQLite support must be enabled.")
+if(EOSERV_WANT_SQLSERVER)
+	if (NOT WIN32)
+		message(FATAL_ERROR "SQL Server is not supported on non-Windows (yet). Please disable this database engine option.")
+	endif()
+
+	find_package(odbc REQUIRED)
+	include_directories(${ODBC_INCLUDE_DIRS})
+	list(APPEND eoserv_LIBRARIES ${ODBC_LIBRARIES})
+	add_definitions(-DDATABASE_SQLSERVER)
+endif()
+
+if (NOT EOSERV_WANT_MYSQL AND NOT EOSERV_WANT_SQLITE AND NOT EOSERV_WANT_SQLSERVER)
+	message(FATAL_ERROR "Either MySQL, SQLite, or SQL Server support must be enabled.")
 endif()
 
 if(WIN32)

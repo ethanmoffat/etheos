@@ -38,6 +38,10 @@
 #endif // DATABASE_SQLITE
 #endif // DATABASE_MYSQL
 
+#ifdef DATABASE_SQLSERVER
+#define SQLSERVER_SUCCEEDED(x) (x == SQL_SUCCESS || x == SQL_SUCCESS_WITH_INFO)
+#endif
+
 struct Database::impl_
 {
 	union
@@ -291,7 +295,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			this->connected = true;
 
 			SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &this->impl->hEnv);
-			if (!SUCCEEDED(ret))
+			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
 					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
@@ -300,7 +304,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			}
 
 			ret = SQLSetEnvAttr(this->impl->hEnv, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
-			if (!SUCCEEDED(ret))
+			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
 					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
@@ -309,7 +313,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_DBC, this->impl->hEnv, &this->impl->hConn);
-			if (!SUCCEEDED(ret))
+			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
 					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err);
@@ -334,7 +338,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 				NULL,
 				SQL_DRIVER_NOPROMPT);
 
-			if (!SUCCEEDED(ret))
+			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
 					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err);
@@ -343,7 +347,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_STMT, this->impl->hConn, &this->impl->hstmt);
-			if (!SUCCEEDED(ret))
+			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
 					HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Err);
@@ -613,11 +617,11 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 				? SQLExecute(this->impl->hstmt)
 				: SQLExecDirect(this->impl->hstmt, (SQLCHAR*)query, SQL_NTS);
 
-			if (SUCCEEDED(ret))
+			if (SQLSERVER_SUCCEEDED(ret))
 			{
 				SQLSMALLINT numCols = 0;
 				ret = SQLNumResultCols(this->impl->hstmt, &numCols);
-				if (SUCCEEDED(ret))
+				if (SQLSERVER_SUCCEEDED(ret))
 				{
 					if (numCols > 0)
 					{
@@ -633,22 +637,22 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 						}
 
 						// get data values
-						while (SQLFetch(this->impl->hstmt) == SQL_SUCCESS && SUCCEEDED(ret))
+						while (SQLFetch(this->impl->hstmt) == SQL_SUCCESS && SQLSERVER_SUCCEEDED(ret))
 						{
 							std::unordered_map<std::string, util::variant> resrow;
 
-							for (SQLUSMALLINT colNdx = 1; colNdx <= numCols && SUCCEEDED(ret); ++colNdx)
+							for (SQLUSMALLINT colNdx = 1; colNdx <= numCols && SQLSERVER_SUCCEEDED(ret); ++colNdx)
 							{
 								SQLLEN colType;
 								ret = SQLColAttribute(this->impl->hstmt, colNdx, SQL_DESC_CONCISE_TYPE, NULL, 0, NULL, &colType);
-								if (SUCCEEDED(ret))
+								if (SQLSERVER_SUCCEEDED(ret))
 								{
 									if (colType == SQL_CHAR || colType == SQL_VARCHAR || colType == SQL_LONGVARCHAR)
 									{
 										// handle string data
 										SQLCHAR resultStr[2048] = { 0 };
 										ret = SQLGetData(this->impl->hstmt, colNdx, SQL_C_CHAR, resultStr, 2048, NULL);
-										if (SUCCEEDED(ret))
+										if (SQLSERVER_SUCCEEDED(ret))
 											resrow[fields[colNdx-1]] = util::variant(resultStr);
 									}
 									else
@@ -656,13 +660,13 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 										// handle numeric data
 										SQLINTEGER resultInt;
 										ret = SQLGetData(this->impl->hstmt, colNdx, static_cast<SQLSMALLINT>(colType), &resultInt, 0, NULL);
-										if (SUCCEEDED(ret))
+										if (SQLSERVER_SUCCEEDED(ret))
 											resrow[fields[colNdx-1]] = util::variant(resultInt);
 									}
 								}
 							}
 
-							if (SUCCEEDED(ret))
+							if (SQLSERVER_SUCCEEDED(ret))
 								result.push_back(resrow);
 						}
 					}
@@ -671,7 +675,7 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 						// insert/update/delete data
 						SQLLEN rowCount = 0;
 						ret = SQLRowCount(this->impl->hstmt, &rowCount);
-						if (SUCCEEDED(ret) && rowCount >= 0)
+						if (SQLSERVER_SUCCEEDED(ret) && rowCount >= 0)
 						{
 							result.affected_rows = static_cast<int>(rowCount);
 						}
@@ -713,6 +717,10 @@ Database_Result Database::Query(const char *format, ...)
 	char *tempc;
 	char *escret;
 	unsigned long esclen;
+
+#ifdef DATABASE_SQLSERVER
+	unsigned int paramNdx = 0;
+#endif
 
 	for (const char *p = format; *p != '\0'; ++p)
 	{
@@ -800,8 +808,12 @@ Database_Result Database::Query(const char *format, ...)
 
 std::string Database::Escape(const std::string& raw)
 {
+#if defined(DATABASE_MYSQL) || defined(DATABASE_SQLITE)
 	char *escret;
+#endif
+#ifdef DATABASE_MYSQL
 	unsigned long esclen;
+#endif
 	std::string result;
 
 	switch (this->engine)

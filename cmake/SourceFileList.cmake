@@ -200,6 +200,7 @@ set(ConfigFiles
 
 	config/database/mysql.ini
 	config/database/sqlite.ini
+	config/database/sqlserver.ini
 )
 
 set(LangFiles
@@ -239,6 +240,7 @@ set(QuestFiles
 set(ExtraFiles
 	LICENSE.txt
 	install.sql
+	install_sqlserver.sql
 	upgrade/0.5.2_to_0.5.3.sql
 	upgrade/0.6.2_to_0.7.0.sql
 
