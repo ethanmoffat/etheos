@@ -36,6 +36,8 @@ void NPC_Data::UnloadShopDrop()
 	this->drops_chance_total = 0.0;
 
 	this->citizenship.reset();
+
+	this->speech.clear();
 }
 
 void NPC_Data::LoadShopDrop()
@@ -289,6 +291,17 @@ void NPC_Data::LoadShopDrop()
 				this->citizenship->answers[index] = static_cast<std::string>(hc.second);
 			}
 		}
+	}
+
+	Config::iterator iter_speech = world->speech_config.find(util::to_string(id) + ".speech");
+	if (iter_speech != world->speech_config.end())
+	{
+		std::string freq_str = util::trim(static_cast<std::string>(world->speech_config[util::to_string(this->id) + ".freq"]));
+		talk_speed = util::to_float(freq_str);
+
+		auto parts = util::explode(',', static_cast<std::string>(iter_speech->second));
+		for (auto part : parts)
+			speech.push_back(util::trim(part));
 	}
 }
 

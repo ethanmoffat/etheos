@@ -216,6 +216,7 @@ set(DataFiles
 	data/news.txt
 	data/shops.ini
 	data/skills.ini
+	data/speech.ini
 )
 
 # No default set of pub files is available yet.

@@ -160,6 +160,7 @@ void NPC::Spawn(NPC *parent)
 	this->alive = true;
 	this->hp = this->ENF().hp;
 	this->last_act = Timer::GetTime();
+	this->last_talk = Timer::GetTime();
 	this->act_speed = speed_table[this->spawn_type];
 
 	PacketBuilder builder(PACKET_APPEAR, PACKET_REPLY, 8);

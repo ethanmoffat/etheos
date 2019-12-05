@@ -68,6 +68,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "FormulasFile"       , "./data/formulas.ini");
 	eoserv_config_default(config, "HomeFile"           , "./data/home.ini");
 	eoserv_config_default(config, "SkillsFile"         , "./data/skills.ini");
+	eoserv_config_default(config, "SpeechFile"          , "./data/speech.ini");
 	eoserv_config_default(config, "MapDir"             , "./data/maps/");
 	eoserv_config_default(config, "Maps"               , 278);
 	eoserv_config_default(config, "QuestDir"           , "./data/quests/");

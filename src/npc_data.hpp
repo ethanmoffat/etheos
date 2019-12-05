@@ -94,6 +94,9 @@ class NPC_Data
 		std::vector<std::unique_ptr<NPC_Learn_Skill>> skill_learn;
 		std::unique_ptr<NPC_Citizenship> citizenship;
 
+		double talk_speed;
+		std::vector<std::string> speech;
+
 		World* world;
 
 		const ENF_Data& ENF() const;

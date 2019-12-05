@@ -44,6 +44,7 @@ class NPC
 		bool alive;
 		double dead_since;
 		double last_act;
+		double last_talk;
 		double act_speed;
 		int walk_idle_for;
 		bool attack;

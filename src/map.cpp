@@ -853,6 +853,9 @@ void Map::Msg(NPC *from, std::string message)
 
 	UTIL_FOREACH(this->characters, character)
 	{
+		if (!character->InRange(from))
+			continue;
+
 		character->Send(builder);
 	}
 }
