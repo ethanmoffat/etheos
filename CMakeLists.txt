@@ -152,6 +152,8 @@ add_executable(eoserv
 	${eoserv_SOURCE_FILES}
 )
 
+set (CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
+
 # -----------
 #  Libraries
 # -----------

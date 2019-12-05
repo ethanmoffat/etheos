@@ -7,19 +7,21 @@ param (
 function EnsureMariaDB() {
     $splitPaths = $env:PATH.Split(';')
     foreach ($path in $splitPaths) {
-        $mariaDbPath = Join-Path $path "libmariadb.dll"
-        if (Test-Path $mariaDbPath) {
-            Write-Output "Found MariaDB in $path"
+        if ($path -and (Test-Path $path)) {
+            $mariaDbPath = Join-Path $path "libmariadb.dll"
+            if (Test-Path $mariaDbPath) {
+                Write-Output "Found MariaDB in $path"
 
-            # Add the include path for MariaDB to the path so CMake can find the package
-            #
-            $includePath = Resolve-Path (Join-Path $path "..\include")
-            if ($env:PATH.IndexOf($includePath, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
-                Write-Output "Adding $includePath to `$env:PATH"
-                $env:PATH = $env:PATH + ";$includePath"
+                # Add the include path for MariaDB to the path so CMake can find the package
+                #
+                $includePath = Resolve-Path (Join-Path $path "..\include")
+                if ($env:PATH.IndexOf($includePath, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+                    Write-Output "Adding $includePath to `$env:PATH"
+                    $env:PATH = $env:PATH + ";$includePath"
+                }
+
+                return
             }
-
-            return
         }
     }
 
@@ -35,8 +37,12 @@ if ($Clean -and (Test-Path $BuildDir)) {
     Remove-Item -Recurse -Force $BuildDir
 }
 
+if ($Clean -and (Test-Path .\install)) {
+    Remove-Item -Recurse -Force .\install
+}
+
 if (-not (Test-Path $BuildDir)) {
-    New-Item $BuildDir
+    New-Item $BuildDir -ItemType Directory
 }
 
 Set-Location $BuildDir
@@ -55,5 +61,6 @@ if ($Debug) {
 
 cmake -DEOSERV_WANT_SQLITE=OFF -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
 cmake --build . --config $buildMode --target ALL_BUILD --
+cmake --build . --config $buildMode --target INSTALL --
 
 Set-Location $PSScriptRoot
