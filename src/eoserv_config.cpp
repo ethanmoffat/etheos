@@ -264,6 +264,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "MaxTile"            , 8);
 	eoserv_config_default(config, "MaxMap"             , 400);
 	eoserv_config_default(config, "MaxTrade"           , 2000000000);
+	eoserv_config_default(config, "IgnorePacketFamilies", "*");
 }
 
 void eoserv_config_validate_admin(Config& config)

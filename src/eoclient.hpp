@@ -81,6 +81,8 @@ class EOClient : public Client
 		void Initialize();
 		EOClient();
 
+		void LogPacket(PacketFamily family, PacketAction action, size_t sz);
+
 		FileType upload_type;
 		std::FILE *upload_fh;
 		std::size_t upload_pos;

@@ -58,6 +58,37 @@ void EOClient::Initialize()
 	this->login_attempts = 0;
 }
 
+void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
+{
+	std::string ignoreFamilies = static_cast<std::string>(this->server()->world->config["IgnorePacketFamilies"]);
+
+	if (ignoreFamilies != "*")
+	{
+		time_t rawtime;
+		tm timeinfo = {};
+		time(&rawtime);
+		localtime_s(&timeinfo, &rawtime);
+
+		std::string fam = PacketProcessor::GetFamilyName(family);
+		std::string act = PacketProcessor::GetActionName(action);
+		if (ignoreFamilies.find(fam) == std::string::npos)
+		{
+			// TODO: log to console/file based on configuration setting
+			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | RECV Family: %-15s | Action: %-15s | SIZE=%d",
+				timeinfo.tm_mon + 1,
+				timeinfo.tm_mday,
+				timeinfo.tm_year + 1900,
+				timeinfo.tm_hour,
+				timeinfo.tm_min,
+				timeinfo.tm_sec,
+				player ? player->character ? player->character->real_name.c_str() : "no char" : "no char",
+				fam.c_str(),
+				act.c_str(),
+				sz);
+		}
+	}
+}
+
 bool EOClient::NeedTick()
 {
 	return this->upload_fh;
@@ -242,6 +273,8 @@ void EOClient::Execute(const std::string &data)
 
 	PacketReader reader(processor.Decode(data));
 
+	this->LogPacket(reader.Family(), reader.Action(), reader.Length());
+
 	if (reader.Family() == PACKET_INTERNAL)
 	{
 		Console::Wrn("Closing client connection sending a reserved packet ID: %s", static_cast<std::string>(this->GetRemoteAddr()).c_str());
@@ -354,7 +387,11 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 
 void EOClient::Send(const PacketBuilder &builder)
 {
-	std::string data= this->processor.Encode(builder);
+	auto fam = PacketFamily(PacketProcessor::EPID(builder.GetID())[1]);
+	auto act = PacketAction(PacketProcessor::EPID(builder.GetID())[0]);
+	this->LogPacket(fam, act, builder.Length());
+
+	std::string data = this->processor.Encode(builder);
 
 	if (this->upload_fh)
 	{
