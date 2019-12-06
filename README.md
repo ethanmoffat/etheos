@@ -4,7 +4,7 @@
 
 ### Windows
 
-Visual Studio 2017 is a hard-coded dependency of Windows build.
+Visual Studio 2017 is a hard-coded dependency of Windows build. Please also install Windows 10 SDK as part of the VS install (this should include the SQL 17 ODBC driver).
 
 1. Download and install [CMake](https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-win64-x64.msi)
 2. Download and install the [MariaDB C connector](https://mariadb.com/downloads/?showall=1&tab=mariadbtx&group=mariadb_server&version=10.4.10#connectors)
@@ -22,6 +22,16 @@ This process has been tested on WSL (Windows Subsystem for Linux) using Ubuntu 1
 sudo apt-get update
 sudo apt-get install libmariadb-dev libsqlite3-dev cmake g++
 ```
+   - If you would like to build with the Unix ODBC driver for SQL Server support, run the following commands. See [instructions here](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver15) for distributions/versions other than Ubuntu 18.04.
+   ```bash
+   sudo su
+   curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+   curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+   exit
+
+   sudo apt-get update
+   sudo ACCEPT_EULA=Y apt-get install msodbcsql17 unixodbc-dev
+   ```
 
 2. Clone this repository
 ```bash

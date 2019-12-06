@@ -174,11 +174,7 @@ if(EOSERV_WANT_SQLITE)
 endif()
 
 if(EOSERV_WANT_SQLSERVER)
-	if (NOT WIN32)
-		message(FATAL_ERROR "SQL Server is not supported on non-Windows (yet). Please disable this database engine option.")
-	endif()
-
-	find_package(odbc REQUIRED)
+	find_package(ODBC REQUIRED)
 	include_directories(${ODBC_INCLUDE_DIRS})
 	list(APPEND eoserv_LIBRARIES ${ODBC_LIBRARIES})
 	add_definitions(-DDATABASE_SQLSERVER)

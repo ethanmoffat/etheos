@@ -322,7 +322,13 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			}
 
 			char connStrBuff[4096] = { 0 };
-			sprintf_s(connStrBuff, "DRIVER={SQL Server};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+#ifdef _WIN32
+			auto driver_str = "SQL Server";
+#else
+			auto driver_str = "ODBC Driver 17 for SQL Server";
+#endif
+			sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+				driver_str,
 				this->host.c_str(),
 				this->port,
 				this->db.c_str(),

@@ -372,12 +372,13 @@ int eoserv_main(int argc, char *argv[])
 			if (try_install)
 			{
 				tried_install = true;
-				Console::Wrn("A required table is missing. Attempting to execute install.sql");
+				auto install_script = static_cast<std::string>(config["InstallSQL"]);
+				Console::Wrn("A required table is missing. Attempting to execute %s", install_script.c_str());
 
 				try
 				{
 					server.world->CommitDB();
-					server.world->db.ExecuteFile(config["InstallSQL"]);
+					server.world->db.ExecuteFile(install_script);
 					server.world->BeginDB();
 				}
 				catch (Database_Exception& e)
