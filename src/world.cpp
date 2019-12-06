@@ -85,12 +85,23 @@ void world_act_npcs(void *world_void)
 					npc->Act();
 				}
 
-				if (npc->last_talk + data.talk_speed < current_time && data.speech.size() > 0)
+				int chance = util::rand(0, 99);
+				if (npc->last_talk + data.talk_speed < current_time &&
+					chance < data.talk_chance &&
+					data.speech.size() > 0)
 				{
 					int ndx = util::rand(0, data.speech.size() - 1);
 					std::string speech = data.speech[ndx];
 					npc->map->Msg(npc, speech);
 					npc->last_talk += data.talk_speed;
+
+					UTIL_FOREACH(npc->map->npcs, npciter)
+					{
+						if (npciter->spawn_x == npc->spawn_x && npciter->spawn_y == npc->spawn_y)
+						{
+							npciter->last_talk = npc->last_talk;
+						}
+					}
 				}
 			}
 		}

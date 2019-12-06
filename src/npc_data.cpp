@@ -297,11 +297,14 @@ void NPC_Data::LoadShopDrop()
 	if (iter_speech != world->speech_config.end())
 	{
 		std::string freq_str = util::trim(static_cast<std::string>(world->speech_config[util::to_string(this->id) + ".freq"]));
-		talk_speed = util::to_float(freq_str);
+		this->talk_speed = util::to_float(freq_str);
+
+		std::string chance_str = util::trim(static_cast<std::string>(world->speech_config[util::to_string(this->id) + ".chance"]));
+		this->talk_chance = util::to_float(chance_str);
 
 		auto parts = util::explode(',', static_cast<std::string>(iter_speech->second));
 		for (auto part : parts)
-			speech.push_back(util::trim(part));
+			this->speech.push_back(util::trim(part));
 	}
 }
 

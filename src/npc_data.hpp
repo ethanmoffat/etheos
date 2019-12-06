@@ -95,6 +95,7 @@ class NPC_Data
 		std::unique_ptr<NPC_Citizenship> citizenship;
 
 		double talk_speed;
+		double talk_chance;
 		std::vector<std::string> speech;
 
 		World* world;
