@@ -65,9 +65,8 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 	if (ignoreFamilies != "*")
 	{
 		time_t rawtime;
-		tm timeinfo = {};
 		time(&rawtime);
-		localtime_s(&timeinfo, &rawtime);
+		const tm * timeinfo = localtime(&rawtime);
 
 		std::string fam = PacketProcessor::GetFamilyName(family);
 		std::string act = PacketProcessor::GetActionName(action);
@@ -75,12 +74,12 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 		{
 			// TODO: log to console/file based on configuration setting
 			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | RECV Family: %-15s | Action: %-15s | SIZE=%d",
-				timeinfo.tm_mon + 1,
-				timeinfo.tm_mday,
-				timeinfo.tm_year + 1900,
-				timeinfo.tm_hour,
-				timeinfo.tm_min,
-				timeinfo.tm_sec,
+				timeinfo->tm_mon + 1,
+				timeinfo->tm_mday,
+				timeinfo->tm_year + 1900,
+				timeinfo->tm_hour,
+				timeinfo->tm_min,
+				timeinfo->tm_sec,
 				player ? player->character ? player->character->real_name.c_str() : "no char" : "no char",
 				fam.c_str(),
 				act.c_str(),
