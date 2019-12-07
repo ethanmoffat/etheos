@@ -653,21 +653,26 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 								ret = SQLColAttribute(this->impl->hstmt, colNdx, SQL_DESC_CONCISE_TYPE, NULL, 0, NULL, &colType);
 								if (SQLSERVER_SUCCEEDED(ret))
 								{
+									SQLLEN nullIndicator = 0;
 									if (colType == SQL_CHAR || colType == SQL_VARCHAR || colType == SQL_LONGVARCHAR)
 									{
 										// handle string data
 										SQLCHAR resultStr[2048] = { 0 };
-										ret = SQLGetData(this->impl->hstmt, colNdx, SQL_C_CHAR, resultStr, 2048, NULL);
+										ret = SQLGetData(this->impl->hstmt, colNdx, SQL_C_CHAR, resultStr, 2048, &nullIndicator);
 										if (SQLSERVER_SUCCEEDED(ret))
-											resrow[fields[colNdx-1]] = util::variant(resultStr);
+											resrow[fields[colNdx-1]] = nullIndicator != SQL_NULL_DATA
+												? util::variant(std::string((const char*)resultStr))
+												: util::variant(std::string());
 									}
 									else
 									{
 										// handle numeric data
 										SQLINTEGER resultInt;
-										ret = SQLGetData(this->impl->hstmt, colNdx, static_cast<SQLSMALLINT>(colType), &resultInt, 0, NULL);
+										ret = SQLGetData(this->impl->hstmt, colNdx, static_cast<SQLSMALLINT>(colType), &resultInt, 0, &nullIndicator);
 										if (SQLSERVER_SUCCEEDED(ret))
-											resrow[fields[colNdx-1]] = util::variant(resultInt);
+											resrow[fields[colNdx-1]] = nullIndicator != SQL_NULL_DATA
+												? util::variant(resultInt)
+												: util::variant(0);
 									}
 								}
 							}
