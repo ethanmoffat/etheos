@@ -847,7 +847,7 @@ void Map::Msg(NPC *from, std::string message)
 	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 4 + message.length());
 	builder.AddByte(255);
 	builder.AddByte(255);
-	builder.AddShort(from->index);
+	builder.AddChar(from->index);
 	builder.AddChar(static_cast<unsigned char>(message.length()));
 	builder.AddString(message);
 
