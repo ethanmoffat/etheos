@@ -729,10 +729,6 @@ Database_Result Database::Query(const char *format, ...)
 	char *escret;
 	unsigned long esclen;
 
-#ifdef DATABASE_SQLSERVER
-	unsigned int paramNdx = 0;
-#endif
-
 	for (const char *p = format; *p != '\0'; ++p)
 	{
 		if (*p == '#')
@@ -770,19 +766,8 @@ Database_Result Database::Query(const char *format, ...)
 
 #ifdef DATABASE_SQLSERVER
 				case SqlServer:
-					tempi = strlen(tempc);
-					SQLBindParameter(
-						this->impl->hstmt,
-						paramNdx++,
-						SQL_PARAM_INPUT,
-						SQL_C_CHAR,
-						SQL_CHAR,
-						tempi,
-						0,
-						tempc,
-						0,
-						NULL);
-					finalquery += '?';
+					// todo: escape query inputs for SQL server
+					finalquery += std::string(tempc);
 					break;
 #endif // DATABASE_SQLSERVER
 			}
@@ -799,22 +784,7 @@ Database_Result Database::Query(const char *format, ...)
 
 	va_end(ap);
 
-	bool prepared = false;
-
-#ifdef DATABASE_SQLSERVER
-	SQLRETURN ret = SQLPrepare(this->impl->hstmt, (SQLCHAR*)(finalquery.c_str()), SQL_NTS);
-	if (ret != SQL_SUCCESS)
-	{
-		HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Err);
-		throw Database_QueryFailed("Unable to prepare parameter-bound query for execution");
-	}
-
-	prepared = true;
-#endif
-
-	return this->RawQuery(finalquery.c_str(),
-		false, // transaction control
-		prepared);
+	return this->RawQuery(finalquery.c_str(), false);
 }
 
 std::string Database::Escape(const std::string& raw)
