@@ -37,10 +37,6 @@ if ($Clean -and (Test-Path $BuildDir)) {
     Remove-Item -Recurse -Force $BuildDir
 }
 
-if ($Clean -and (Test-Path .\install)) {
-    Remove-Item -Recurse -Force .\install
-}
-
 if (-not (Test-Path $BuildDir)) {
     New-Item $BuildDir -ItemType Directory
 }
@@ -60,7 +56,6 @@ if ($Debug) {
 }
 
 cmake -DEOSERV_WANT_SQLITE=OFF -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
-cmake --build . --config $buildMode --target ALL_BUILD --
 cmake --build . --config $buildMode --target INSTALL --
 
 Set-Location $PSScriptRoot
