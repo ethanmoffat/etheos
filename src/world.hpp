@@ -179,7 +179,7 @@ class World
 
 		bool CreatePlayer(const std::string& username, util::secure_string&& password,
 			const std::string& fullname,const std::string& location, const std::string& email,
-			const std::string& computer, const std::string& hdid, const std::string& ip);
+			const std::string& computer, int hdid, const std::string& ip);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);

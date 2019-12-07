@@ -111,7 +111,7 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	{
 		username = util::lowercase(username);
 
-		client->server()->world->CreatePlayer(username, std::move(password), fullname, location, email, computer, util::to_string(hdid), static_cast<std::string>(client->GetRemoteAddr()));
+		client->server()->world->CreatePlayer(username, std::move(password), fullname, location, email, computer, hdid, static_cast<std::string>(client->GetRemoteAddr()));
 		reply.AddShort(ACCOUNT_CREATED);
 		reply.AddString("OK");
 		Console::Out("New account: %s", username.c_str());

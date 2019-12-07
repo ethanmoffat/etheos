@@ -1308,15 +1308,15 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 
 bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
 	const std::string& fullname, const std::string& location, const std::string& email,
-	const std::string& computer, const std::string& hdid, const std::string& ip)
+	const std::string& computer, int hdid, const std::string& ip)
 {
 	{
 		util::secure_string password_buffer(std::move(std::string(this->config["PasswordSalt"]) + username + password.str()));
 		password = sha256(password_buffer.str());
 	}
 
-	Database_Result result = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`) VALUES ('$','$','$','$','$','$','$','$',#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid.c_str(), ip.c_str(), int(std::time(0)));
+	Database_Result result = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`) VALUES ('$','$','$','$','$','$',#,'$',#)",
+		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)));
 
 	return !result.Error();
 }
