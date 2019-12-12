@@ -57,15 +57,15 @@ BEGIN
         [bankmax]     INTEGER     NOT NULL DEFAULT 0,
         [goldbank]    INTEGER     NOT NULL DEFAULT 0,
         [usage]       INTEGER     NOT NULL DEFAULT 0,
-        [inventory]   TEXT,
-        [bank]        TEXT,
-        [paperdoll]   TEXT,
-        [spells]      TEXT,
+        [inventory]   VARCHAR(MAX),
+        [bank]        VARCHAR(MAX),
+        [paperdoll]   VARCHAR(MAX),
+        [spells]      VARCHAR(MAX),
         [guild]       CHAR(3)              DEFAULT NULL,
         [guild_rank]  INTEGER              DEFAULT NULL,
         [guild_rank_string] VARCHAR(16)    DEFAULT NULL,
-        [quest]       TEXT,
-        [vars]        TEXT,
+        [quest]       VARCHAR(MAX),
+        [vars]        VARCHAR(MAX),
 
         PRIMARY KEY ([name])
     )
@@ -80,9 +80,9 @@ BEGIN
     (
         [tag]         CHAR(3)     NOT NULL,
         [name]        VARCHAR(32) NOT NULL,
-        [description] TEXT,
+        [description] VARCHAR(MAX),
         [created]     INTEGER     NOT NULL,
-        [ranks]       TEXT,
+        [ranks]       VARCHAR(MAX),
         [bank]        INTEGER     NOT NULL DEFAULT 0,
 
         PRIMARY KEY ([tag]),
@@ -114,9 +114,9 @@ BEGIN
     (
         [reporter] VARCHAR(16) NOT NULL,
         [reported] VARCHAR(16) NOT NULL,
-        [reason]   TEXT,
+        [reason]   VARCHAR(MAX),
         [time]     INTEGER     NOT NULL,
-        [chat_log] TEXT        NOT NULL,
+        [chat_log] VARCHAR(MAX)        NOT NULL,
 
         PRIMARY KEY ([reporter], [reported], [time])
     )
