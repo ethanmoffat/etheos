@@ -716,28 +716,17 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 	return result;
 }
 
-Database_Result Database::Query(const char *format, ...)
+Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_list ap) const
 {
-	if (!this->connected)
-	{
-		throw Database_QueryFailed("Not connected to database.");
-	}
-
-	std::va_list ap;
-	va_start(ap, format);
-
 	std::string finalquery;
+	std::list<std::string> parameters;
+
 	int tempi;
 	char *tempc;
 	char *escret;
 	unsigned long esclen;
 
-#ifdef DATABASE_SQLSERVER
-	std::list<std::string> parameters;
-#endif
-
 	bool removeQuote = false;
-
 	for (const char *p = format; *p != '\0'; ++p)
 	{
 		if (*p == '#')
@@ -751,11 +740,7 @@ Database_Result Database::Query(const char *format, ...)
 			auto tmpStr = static_cast<std::string>(tempc);
 
 			if (this->engine == SqlServer)
-			{
-				// @ in the format string indicates more raw SQL follows
-				// raw SQL needs to have backticks removed for SQL server support.
-				std::remove_if(tmpStr.begin(), tmpStr.end(), [](char c) { return c == '`'; });
-			}
+				this->ParseQueryArgs(format, ap);
 
 			finalquery += tmpStr;
 		}
@@ -808,7 +793,23 @@ Database_Result Database::Query(const char *format, ...)
 		}
 	}
 
+	return std::move(QueryParameterPair(finalquery, parameters));
+}
+
+Database_Result Database::Query(const char *format, ...)
+{
+	if (!this->connected)
+	{
+		throw Database_QueryFailed("Not connected to database.");
+	}
+
+	std::va_list ap;
+	va_start(ap, format);
+	QueryParameterPair queryState = this->ParseQueryArgs(format, ap);
 	va_end(ap);
+
+	std::string& finalquery = queryState.first;
+	std::list<std::string>& parameters = queryState.second;
 
 	bool prepared = false;
 

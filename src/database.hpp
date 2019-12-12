@@ -106,6 +106,10 @@ class Database
 		bool in_transaction;
 		std::list<std::string> transaction_log;
 
+	private:
+		typedef std::pair<std::string, std::list<std::string>> QueryParameterPair;
+		QueryParameterPair ParseQueryArgs(const char * format, va_list ap) const;
+
 	public:
 		struct Bulk_Query_Context
 		{
