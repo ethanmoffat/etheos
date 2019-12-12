@@ -729,6 +729,12 @@ Database_Result Database::Query(const char *format, ...)
 	char *escret;
 	unsigned long esclen;
 
+#ifdef DATABASE_SQLSERVER
+	std::list<std::string> parameters;
+#endif
+
+	bool removeQuote = false;
+
 	for (const char *p = format; *p != '\0'; ++p)
 	{
 		if (*p == '#')
@@ -739,7 +745,16 @@ Database_Result Database::Query(const char *format, ...)
 		else if (*p == '@')
 		{
 			tempc = va_arg(ap,char *);
-			finalquery += static_cast<std::string>(tempc);
+			auto tmpStr = static_cast<std::string>(tempc);
+
+			if (this->engine == SqlServer)
+			{
+				// @ in the format string indicates more raw SQL follows
+				// raw SQL needs to have backticks removed for SQL server support.
+				std::remove_if(tmpStr.begin(), tmpStr.end(), [](char c) { return c == '`'; });
+			}
+
+			finalquery += tmpStr;
 		}
 		else if (*p == '$')
 		{
@@ -766,15 +781,23 @@ Database_Result Database::Query(const char *format, ...)
 
 #ifdef DATABASE_SQLSERVER
 				case SqlServer:
-					// todo: escape query inputs for SQL server
-					finalquery += std::string(tempc);
+					// SQL Server prepared statements do not require quoted values
+					if (finalquery.back() == '\'')
+					{
+						finalquery.pop_back();
+						removeQuote = true; // signals to remove the next quote in the input string
+					}
+
+					finalquery += "?";
+					parameters.push_back(std::string(tempc));
 					break;
 #endif // DATABASE_SQLSERVER
 			}
 		}
-		else if (*p == '`' && this->engine == SqlServer)
+		else if ((*p == '`' && this->engine == SqlServer) || // filter backticks (for SqlServer)
+				 (*p == '\'' && removeQuote)) // filter quotes if flag is set
 		{
-			// remove backticks for SqlServer
+			if (removeQuote) removeQuote = false;
 		}
 		else
 		{
@@ -784,7 +807,49 @@ Database_Result Database::Query(const char *format, ...)
 
 	va_end(ap);
 
-	return this->RawQuery(finalquery.c_str(), false);
+	bool prepared = false;
+
+#ifdef DATABASE_SQLSERVER
+	if (!parameters.empty())
+	{
+		prepared = true;
+
+		SQLRETURN ret = SQLPrepare(this->impl->hstmt, (SQLCHAR*)(finalquery.c_str()), SQL_NTS);
+		if (!SQLSERVER_SUCCEEDED(ret))
+		{
+			HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Err);
+			throw Database_QueryFailed("Unable to prepare parameter-bound query for execution!");
+		}
+
+		SQLLEN nts = SQL_NTS;
+		int paramNdx = 1; // parameter indices start at 1
+		for (const auto& parameter : parameters)
+		{
+			ret = SQLBindParameter(
+				this->impl->hstmt,
+				paramNdx++,
+				SQL_PARAM_INPUT,
+				SQL_C_CHAR,
+				SQL_VARCHAR,
+				parameter.empty() ? 1 : parameter.length(), // parameter length must be non-zero, even for empty strings
+				0,
+				(SQLPOINTER)parameter.c_str(),
+				0,
+				&nts // parameter length must be passed by reference as a null-terminated string
+			);
+
+			if (!SQLSERVER_SUCCEEDED(ret))
+			{
+				// Warn when a parameter binding fails, but still try the query (it will probably fail)
+				HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Wrn);
+			}
+		}
+	}
+#endif
+
+	return this->RawQuery(finalquery.c_str(),
+		false, // transaction control
+		prepared);
 }
 
 std::string Database::Escape(const std::string& raw)
