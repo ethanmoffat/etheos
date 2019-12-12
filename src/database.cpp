@@ -697,8 +697,11 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
 			{
 				HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, ret == SQL_ERROR ? Console::Err : Console::Dbg);
-				SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
-				throw Database_QueryFailed("Error querying the database");
+				if (ret == SQL_ERROR)
+				{
+					SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
+					throw Database_QueryFailed("Error querying the database");
+				}
 			}
 
 			SQLFreeStmt(this->impl->hstmt, SQL_CLOSE);
