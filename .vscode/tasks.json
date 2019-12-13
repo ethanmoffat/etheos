@@ -1,0 +1,62 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build (Windows) - Debug",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-command",
+                ".\\build-windows.ps1",
+                "-Debug"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build (Windows) - Release",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-command",
+                ".\\build-windows.ps1",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build (Linux) - Debug",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "./build-linux.sh --debug",
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Build (Linux) - Release",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "./build-linux.sh"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$gcc"
+        }
+    ]
+}

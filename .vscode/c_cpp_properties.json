@@ -1,0 +1,85 @@
+{
+    "env": {
+        "myDefaultIncludePath": [
+            "${workspaceFolder}"
+        ],
+        "myCompilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Enterprise\\MSBuild\\15.0\\Bin\\"
+    },
+    "configurations": [
+        {
+            "name": "SqlServer - Windows",
+            "includePath": [],
+            "defines": [
+                "DATABASE_SQLSERVER"
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "MySQL + SqlServer - Windows",
+            "includePath": [],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DATABASE_MYSQL"
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "SqlServer - Linux",
+            "includePath": [],
+            "defines": [
+                "DATABASE_SQLSERVER"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "MySQL + SqlServer - Linux",
+            "includePath": [],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DATABASE_MYSQL"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
