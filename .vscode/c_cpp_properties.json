@@ -8,7 +8,9 @@
     "configurations": [
         {
             "name": "SqlServer - Windows",
-            "includePath": [],
+            "includePath": [
+                "build/googletest-src/googletest/include"
+            ],
             "defines": [
                 "DATABASE_SQLSERVER"
             ],
@@ -26,7 +28,9 @@
         },
         {
             "name": "MySQL + SqlServer - Windows",
-            "includePath": [],
+            "includePath": [
+                "build/googletest-src/googletest/include"
+            ],
             "defines": [
                 "DATABASE_SQLSERVER",
                 "DATABASE_MYSQL"
@@ -45,7 +49,9 @@
         },
         {
             "name": "SqlServer - Linux",
-            "includePath": [],
+            "includePath": [
+                "build/googletest-src/googletest/include"
+            ],
             "defines": [
                 "DATABASE_SQLSERVER"
             ],
@@ -63,7 +69,9 @@
         },
         {
             "name": "MySQL + SqlServer - Linux",
-            "includePath": [],
+            "includePath": [
+                "build/googletest-src/googletest/include"
+            ],
             "defines": [
                 "DATABASE_SQLSERVER",
                 "DATABASE_MYSQL"

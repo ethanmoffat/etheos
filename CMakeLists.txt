@@ -32,6 +32,13 @@ option(EOSERV_DEBUG_QUERIES "Enables printing of database queries to debug outpu
 
 include(SourceFileList)
 
+
+# ------------
+#  Test files
+# ------------
+
+include(DownloadGoogleTest)
+
 # Platform-specific source files
 # Unity builds handle their own platform checking for now
 if(WIN32)
@@ -153,6 +160,12 @@ add_executable(eoserv
 	${eoserv_SOURCE_FILES}
 )
 
+add_executable(eoserv_test
+	${TestFiles}
+)
+target_link_libraries(eoserv_test gtest_main)
+add_test(NAME eoserv_test COMMAND eoserv_test)
+
 set (CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
 
 # -----------
@@ -197,6 +210,7 @@ endif()
 target_link_libraries(eoserv ${eoserv_LIBRARIES})
 
 install(TARGETS eoserv RUNTIME DESTINATION .)
+install(TARGETS eoserv_test RUNTIME DESTINATION ./test)
 
 foreach (File ${ExtraFiles})
 	get_filename_component(Dir "${File}" DIRECTORY)

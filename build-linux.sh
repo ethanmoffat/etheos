@@ -6,6 +6,7 @@ HELP=false
 DEBUG=false
 CLEAN=false
 BUILDDIR=build
+TEST=false
 
 function parse_options {
   while [[ $# -gt 0 ]]
@@ -15,6 +16,7 @@ function parse_options {
       -d|--debug)           DEBUG=true        ;;
       -c|--clean)           CLEAN=true        ;;
       -b|--builddir)        BUILDDIR=$2       ; shift ;;
+      -t|--test)            TEST=true         ;;
       *)                    HELP=true         ; break ;;
     esac
     shift
@@ -62,3 +64,7 @@ cmake -DEOSERV_WANT_SQLSERVER=ON -G "Unix Makefiles" ..
 cmake --build . --config $BUILDMODEARG --target install --
 
 popd
+
+if [ "$TEST" == "true" ]; then
+    ./install/test/eoserv_test
+fi

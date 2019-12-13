@@ -1,4 +1,10 @@
-.vscode/
+.vscode/*
+!.vscode/c_cpp_properties.json
+!.vscode/launch.json
+!.vscode/tasks.json
 
 build/
 install/
+
+gtest-download/*
+!gtest-download/CMakeLists.txt.in

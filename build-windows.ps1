@@ -1,6 +1,7 @@
 param (
     [switch]$Clean,
     [switch]$Debug,
+    [switch]$Test,
     $BuildDir = "build"
 )
 
@@ -59,3 +60,7 @@ cmake -DEOSERV_WANT_SQLITE=OFF -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPIL
 cmake --build . --config $buildMode --target INSTALL --
 
 Set-Location $PSScriptRoot
+
+if ($Test) {
+    ./install/test/eoserv_test.exe
+}

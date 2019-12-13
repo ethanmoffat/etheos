@@ -251,3 +251,7 @@ set(ExtraFiles
 	${MapFiles}
 	${QuestFiles}
 )
+
+set(TestFiles
+	src/test/config_test.cpp
+)
