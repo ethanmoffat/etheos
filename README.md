@@ -26,6 +26,15 @@ Visual Studio 2017 is required for the compiler toolchain in order to build on W
 
 This process has been tested on WSL (Windows Subsystem for Linux) using Ubuntu 18.04.
 
+## Automated dependency download
+
+1. Run `sudo ./scripts/install-deps.sh`
+   - This will download and install: CMake, MariaDB, SQLite, and ODBC (SQL Server)
+2. Run `./build-linux.sh`
+   - This will build linux with support for all database engines (default: SQL server)
+
+## Manual Process (Ubuntu 18.04 only)
+
 1. Install the dependencies
 ```bash
 sudo apt-get update
