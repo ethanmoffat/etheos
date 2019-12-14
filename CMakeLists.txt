@@ -47,10 +47,11 @@ endif()
 # Fancy icon on Windows
 if(WIN32)
 	list(APPEND eoserv_SOURCE_FILES "project/winres.rc")
-endif()
 
-if(EOSERV_WANT_SQLITE)
-	list(APPEND eoserv_SOURCE_FILES ${eoserv_SQLITE_SOURCE_FILES})
+	# Link directly to SQLite on Windows
+	if(EOSERV_WANT_SQLITE)
+		list(APPEND eoserv_SOURCE_FILES ${eoserv_SQLITE_SOURCE_FILES})
+	endif()
 endif()
 
 # ------------

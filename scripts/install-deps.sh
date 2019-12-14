@@ -41,6 +41,8 @@ if (( $EUID != 0 )); then
     exit -1
 fi
 
+set +e
+
 PLATFORM_NAME=$(grep -qi ubuntu /etc/os-release && echo 'ubuntu')
 PLATFORM_VERSION=$(grep -oPi 'VERSION_ID=\K"(.+)"' /etc/os-release | sed -e 's/"//g')
 if [ -z "$PLATFORM_NAME" ]; then
@@ -63,9 +65,14 @@ elif [ -z "$VERSION_IS_SUPPORTED" ]; then
     exit -1
 fi
 
+set -e
+
 echo "Detected platform: $PLATFORM_NAME $PLATFORM_VERSION"
 
 PACKAGES="g++"
+if [ "$PLATFORM_NAME" == "rhel" ]; then
+    PACKAGES="gcc-c++"
+fi
 
 if [ "$SKIPMARIADB" == "false" ]; then
     if [ "$PLATFORM_NAME" == "ubuntu" ]; then
@@ -117,7 +124,11 @@ fi
 
 if [ "$SKIPCMAKE" == "false" ]; then
     echo "Installing cmake..."
-    apt-get remove -y cmake > /dev/null
+    if [ "$PLATFORM_NAME" == "ubuntu" ]; then
+        apt-get remove -y cmake > /dev/null
+    elif [ "$PLATFORM_NAME" == "rhel" ]; then
+        yum remove -y cmake > /dev/null
+    fi
     wget -q https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-Linux-x86_64.sh
     chmod +x ./cmake-3.16.0-Linux-x86_64.sh
     ./cmake-3.16.0-Linux-x86_64.sh --skip-license --prefix=/usr
