@@ -32,13 +32,6 @@ option(EOSERV_DEBUG_QUERIES "Enables printing of database queries to debug outpu
 
 include(SourceFileList)
 
-
-# ------------
-#  Test files
-# ------------
-
-include(DownloadGoogleTest)
-
 # Platform-specific source files
 # Unity builds handle their own platform checking for now
 if(WIN32)
@@ -55,6 +48,16 @@ endif()
 if(WIN32)
 	list(APPEND eoserv_SOURCE_FILES "project/winres.rc")
 endif()
+
+if(EOSERV_WANT_SQLITE)
+	list(APPEND eoserv_SOURCE_FILES ${eoserv_SQLITE_SOURCE_FILES})
+endif()
+
+# ------------
+#  Test files
+# ------------
+
+include(DownloadGoogleTest)
 
 set(eoserv_LIBRARIES)
 
@@ -180,9 +183,15 @@ if(EOSERV_WANT_MYSQL)
 endif()
 
 if(EOSERV_WANT_SQLITE)
-	find_package(SQLite3 REQUIRED)
-	include_directories(${SQLITE3_INCLUDE_DIR})
-	list(APPEND eoserv_LIBRARIES ${SQLITE3_LIBRARY})
+	if (WIN32)
+		# On Windows, SQLite is directly compiled into the executable (per SQLite recommendation)
+		include_directories(${CMAKE_SOURCE_DIR}/sqlite/include)
+	else()
+		find_package(SQLite3 REQUIRED)
+		include_directories(${SQLITE3_INCLUDE_DIR})
+		list(APPEND eoserv_LIBRARIES ${SQLITE3_LIBRARY})
+	endif()
+
 	add_definitions(-DDATABASE_SQLITE)
 endif()
 

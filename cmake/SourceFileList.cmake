@@ -178,6 +178,11 @@ set(eoserv_WIN32_SOURCE_FILES
 	src/extra/ntservice.hpp
 )
 
+set(eoserv_SQLITE_SOURCE_FILES
+	sqlite/src/sqlite3.c
+	sqlite/include/sqlite3.h
+)
+
 # ----------
 
 set(ConfigFiles

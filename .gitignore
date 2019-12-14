@@ -5,6 +5,8 @@
 
 build/
 install/
+scripts/download/
+sqlite/
 
 gtest-download/*
 !gtest-download/CMakeLists.txt.in

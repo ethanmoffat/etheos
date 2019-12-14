@@ -4,12 +4,21 @@
 
 ### Windows
 
-Visual Studio 2017 is a hard-coded dependency of Windows build. Please also install Windows 10 SDK as part of the VS install (this should include the SQL 17 ODBC driver).
+Visual Studio 2017 is required for the compiler toolchain in order to build on Windows. Windows 10 SDK is required for the ODBC driver libraries (can be installed as part of Visual Studio).
+
+## Automated dependency download
+
+1. Run `.\scripts\install-deps.ps1` as administrator or from an elevated powershell terminal
+   - This will download and install: Chocolatey (package manager), CMake, SQLite, and MariaDB
+2. Run `.\build-windows.ps1`
+   - This will build eoserv with support for all database engines (default: SQL server)
+
+## Manual Process (does not support SQLite)
 
 1. Download and install [CMake](https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-win64-x64.msi)
+   - Make sure it is in the PATH environment variable
 2. Download and install the [MariaDB C connector](https://mariadb.com/downloads/?showall=1&tab=mariadbtx&group=mariadb_server&version=10.4.10#connectors)
    - Choose for C/C++ and Windows/x86 (linking with x64 is not supported -- EOSERV builds as 32-bit)
-3. Clone this repository
 4. Run `.\build-windows.ps1` in a new powershell terminal
    - This will build and install the project into a local directory 'install' under the repository root
 

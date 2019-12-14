@@ -56,7 +56,7 @@ if ($Debug) {
     $buildMode = "Release"
 }
 
-cmake -DEOSERV_WANT_SQLITE=OFF -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
 cmake --build . --config $buildMode --target INSTALL --
 
 Set-Location $PSScriptRoot
