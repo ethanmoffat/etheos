@@ -60,6 +60,15 @@ if (-not $SkipMariaDB) {
     (New-Object System.Net.WebClient).DownloadFile($MariaDBURL, $DownloadedFile)
     msiexec /I $DownloadedFile /qn
 
+    # Update the path with the new directory
+    # This is a fixed default value of the MSI that is downloaded
+    $InstallDir="C:\Program Files (x86)\MariaDB\MariaDB Connector C\lib"
+    $PATHRegKey = 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment'
+    $Old_Path=(Get-ItemProperty -Path $PATHRegKey -Name Path).Path
+    if ($Old_Path.IndexOf($InstallDir, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+        Set-ItemProperty -Path $PATHRegKey -Name PATH -Value ("$Old_Path;$InstallDir")
+    }
+
     refreshenv
     CheckPathForDll -DllName "libmariadb.dll"
 }
