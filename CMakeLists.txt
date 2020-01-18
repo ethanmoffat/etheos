@@ -241,26 +241,26 @@ include(EOSERV_PCH)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)
 	if(EOSERV_GEN_PRECOMPILED_HEADERS)
-		add_custom_command(OUTPUT ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h
-			COMMAND ${CMAKE_SOURCE_DIR}/autogen-pch.sh ${eoserv_ALL_SOURCE_FILES} > ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h
+		add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/eoserv-pch.h
+			COMMAND ${CMAKE_SOURCE_DIR}/autogen-pch.sh ${eoserv_ALL_SOURCE_FILES} > ${CMAKE_BINARY_DIR}/eoserv-pch.h
 			MAIN_DEPENDENCY autogen-pch.sh
 			# This dependency is commented out to avoid constant rebuilding on any source file change
 			# DEPENDS autogen-pch.sh ${eoserv_ALL_SOURCE_FILES}
 			WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 		)
 	else()
-		add_custom_command(OUTPUT ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h
-			COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/src/stdafx.h ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h
+		add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/eoserv-pch.h
+			COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/src/stdafx.h ${CMAKE_BINARY_DIR}/eoserv-pch.h
 			MAIN_DEPENDENCY src/stdafx.h
 			DEPENDS src/stdafx.h
 		)
 	endif()
 
 	add_custom_target(eoserv-pch-autogen
-		DEPENDS ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h
+		DEPENDS ${CMAKE_BINARY_DIR}/eoserv-pch.h
 	)
 
-	compile_pch(eoserv-pch ${CMAKE_CACHEFILE_DIR}/eoserv-pch.h)
+	compile_pch(eoserv-pch ${CMAKE_BINARY_DIR}/eoserv-pch.h)
 
 	add_dependencies(eoserv-pch-autogen eoserv-pch)
 	add_dependencies(eoserv eoserv-pch)
