@@ -1,78 +1,95 @@
-# project ETHEOS
+# ETHEOS
 
-## Getting started
+## Table of Contents
 
-### Windows
+- [Getting Started on Windows](#getting-started-on-windows)
+- [Getting Started on Linux](#getting-started-on-linux)
+- [Running](#running)
+- [Development](#development)
 
-Visual Studio 2017 is required for the compiler toolchain in order to build on Windows. Windows 10 SDK is required for the ODBC driver libraries (can be installed as part of Visual Studio).
+## Getting Started on Windows
 
-## Automated dependency download
+Visual Studio 2017 is required for the compiler toolchain in order to build on Windows. Windows 10 SDK is required for the ODBC (SQL server) driver libraries (can be installed as part of Visual Studio).
 
-1. Run `.\scripts\install-deps.ps1` as administrator or from an elevated powershell terminal
-   - This will download and install: Chocolatey (package manager), CMake, SQLite, and MariaDB
-2. Run `.\build-windows.ps1`
-   - This will build eoserv with support for all database engines (default: SQL server)
+### Dependencies
 
-## Manual Process (does not support SQLite)
+The dependencies for building ETHEOS on Windows are:
 
-1. Download and install [CMake](https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-win64-x64.msi)
-   - Make sure it is in the PATH environment variable
-2. Download and install the [MariaDB C connector](https://mariadb.com/downloads/?showall=1&tab=mariadbtx&group=mariadb_server&version=10.4.10#connectors)
-   - Choose for C/C++ and Windows/x86 (linking with x64 is not supported -- EOSERV builds as 32-bit)
-4. Run `.\build-windows.ps1` in a new powershell terminal
-   - This will build and install the project into a local directory 'install' under the repository root
+- CMake (>= 2.6)
+- SQLite
+- MariaDB
 
-### Linux
+#### Automatic Dependency Installation
 
-This process has been tested on WSL (Windows Subsystem for Linux) using Ubuntu 18.04.
+A convenience script has been provided which installs Chocolatey (package manager) and each of the required dependencies. To automatically install the dependencies, run `.\scripts\install-deps.ps1` as administrator or from an elevated powershell terminal.
 
-## Automated dependency download
+#### Manual Dependency Installation
 
-1. Run `sudo ./scripts/install-deps.sh`
-   - This will download and install: CMake, MariaDB, SQLite, and ODBC (SQL Server)
-2. Run `./build-linux.sh`
-   - This will build linux with support for all database engines (default: SQL server)
+> ⚠️ This workflow does not support SQLite
 
-## Manual Process (Ubuntu 18.04 only)
+1. Download and install [CMake](https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-win64-x64.msi).
+   - Make sure it is in the PATH environment variable.
+2. Download and install the [MariaDB C connector](https://mariadb.com/downloads/?showall=1&tab=mariadbtx&group=mariadb_server&version=10.4.10#connectors).
+   - Choose for C/C++ and Windows/x86 (linking with x64 is not supported; EOSERV builds as 32-bit).
 
-1. Install the dependencies
+### Build and Install
+
+Run `.\build-windows.ps1` in a new powershell terminal to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
+
+## Getting Started on Linux
+
+This process has been testing on Ubuntu 18.04 (including a Windows Subsystem for Linux (WSL) workflow).
+
+### Dependencies
+
+The dependencies for building ETHEOS on Linux are:
+
+- g++
+- CMake (>= 2.6)
+- SQLite
+- MariaDB
+- OCDB (SQL server) [optional]
+
+#### Automatic Dependency Installation
+
+A convenience script has been provided which installs each of the required dependencies. To automatically install the dependencies, run `sudo ./scripts/install-deps.sh`.
+
+#### Manual Dependency Installation
+
+To manually install the required dependencies, run the following commands:
+
 ```bash
 sudo apt-get update
 sudo apt-get install libmariadb-dev libsqlite3-dev cmake g++
 ```
-   - If you would like to build with the Unix ODBC driver for SQL Server support, run the following commands. See [instructions here](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver15) for distributions/versions other than Ubuntu 18.04.
-   ```bash
-   sudo su
-   curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-   curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
-   exit
 
-   sudo apt-get update
-   sudo ACCEPT_EULA=Y apt-get install msodbcsql17 unixodbc-dev
-   ```
+If you would like to build with the Unix ODBC driver for SQL Server support, run the following commands:
 
-2. Clone this repository
 ```bash
-git clone git@github.com:EndlessOpenSource/etheos.git
-cd etheos
+sudo su
+curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+exit
+
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install msodbcsql17 unixodbc-dev
 ```
 
-3. Kick off a build.
-```bash
-mkdir build && cd build
-cmake -G "Unix Makefiles" .. # Add -D{option} with the options from CMakeLists.txt to customize the build
-cmake --build . --config Debug --target eoserv --
-cmake --build . --config Debug --target install --
-```
+> ℹ️ See [instructions here](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver15) for installing the Unix ODCB driver on distributions/versions other than Ubuntu 18.04.
 
-### Running
+### Build and Install
 
-From the `install` directory, run the eoserv executable (`.\eoserv.exe` on Powershell, `./eoserv` on linux).
+Run `./build-linux.sh` to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
 
-Configuration / data files need to be placed before executing.
+## Running
+
+> ⚠️ Configuration and data files need to be placed before executing.
+
+From the local `install` directory, run the ETHEOS executable (`.\eoserv.exe` on Windows or `./eoserv` on Linux).
 
 ## Development
 
-Development within [Visual Studio Code](https://code.visualstudio.com/) is supported. Recommended extensions:
-   - [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
-   - [CMake](https://marketplace.visualstudio.com/items?itemName=twxs.cmake)
+Development within [Visual Studio Code](https://code.visualstudio.com/) (vscode) is supported. The following vscode extensions are recommended:
+
+- [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
+- [CMake](https://marketplace.visualstudio.com/items?itemName=twxs.cmake)
