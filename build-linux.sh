@@ -11,8 +11,8 @@ TEST=false
 function parse_options {
   while [[ $# -gt 0 ]]
   do
-    OPTION="${1}"
-    case $OPTION in
+    OPTION="$1"
+    case "${OPTION}" in
       -d|--debug)           DEBUG=true        ;;
       -c|--clean)           CLEAN=true        ;;
       -b|--builddir)        BUILDDIR=$2       ; shift ;;
@@ -36,24 +36,24 @@ fi
 
 if [ -z "$BUILDDIR" ]; then
     echo "-b/--builddir is required"
-    exit -1
+    exit 1
 fi
 
 if [ "$CLEAN" == "true" ]; then
     if [ -d "$BUILDDIR" ]; then
-        rm -rf $BUILDDIR
+        rm -rf "${BUILDDIR}"
     fi
 fi
 
 if [ ! -d "$BUILDDIR" ]; then
-    mkdir -p $BUILDDIR
+    mkdir -p "${BUILDDIR}"
 fi
 
 if [ ! -d "install" ]; then
     mkdir install
 fi
 
-pushd $BUILDDIR
+pushd "${BUILDDIR}"
 
 BUILDMODEARG=Release
 if [ "$DEBUG" == "true" ]; then
@@ -61,7 +61,7 @@ if [ "$DEBUG" == "true" ]; then
 fi
 
 cmake -DEOSERV_WANT_SQLSERVER=ON -G "Unix Makefiles" ..
-cmake --build . --config $BUILDMODEARG --target install --
+cmake --build . --config "${BUILDMODEARG}" --target install --
 
 popd
 
