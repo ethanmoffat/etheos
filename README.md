@@ -79,7 +79,7 @@ sudo ACCEPT_EULA=Y apt-get install msodbcsql17 unixodbc-dev
 
 ### Build and Install
 
-Run `./build-linux.sh` to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
+Run `./build-linux.sh -i` to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
 
 ## Running
 
