@@ -10,3 +10,5 @@ sqlite/
 
 gtest-download/*
 !gtest-download/CMakeLists.txt.in
+
+*.log
