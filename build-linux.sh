@@ -110,16 +110,17 @@ function main() {
     mkdir -p "${build_dir}"
   fi
 
-  local db_engine_macros=""
-  db_engine_macros+="-DEOSERV_WANT_MYSQL=${mariadb}"
-  db_engine_macros+=" -DEOSERV_WANT_SQLITE=${sqlite}"
-  db_engine_macros+=" -DEOSERV_WANT_SQLSERVER=${sqlserver}"
+  local cmake_macros=()
+  cmake_macros+=("-DCMAKE_BUILD_TYPE=${build_mode}")
+  cmake_macros+=("-DEOSERV_WANT_MYSQL=${mariadb}")
+  cmake_macros+=("-DEOSERV_WANT_SQLITE=${sqlite}")
+  cmake_macros+=("-DEOSERV_WANT_SQLSERVER=${sqlserver}")
 
   pushd "${build_dir}" > /dev/null
 
   echo ""
-  cmake "${db_engine_macros}" -G "Unix Makefiles" ..
-  cmake --build . --config "${build_mode}" --target "${target}"
+  cmake "${cmake_macros[@]}" "-GUnix Makefiles" ..
+  cmake --build . --target "${target}"
 
   popd > /dev/null
 
