@@ -154,6 +154,12 @@ string(TOLOWER "${CMAKE_BUILD_TYPE}" BuildType)
 
 if(BuildType STREQUAL "debug")
 	add_definitions(-DDEBUG)
+
+	# Disable optimizations for debug builds with GCC.
+	IF(CMAKE_COMPILER_IS_GNUCC)
+	    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+	    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+	ENDIF(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 # ---------
