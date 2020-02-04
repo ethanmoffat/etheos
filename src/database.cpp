@@ -738,10 +738,6 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 		{
 			tempc = va_arg(ap,char *);
 			auto tmpStr = static_cast<std::string>(tempc);
-
-			if (this->engine == SqlServer)
-				this->ParseQueryArgs(format, ap);
-
 			finalquery += tmpStr;
 		}
 		else if (*p == '$')
