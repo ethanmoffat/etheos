@@ -69,9 +69,9 @@ set -e
 
 echo "Detected platform: $PLATFORM_NAME $PLATFORM_VERSION"
 
-PACKAGES="g++"
+PACKAGES="g++ make"
 if [ "$PLATFORM_NAME" == "rhel" ]; then
-    PACKAGES="gcc-c++"
+    PACKAGES="gcc-c++ make"
 fi
 
 if [ "$SKIPMARIADB" == "false" ]; then

@@ -80,6 +80,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "SLNPeriod"          , 600);
 	eoserv_config_default(config, "SLNZone"            , "");
 	eoserv_config_default(config, "SLNBind"            , "1");
+	eoserv_config_default(config, "SLNClient"          , "");
 	eoserv_config_default(config, "BotCharacters"      , "");
 	eoserv_config_default(config, "GuildPrice"         , 50000);
 	eoserv_config_default(config, "RecruitCost"        , 1000);

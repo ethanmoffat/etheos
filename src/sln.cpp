@@ -91,6 +91,11 @@ void SLN::Request()
 		request->url += std::string("&deadly=") + HTTP::URLEncode(this->server->world->config["Deadly"]);
 	}
 
+	if (std::string(this->server->world->config["SLNClient"]).length() > 0)
+	{
+		request->url += std::string("&clienturl=") + HTTP::URLEncode(this->server->world->config["SLNClient"]);
+	}
+
 	request->bind = std::string(this->server->world->config["SLNBind"]);
 	request->host = std::string(this->server->world->config["Host"]);
 	request->period = int(this->server->world->config["SLNPeriod"]);

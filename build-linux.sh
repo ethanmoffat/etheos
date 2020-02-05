@@ -142,7 +142,7 @@ function display_usage() {
   echo "  -i --install                Install build in install directory."
   echo "  --mariadb (ON|OFF)          MariaDB/MySQL support [default: OFF]."
   echo "  --sqlite (ON|OFF)           SQLite support [default: OFF]."
-  echo "  --sqlserver (ON|OFF)        SQL Servier support [default: ON]."
+  echo "  --sqlserver (ON|OFF)        SQL Server support [default: ON]."
   echo "  -h --help                   Display this message."
 }
 
