@@ -34,7 +34,7 @@ void Account_Request(EOClient *client, PacketReader &reader)
 
 	username = util::lowercase(username);
 
-	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 5);
 
 	if (!Player::ValidName(username))
 	{
