@@ -54,12 +54,6 @@ if(WIN32)
 	endif()
 endif()
 
-# ------------
-#  Test files
-# ------------
-
-include(DownloadGoogleTest)
-
 set(eoserv_LIBRARIES)
 
 # ----------------
@@ -162,6 +156,12 @@ if(BuildType STREQUAL "debug")
 	ENDIF(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
+# ------------
+#  Test files
+# ------------
+
+include(DownloadGoogleTest)
+
 # ---------
 #  Outputs
 # ---------
@@ -238,6 +238,8 @@ foreach (File ${ExtraFiles})
 
 	install(FILES ${File} DESTINATION ${Dir})
 endforeach()
+
+install(DIRECTORY ${LocalConf} DESTINATION ${LocalConf} FILES_MATCHING PATTERN "*.ini")
 
 # ---------------------
 #  Precompiled Headers

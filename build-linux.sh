@@ -125,7 +125,7 @@ function main() {
   popd > /dev/null
 
   if [[ "${opt_test}" == "true" ]]; then
-      echo "./install/test/eoserv_test"
+      ./install/test/eoserv_test
   fi
 
   return 0
