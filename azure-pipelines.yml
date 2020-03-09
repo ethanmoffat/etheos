@@ -12,6 +12,8 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
+    - checkout: self
+      lfs: true
     - script: sudo ./install-deps.sh
       displayName: 'Install build dependencies'
       workingDirectory: 'scripts'
@@ -30,6 +32,8 @@ stages:
     pool:
       vmImage: 'windows-latest'
     steps:
+    - checkout: self
+      lfs: true
     - task: PowerShell@2
       displayName: 'Install build dependencies'
       inputs:
