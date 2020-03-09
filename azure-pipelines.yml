@@ -34,10 +34,17 @@ stages:
       displayName: 'Install build dependencies'
       inputs:
         filePath: '.\scripts\install-deps.ps1'
-    - script: ./build-windows.ps1 -Clean
+        arguments: '-SkipCMake' # CMake is installed on the windows-latest image
+    - task: PowerShell@2
       displayName: 'Build'
-    - script: ./build-linux.sh -Test
+      inputs:
+        filePath: './build-windows.ps1'
+        arguments: '-Clean'
+    - task: PowerShell@2
       displayName: 'Test'
+      inputs:
+        filePath: './build-windows.ps1'
+        arguments: '-Test'
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
