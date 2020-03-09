@@ -1,4 +1,4 @@
-name: 0.7.0:$(rev:rrrr)
+name: 0.7.0.$(rev:rrrr)
 
 trigger:
 - master
