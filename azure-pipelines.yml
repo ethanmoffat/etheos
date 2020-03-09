@@ -33,8 +33,7 @@ stages:
     - task: PowerShell@2
       displayName: 'Install build dependencies'
       inputs:
-        filePath: '.\install-deps.ps1'
-        workingDirectory: 'scripts'
+        filePath: '.\scripts\install-deps.ps1'
     - script: ./build-windows.ps1 -Clean
       displayName: 'Build'
     - script: ./build-linux.sh -Test
