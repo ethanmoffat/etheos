@@ -1,0 +1,44 @@
+name: 0.7.0:$(rev:rrrr)
+
+trigger:
+- master
+
+stages:
+- stage: build_test
+  displayName: 'Build + Test'
+  jobs:
+  - job:
+    displayName: 'Build - Ubuntu'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - script: sudo ./install-deps.sh
+      displayName: 'Install build dependencies'
+      workingDirectory: 'scripts'
+    - script: ./build-linux.sh -c -i
+      displayName: 'Build'
+    - script: ./build-linux.sh -t
+      displayName: 'Test'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'install'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+  - job:
+    displayName: 'Build - Windows'
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - script: .\install-deps.ps1
+      displayName: 'Install build dependencies'
+      workingDirectory: 'scripts'
+    - script: ./build-windows.ps1 -Clean
+      displayName: 'Build'
+    - script: ./build-linux.sh -Test
+      displayName: 'Test'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'install'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
