@@ -30,9 +30,11 @@ stages:
     pool:
       vmImage: 'windows-latest'
     steps:
-    - script: .\install-deps.ps1
+    - task: PowerShell@2
       displayName: 'Install build dependencies'
-      workingDirectory: 'scripts'
+      inputs:
+        filePath: '.\install-deps.ps1'
+        workingDirectory: 'scripts'
     - script: ./build-windows.ps1 -Clean
       displayName: 'Build'
     - script: ./build-linux.sh -Test
