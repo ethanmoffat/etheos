@@ -46,25 +46,46 @@ Set-Location $BuildDir
 
 EnsureMariaDB
 
-# For building on Windows, force sqlite3 off until we get better dependency management (TODO: dependency management)
-# For building on Windows, force precompiled headers off
-#
-
 if ($Debug) {
     $buildMode = "Debug"
 } else {
     $buildMode = "Release"
 }
 
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
-$tmpResult=$?
-if (-not $tmpResult)
-{
-    Set-Location $PSScriptRoot
-    Write-Error "Error during cmake generation!"
-    exit $tmpResult
+$cmakeHelp=$(cmake --help)
+
+# -requires param : ensure that the visual studio installs have the C++ workload
+$vsVersions=$(vswhere -property installationVersion -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64")
+foreach ($vsVersion in $vsVersions) {
+    $versionMajor = [int]$vsVersion.Substring(0, $vsVersion.IndexOf("."))
+    switch($versionMajor) {
+        15 { $generator = "Visual Studio 15 2017" }
+        16 { $generator = "Visual Studio 16 2019" }
+    }
+
+    if ($generator -and -not ($cmakeHelp -match $generator)) {
+        $generator = "" # Installed CMake version does not support the detected VS version
+    }
+
+    $vsInstallPath=$(vswhere -version "[$versionMajor.0,$($versionMajor+1).0)" -property installationPath)
 }
 
+if (-not $generator) {
+    Write-Error "Unable to determine Visual Studio version. Is Visual Studio installed?"
+    exit -1
+} else {
+    Write-Output "Using generator: $generator"
+}
+
+if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsInstallPath))) {
+    Write-Output "Adding to PATH: $vsInstallPath"
+    [System.Environment]::SetEnvironmentVariable("PATH", "$vsInstallPath;$env:PATH", [System.EnvironmentVariableTarget]::Process)
+}
+
+# For building on Windows, force sqlite3 off until we get better dependency management (TODO: dependency management)
+# For building on Windows, force precompiled headers off
+#
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G $generator ..
 cmake --build . --config $buildMode --target INSTALL --
 $tmpResult=$?
 if (-not $tmpResult)

@@ -125,3 +125,13 @@ if (-not $SkipSQLite) {
 if ((Test-Path $DownloadDir)) {
     Remove-Item $DownloadDir -Recurse -Force
 }
+
+if (-not (Get-Command vswhere)) {
+    Write-Output "Installing vswhere..."
+    choco install -y vswhere | Out-Null
+
+    refreshenv
+    if (-not (Get-Command vswhere)) {
+        Write-Warning "Could not detect vswhere after install. Shell may need to be restarted."
+    }
+}
