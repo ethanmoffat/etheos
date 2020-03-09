@@ -43,12 +43,12 @@ stages:
       displayName: 'Build'
       inputs:
         filePath: './build-windows.ps1'
-        arguments: '-Clean'
+        arguments: '-Clean -x64' # x64 required on build machines for MySQL library compatibility
     - task: PowerShell@2
       displayName: 'Test'
       inputs:
         filePath: './build-windows.ps1'
-        arguments: '-Test'
+        arguments: '-Test -x64'
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
