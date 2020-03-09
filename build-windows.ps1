@@ -2,7 +2,6 @@ param (
     [switch]$Clean,
     [switch]$Debug,
     [switch]$Test,
-    [switch]$x64,
     $BuildDir = "build"
 )
 
@@ -14,12 +13,12 @@ function EnsureMariaDB() {
             if (Test-Path $mariaDbPath) {
                 Write-Output "Found MariaDB in $path"
 
-                # Add the include path for MariaDB to the path so CMake can find the package
+                # Prepend the include path for MariaDB to PATH so CMake can find the package
                 #
                 $includePath = Resolve-Path (Join-Path $path "..\include")
                 if ($env:PATH.IndexOf($includePath, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
                     Write-Output "Adding $includePath to `$env:PATH"
-                    $env:PATH = $env:PATH + ";$includePath"
+                    $env:PATH = "$includePath;$env:PATH"
                 }
 
                 return
@@ -56,6 +55,7 @@ if ($Debug) {
 $cmakeHelp=$(cmake --help)
 
 # -requires param : ensure that the visual studio installs have the C++ workload
+#
 $vsVersions=$(vswhere -property installationVersion -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64")
 foreach ($vsVersion in $vsVersions) {
     $versionMajor = [int]$vsVersion.Substring(0, $vsVersion.IndexOf("."))
@@ -83,16 +83,9 @@ if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsIns
     [System.Environment]::SetEnvironmentVariable("PATH", "$vsInstallPath;$env:PATH", [System.EnvironmentVariableTarget]::Process)
 }
 
-if ($x64) {
-    $platform="x64"
-} else {
-    $platform="Win32"
-}
-
-# For building on Windows, force sqlite3 off until we get better dependency management (TODO: dependency management)
 # For building on Windows, force precompiled headers off
 #
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF "-DCMAKE_GENERATOR_PLATFORM=$platform" -G $generator ..
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 -G $generator ..
 cmake --build . --config $buildMode --target INSTALL --
 $tmpResult=$?
 if (-not $tmpResult)
