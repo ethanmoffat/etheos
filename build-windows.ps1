@@ -84,8 +84,9 @@ if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsIns
 
 # For building on Windows, force sqlite3 off until we get better dependency management (TODO: dependency management)
 # For building on Windows, force precompiled headers off
+# For building on Windows, force x86
 #
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G $generator ..
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 -G $generator ..
 cmake --build . --config $buildMode --target INSTALL --
 $tmpResult=$?
 if (-not $tmpResult)
