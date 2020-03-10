@@ -124,7 +124,13 @@ function main() {
   popd > /dev/null
 
   if [[ "${opt_test}" == "true" ]]; then
-      ./install/test/eoserv_test
+    local test_runner="${install_dir}"/test/eoserv_test
+    if [[ ! -f "${test_runner}" ]]; then
+      echo "Error: the test runner \"${test_runner}\" does not exist."
+      echo "Notice: you must build and install to run tests."
+      return 1
+    fi
+    "${test_runner}"
   fi
 
   return 0
@@ -139,6 +145,7 @@ function display_usage() {
   echo "  -c --clean                  Clean before building."
   echo "  -b <dir> --build_dir <dir>  Build directory [default: build]."
   echo "  -n --no-install             Build without local install."
+  echo "  -t --test                   Execute tests."
   echo "  --mariadb (ON|OFF)          MariaDB/MySQL support [default: OFF]."
   echo "  --sqlite (ON|OFF)           SQLite support [default: OFF]."
   echo "  --sqlserver (ON|OFF)        SQL Server support [default: ON]."
