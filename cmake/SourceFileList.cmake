@@ -260,3 +260,7 @@ set(ExtraFiles
 set(TestFiles
 	src/test/config_test.cpp
 )
+
+set(LocalConf
+	config_local/
+)

@@ -8,7 +8,7 @@ function main() {
   local build_dir="${PWD}/build"
   local build_mode="Release"
   local install_dir="${PWD}/install"
-  local target="eoserv"
+  local target="install"
   local opt_clean="false"
   local opt_help="false"
   local opt_test="false"
@@ -31,8 +31,8 @@ function main() {
         build_dir="$2"
         shift
         ;;
-      -i|--install)
-        target="install"
+      -n|--no-install)
+        target="eoserv"
         ;;
       -t|--test)
         opt_test="true"
@@ -53,7 +53,6 @@ function main() {
         sqlserver="$2"
         shift
         ;;
-
       *)
         echo "Error: unsupported option \"${option}\""
         return 1
@@ -125,7 +124,13 @@ function main() {
   popd > /dev/null
 
   if [[ "${opt_test}" == "true" ]]; then
-      echo "./install/test/eoserv_test"
+    local test_runner="${install_dir}"/test/eoserv_test
+    if [[ ! -f "${test_runner}" ]]; then
+      echo "Error: the test runner \"${test_runner}\" does not exist."
+      echo "Notice: you must build and install to run tests."
+      return 1
+    fi
+    "${test_runner}"
   fi
 
   return 0
@@ -139,7 +144,8 @@ function display_usage() {
   echo "  -d --debug                  Build with debug symbols."
   echo "  -c --clean                  Clean before building."
   echo "  -b <dir> --build_dir <dir>  Build directory [default: build]."
-  echo "  -i --install                Install build in install directory."
+  echo "  -n --no-install             Build without local install."
+  echo "  -t --test                   Execute tests."
   echo "  --mariadb (ON|OFF)          MariaDB/MySQL support [default: OFF]."
   echo "  --sqlite (ON|OFF)           SQLite support [default: OFF]."
   echo "  --sqlserver (ON|OFF)        SQL Server support [default: ON]."
