@@ -102,15 +102,15 @@ void SLN::Request()
 
 	try
 	{
-		static std::thread thread(SLN::RequestThread, request);
+		std::thread thread(SLN::RequestThread, request);
 		if (!thread.native_handle())
 			throw std::runtime_error("Failed to create SLN request thread");
 
 		thread.detach();
 	}
-	catch (...)
+	catch (std::exception &e)
 	{
-		throw std::runtime_error("Failed to create SLN request thread");
+		throw std::runtime_error(e.what());
 	}
 }
 
