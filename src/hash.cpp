@@ -28,3 +28,8 @@ std::string sha256(const std::string& str)
 
 	return std::string(cdigest, 64);
 }
+
+std::string bcrypt(const std::string& str)
+{
+	return "";
+}

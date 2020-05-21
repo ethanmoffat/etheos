@@ -97,12 +97,7 @@ bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int ha
 
 void Player::ChangePass(util::secure_string&& password)
 {
-	{
-		util::secure_string password_buffer(std::move(std::string(this->world->config["PasswordSalt"]) + this->username + password.str()));
-		password = sha256(password_buffer.str());
-	}
-
-	this->world->db.Query("UPDATE `accounts` SET `password` = '$' WHERE username = '$'", password.str().c_str(), this->username.c_str());
+	this->world->ChangePassword(this->username, std::move(password));
 }
 
 AdminLevel Player::Admin() const
