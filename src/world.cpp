@@ -1285,7 +1285,7 @@ Player *World::Login(std::string username)
 	return new Player(username, this);
 }
 
-util::secure_string&& World::HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt)
+util::secure_string World::HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt)
 {
 	HashFunc passwordVersion = BCRYPT;
 
@@ -1321,12 +1321,12 @@ util::secure_string&& World::HashPassword(const std::string& username, util::sec
 		//
 	}
 
-	return std::move(password);
+	return password;
 }
 
 LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
 {
-	password = this->HashPassword(username, std::move(password), true);
+	password = std::move(this->HashPassword(username, std::move(password), true));
 
 	if (password.str().length() == 0)
 	{
@@ -1353,18 +1353,21 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 
 void World::ChangePassword(const std::string& username, util::secure_string&& password)
 {
-	password = this->HashPassword(username, std::move(password), false);
-	this->db.Query("UPDATE `accounts` SET `password` = '$' WHERE username = '$'", password.str().c_str(), username.c_str());
+	auto password_version = int(this->config["PasswordCurrentVersion"]);
+	password = std::move(this->HashPassword(username, std::move(password), false));
+
+	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), password_version, username.c_str());
 }
 
 bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
 	const std::string& fullname, const std::string& location, const std::string& email,
 	const std::string& computer, int hdid, const std::string& ip)
 {
-	password = this->HashPassword(username, std::move(password), false);
+	auto password_version = int(this->config["PasswordCurrentVersion"]);
+	password = std::move(this->HashPassword(username, std::move(password), false));
 
-	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`) VALUES ('$','$','$','$','$','$',#,'$',#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)));
+	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`) VALUES ('$','$','$','$','$','$',#,'$',#,#)",
+		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), password_version);
 
 	return !res.Error();
 }

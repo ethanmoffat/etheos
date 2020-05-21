@@ -78,7 +78,7 @@ class World
 		typedef std::string (*PasswordHashFn)(const std::string&);
 		std::unordered_map<HashFunc, PasswordHashFn> passwordVersionMap;
 
-		util::secure_string&& HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt);
+		util::secure_string HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt);
 
 	protected:
 		int last_character_id;
