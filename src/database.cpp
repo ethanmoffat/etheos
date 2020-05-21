@@ -944,9 +944,8 @@ void Database::ExecuteFile(const std::string& filename)
 	queries.push_back(query);
 	query.erase();
 
-	std::remove_if(UTIL_RANGE(queries), [&](const std::string& s) { return util::trim(s).length() == 0; });
-
-	this->ExecuteQueries(UTIL_RANGE(queries));
+	auto queriesEnd = std::remove_if(UTIL_RANGE(queries), [&](const std::string& s) { return util::trim(s).length() == 0; });
+	this->ExecuteQueries(queries.begin(), queriesEnd);
 }
 
 bool Database::Pending() const
