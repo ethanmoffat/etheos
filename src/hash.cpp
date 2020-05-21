@@ -7,6 +7,7 @@
 #include "hash.hpp"
 
 #include "sha256.h"
+#include "bcrypt/BCrypt.hpp"
 
 #include <string>
 
@@ -31,5 +32,5 @@ std::string sha256(const std::string& str)
 
 std::string bcrypt(const std::string& str)
 {
-	return "";
+	return BCrypt::generateHash(str);
 }

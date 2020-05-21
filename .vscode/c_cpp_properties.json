@@ -9,7 +9,8 @@
         {
             "name": "SqlServer - Windows",
             "includePath": [
-                "build/googletest-src/googletest/include"
+                "build/googletest-src/googletest/include",
+                "build/bcrypt-src/include"
             ],
             "defines": [
                 "DATABASE_SQLSERVER"
@@ -29,7 +30,8 @@
         {
             "name": "MySQL + SqlServer - Windows",
             "includePath": [
-                "build/googletest-src/googletest/include"
+                "build/googletest-src/googletest/include",
+                "build/bcrypt-src/include"
             ],
             "defines": [
                 "DATABASE_SQLSERVER",
@@ -50,7 +52,8 @@
         {
             "name": "SqlServer - Linux",
             "includePath": [
-                "build/googletest-src/googletest/include"
+                "build/googletest-src/googletest/include",
+                "build/bcrypt-src/include"
             ],
             "defines": [
                 "DATABASE_SQLSERVER"
@@ -70,7 +73,8 @@
         {
             "name": "MySQL + SqlServer - Linux",
             "includePath": [
-                "build/googletest-src/googletest/include"
+                "build/googletest-src/googletest/include",
+                "build/bcrypt-src/include"
             ],
             "defines": [
                 "DATABASE_SQLSERVER",

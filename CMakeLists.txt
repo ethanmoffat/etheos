@@ -224,6 +224,11 @@ else()
 	list(APPEND eoserv_LIBRARIES pthread)
 endif()
 
+include(DownloadBcrypt)
+
+target_include_directories(eoserv PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
+list(APPEND eoserv_LIBRARIES bcrypt)
+
 target_link_libraries(eoserv ${eoserv_LIBRARIES})
 
 install(TARGETS eoserv RUNTIME DESTINATION .)
