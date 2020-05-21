@@ -131,6 +131,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/handlers/Welcome.cpp
 	src/hash.cpp
 	src/hash.hpp
+	src/hashupdater.cpp
+	src/hashupdater.hpp
 	src/i18n.cpp
 	src/i18n.hpp
 	src/main.cpp
@@ -248,6 +250,8 @@ set(ExtraFiles
 	install_sqlserver.sql
 	upgrade/0.5.2_to_0.5.3.sql
 	upgrade/0.6.2_to_0.7.0.sql
+	upgrade/0.7.0_to_0.7.1.sql
+	upgrade/0.7.0_to_0.7.1_sqlserver.sql
 
 	${ConfigFiles}
 	${LangFiles}

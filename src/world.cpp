@@ -387,6 +387,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 
 	this->passwordVersionMap[SHA256] = sha256;
 	this->passwordVersionMap[BCRYPT] = bcrypt;
+	this->passwordHashUpdater.reset(new PasswordHashUpdater(this));
 
 	if (static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])) == BCRYPT)
 	{
@@ -1352,15 +1353,15 @@ util::secure_string World::HashPassword(const std::string& username, util::secur
 	}
 
 	PasswordHashFn passwordHashFunc = this->passwordVersionMap[passwordVersion];
-	password = passwordHashFunc(password_buffer.str(), password_salt);
+	std::string passwordSrc = passwordHashFunc(password_buffer.str(), password_salt);
+	std::string passwordCopy = passwordSrc;
 
 	if (passwordVersion < static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])))
 	{
-		// TODO: queue update to password on threadpool
-		//
+		this->passwordHashUpdater->QueueUpdatePassword(username, util::secure_string(std::move(passwordCopy)), passwordVersion);
 	}
 
-	return password;
+	return util::secure_string(std::move(passwordSrc));
 }
 
 LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
@@ -1373,8 +1374,7 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 	}
 
 	Database_Result res = this->db.Query("SELECT 1 FROM `accounts` WHERE `username` = '$' AND `password` = '$'", username.c_str(), password.str().c_str());
-	// TODO: signal threadpool thread that it is OK to update password version
-	//
+	this->passwordHashUpdater->SignalUpdatePassword(username);
 
 	if (res.empty())
 	{

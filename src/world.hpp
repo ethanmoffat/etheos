@@ -24,6 +24,7 @@
 #include "i18n.hpp"
 #include "hash.hpp"
 #include "map.hpp"
+#include "hashupdater.hpp"
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"
@@ -80,6 +81,9 @@ class World
 
 		std::string bcrypt_salt;
 		util::secure_string HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt);
+
+		friend class PasswordHashUpdater;
+		std::unique_ptr<PasswordHashUpdater> passwordHashUpdater;
 
 	protected:
 		int last_character_id;

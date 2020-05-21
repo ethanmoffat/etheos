@@ -8,6 +8,7 @@
 #include "../src/console.cpp"
 #include "../src/database.cpp"
 #include "../src/hash.cpp"
+#include "../src/hashupdater.cpp"
 #include "../src/i18n.cpp"
 #include "../src/nanohttp.cpp"
 #include "../src/socket.cpp"

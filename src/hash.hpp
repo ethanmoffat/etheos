@@ -11,6 +11,7 @@
 
 enum HashFunc
 {
+    NONE = 0,
     SHA256 = 1,
     BCRYPT = 2
 };
