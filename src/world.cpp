@@ -35,6 +35,7 @@
 #include <array>
 #include <cmath>
 #include <ctime>
+#include <fstream>
 #include <limits>
 #include <list>
 #include <memory>
@@ -386,6 +387,33 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 
 	this->passwordVersionMap[SHA256] = sha256;
 	this->passwordVersionMap[BCRYPT] = bcrypt;
+
+	if (static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])) == BCRYPT)
+	{
+		std::ifstream saltFile("bcrypt_salt");
+		if ((bool)(saltFile))
+		{
+			saltFile >> this->bcrypt_salt;
+		}
+		else
+		{
+			// Generate a bcrypt-compatible salt if it hasn't been done yet
+			//
+			char generated_salt[64] = {0};
+			if (bcrypt_generatesalt(generated_salt) != 0)
+			{
+				throw std::runtime_error("Unable to generate salt for bcrypt!");
+			}
+
+			std::ofstream saltFileW("bcrypt_salt");
+			saltFileW << generated_salt;
+			saltFileW.close();
+
+			this->bcrypt_salt = std::string(generated_salt, 64);
+		}
+
+		saltFile.close();
+	}
 
 	Database::Engine engine;
 
@@ -1287,7 +1315,7 @@ Player *World::Login(std::string username)
 
 util::secure_string World::HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt)
 {
-	HashFunc passwordVersion = BCRYPT;
+	HashFunc passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
 
 	if (isLoginAttempt)
 	{
@@ -1310,10 +1338,21 @@ util::secure_string World::HashPassword(const std::string& username, util::secur
 		}
 	}
 
-	util::secure_string password_buffer(std::move(std::string(this->config["PasswordSalt"]) + username + password.str()));
+	std::string password_salt;
+	util::secure_string password_buffer = "";
+	if (passwordVersion == BCRYPT)
+	{
+		password_buffer = std::move(std::string(this->config["PasswordSalt"]) + username + password.str());
+		password_salt = this->bcrypt_salt;
+	}
+	else
+	{
+		password_buffer = std::move(username + password.str());
+		password_salt = this->config["PasswordSalt"];
+	}
 
 	PasswordHashFn passwordHashFunc = this->passwordVersionMap[passwordVersion];
-	password = passwordHashFunc(password_buffer.str());
+	password = passwordHashFunc(password_buffer.str(), password_salt);
 
 	if (passwordVersion < static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])))
 	{

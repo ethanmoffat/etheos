@@ -18,11 +18,16 @@ enum HashFunc
 /**
  * Convert a string to the hex representation of its sha256 hash
  */
-std::string sha256(const std::string&);
+std::string sha256(const std::string& input, const std::string& salt);
 
 /**
- * Convert a string to the hex representation of its bcrypt hash
+ * Generate a salt compatible with the bcrypt APIs
  */
-std::string bcrypt(const std::string&);
+int bcrypt_generatesalt(char * salt, int workfactor = 12);
+
+/**
+ * Convert a string to a bcrypt hash
+ */
+std::string bcrypt(const std::string& input, const std::string& salt);
 
 #endif // HASH_HPP_INCLUDED
