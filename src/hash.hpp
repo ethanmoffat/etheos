@@ -48,8 +48,11 @@ public:
  * Convert a string to a bcrypt hash
  */
 class BcryptHasher : public Hasher {
+private:
+    int _workload;
+
 public:
-    BcryptHasher() : Hasher(BCRYPT) { }
+    BcryptHasher(int workload) : Hasher(BCRYPT), _workload(workload) { }
 
     virtual std::string hash(const std::string& input) const override;
     virtual bool check(const std::string& toCheck, const std::string& hashed) const override;

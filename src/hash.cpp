@@ -37,7 +37,7 @@ bool Sha256Hasher::check(const std::string& toCheck, const std::string& hashed) 
 
 std::string BcryptHasher::hash(const std::string& input) const
 {
-	return BCrypt::generateHash(input);
+	return BCrypt::generateHash(input, _workload);
 }
 
 bool BcryptHasher::check(const std::string& toCheck, const std::string& hashed) const
