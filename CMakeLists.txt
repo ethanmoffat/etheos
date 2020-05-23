@@ -174,7 +174,11 @@ add_executable(eoserv_test
 	${TestFiles}
 )
 target_link_libraries(eoserv_test gtest_main)
-add_dependencies(eoserv_test eoserv-pch)
+
+if(EOSERV_USE_PRECOMPILED_HEADERS)
+	add_dependencies(eoserv_test eoserv-pch)
+endif()
+
 add_test(NAME eoserv_test COMMAND eoserv_test)
 
 set (CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
