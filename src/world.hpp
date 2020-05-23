@@ -76,13 +76,7 @@ struct Home
 class World
 {
 	private:
-		typedef std::string (*PasswordHashFn)(const std::string& input, const std::string& salt);
-		std::unordered_map<HashFunc, PasswordHashFn> passwordVersionMap;
-
-		std::string bcrypt_salt;
-		util::secure_string HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt);
-
-		friend class PasswordHashUpdater;
+		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
 		std::unique_ptr<PasswordHashUpdater> passwordHashUpdater;
 
 	protected:

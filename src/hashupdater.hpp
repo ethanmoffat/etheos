@@ -1,25 +1,29 @@
 #pragma once
 
 #include <condition_variable>
-#include <list>
+#include <queue>
 #include <string>
 #include <thread>
 
 #include "hash.hpp"
-#include "fwd/world.hpp"
+#include "fwd/database.hpp"
 #include "util/secure_string.hpp"
 
 class PasswordHashUpdater
 {
 public:
-    PasswordHashUpdater(World * world);
+    PasswordHashUpdater(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
     ~PasswordHashUpdater();
 
-    void QueueUpdatePassword(const std::string& username, const util::secure_string& password, HashFunc hashFunc);
-    void SignalUpdatePassword(const std::string& username);
+    void QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
 private:
-    World * world;
+    Config& _config;
+
+    // Maintain a separate database connection for the background thread
+    std::unique_ptr<Database> _database;
+
+    std::unordered_map<HashFunc, std::shared_ptr<Hasher>> _passwordHashers;
 
     volatile bool _terminating;
 
@@ -28,21 +32,15 @@ private:
         std::string username;
         util::secure_string password;
         HashFunc hashFunc;
-
-        UpdateState(const UpdateState& other);
-        UpdateState(const std::string& username, const util::secure_string& password, HashFunc hashFunc);
-        UpdateState& operator=(const UpdateState& rhs);
     };
 
-    std::thread updateThread;
+    std::thread _updateThread;
 
-    std::mutex updateMutex;
-    std::condition_variable updateSignal;
+    std::mutex _updateMutex;
+    std::condition_variable _updateSignal;
 
-    std::list<std::string> ready_names;
-
-    std::mutex updateQueueLock;
-    std::list<UpdateState> updateQueue;
+    std::mutex _updateQueueLock;
+    std::queue<UpdateState> _updateQueue;
 
     void updateThreadProc();
 };

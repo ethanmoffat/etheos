@@ -1,113 +1,100 @@
 #include "hashupdater.hpp"
+#include "util.hpp"
 #include "world.hpp"
 
-PasswordHashUpdater::PasswordHashUpdater(World * world)
-    : world(world)
+PasswordHashUpdater::PasswordHashUpdater(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
+    : _config(config)
+    , _passwordHashers(passwordHashers)
+    , _database(nullptr)
     , _terminating(false)
-    , updateThread([this] { this->updateThreadProc(); })
 {
+    this->_updateThread = std::thread([this] { this->updateThreadProc(); });
+
+    auto dbType = util::lowercase(std::string(config["DBType"]));
+
+    Database::Engine engine = Database::MySQL;
+    if (!dbType.compare("sqlite"))
+    {
+        engine = Database::SQLite;
+    }
+    else if (!dbType.compare("sqlserver"))
+    {
+        engine = Database::SqlServer;
+    }
+    else if (!dbType.compare("mysql"))
+    {
+        engine = Database::MySQL;
+    }
+
+    auto dbHost = std::string(config["DBHost"]);
+    auto dbUser = std::string(config["DBUser"]);
+    auto dbPass = std::string(config["DBPass"]);
+    auto dbName = std::string(config["DBName"]);
+    auto dbPort = int(config["DBPort"]);
+
+    this->_database.reset(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
 }
 
 PasswordHashUpdater::~PasswordHashUpdater()
 {
     this->_terminating = true;
 
-    this->updateSignal.notify_all();
-    this->updateThread.join();
+    this->_updateSignal.notify_all();
+    this->_updateThread.join();
 }
 
-void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, const util::secure_string& password, HashFunc hashFunc)
+void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
 {
-    UpdateState state(username, password, hashFunc);
+    UpdateState state { username, std::move(password), hashFunc };
 
-    std::lock_guard<std::mutex> queueGuard(this->updateQueueLock);
-    this->updateQueue.push_back(state);
-}
+    std::lock_guard<std::mutex> queueGuard(this->_updateQueueLock);
+    this->_updateQueue.push(std::move(state));
 
-void PasswordHashUpdater::SignalUpdatePassword(const std::string& username)
-{
-    {
-        std::lock_guard<std::mutex> queueGuard(this->updateQueueLock);
-        this->ready_names.push_back(username);
-    }
-
-    this->updateSignal.notify_one();
-}
-
-PasswordHashUpdater::UpdateState::UpdateState(const std::string& username, const util::secure_string& password, HashFunc hashFunc)
-    : username(username)
-    , password(std::move(password))
-    , hashFunc(hashFunc)
-{
-}
-
-PasswordHashUpdater::UpdateState::UpdateState(const PasswordHashUpdater::UpdateState& other)
-    : username(other.username)
-    , password(std::move(other.password))
-    , hashFunc(other.hashFunc)
-{
-}
-
-PasswordHashUpdater::UpdateState& PasswordHashUpdater::UpdateState::operator=(const PasswordHashUpdater::UpdateState& rhs)
-{
-    if (this != &rhs)
-    {
-        this->username = rhs.username;
-        this->password = rhs.password;
-        this->hashFunc = rhs.hashFunc;
-    }
-
-    return *this;
+    this->_updateSignal.notify_one();
 }
 
 void PasswordHashUpdater::updateThreadProc()
 {
     while (!this->_terminating)
     {
-        std::unique_lock<std::mutex> lock(this->updateMutex);
-        this->updateSignal.wait(lock);
+        std::unique_lock<std::mutex> lock(this->_updateMutex);
+        this->_updateSignal.wait(lock);
 
         if (this->_terminating)
         {
             break;
         }
 
-        std::list<UpdateState> updateStates;
+        std::string username;
+        util::secure_string updatedPassword = "";
+        HashFunc hashFunc = NONE;
 
         {
-            std::lock_guard<std::mutex> queueGuard(this->updateQueueLock);
+            std::lock_guard<std::mutex> queueGuard(this->_updateQueueLock);
 
-            if (this->updateQueue.empty())
+            if (this->_updateQueue.empty())
             {
-                this->ready_names.clear();
                 continue;
             }
 
-            for (const auto& readyName : this->ready_names)
-            {
-                auto updateStateIter = std::find_if(
-                    this->updateQueue.begin(),
-                    this->updateQueue.end(),
-                    [&readyName](UpdateState& s) { return s.username == readyName; });
+            UpdateState updateState = std::move(this->_updateQueue.front());
+            this->_updateQueue.pop();
 
-                if (updateStateIter != this->updateQueue.end())
-                {
-                    updateStates.push_back(*updateStateIter);
-                    this->updateQueue.erase(updateStateIter);
-                }
-            }
-
-            this->ready_names.clear();
+            username = updateState.username;
+            updatedPassword = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(updateState.password)));
+            hashFunc = updateState.hashFunc;
         }
 
-        for (auto& updateState : updateStates)
+        if (hashFunc == NONE)
         {
-            util::secure_string updatedPassword = std::move(this->world->HashPassword(updateState.username, std::move(updateState.password), false));
-
-            this->world->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
-                updatedPassword.str().c_str(),
-                updateState.username,
-                updateState.hashFunc);
+            continue;
         }
+
+        updatedPassword = std::move(this->_passwordHashers[hashFunc]->hash(std::move(updatedPassword.str())));
+
+        this->_database->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+            updatedPassword.str().c_str(),
+            hashFunc,
+            username.c_str());
     }
 }

@@ -385,37 +385,6 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	this->config = eoserv_config;
 	this->admin_config = admin_config;
 
-	this->passwordVersionMap[SHA256] = sha256;
-	this->passwordVersionMap[BCRYPT] = bcrypt;
-	this->passwordHashUpdater.reset(new PasswordHashUpdater(this));
-
-	if (static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])) == BCRYPT)
-	{
-		std::ifstream saltFile("bcrypt_salt");
-		if ((bool)(saltFile))
-		{
-			saltFile >> this->bcrypt_salt;
-		}
-		else
-		{
-			// Generate a bcrypt-compatible salt if it hasn't been done yet
-			//
-			char generated_salt[64] = {0};
-			if (bcrypt_generatesalt(generated_salt) != 0)
-			{
-				throw std::runtime_error("Unable to generate salt for bcrypt!");
-			}
-
-			std::ofstream saltFileW("bcrypt_salt");
-			saltFileW << generated_salt;
-			saltFileW.close();
-
-			this->bcrypt_salt = std::string(generated_salt, 64);
-		}
-
-		saltFile.close();
-	}
-
 	Database::Engine engine;
 
 	std::string dbdesc;
@@ -456,6 +425,10 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	Console::Out("Connecting to database (%s)...", dbdesc.c_str());
 	this->db.Connect(engine, dbinfo[1], util::to_int(dbinfo[5]), dbinfo[2], dbinfo[3], dbinfo[4]);
 	this->BeginDB();
+
+	this->passwordHashers[SHA256].reset(new Sha256Hasher());
+	this->passwordHashers[BCRYPT].reset(new BcryptHasher());
+	this->passwordHashUpdater.reset(new PasswordHashUpdater(this->config, this->passwordHashers));
 
 	try
 	{
@@ -1314,73 +1287,34 @@ Player *World::Login(std::string username)
 	return new Player(username, this);
 }
 
-util::secure_string World::HashPassword(const std::string& username, util::secure_string&& password, bool isLoginAttempt)
-{
-	HashFunc passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
-
-	if (isLoginAttempt)
-	{
-		Database_Result res = this->db.Query("SELECT `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
-
-		if (res.empty())
-		{
-			return std::move(util::secure_string(""));
-		}
-
-		try
-		{
-			passwordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
-		}
-		catch(...)
-		{
-			// Default to sha256 for login attempts
-			//
-			passwordVersion = SHA256;
-		}
-	}
-
-	std::string password_salt;
-	util::secure_string password_buffer = "";
-	if (passwordVersion == BCRYPT)
-	{
-		password_buffer = std::move(std::string(this->config["PasswordSalt"]) + username + password.str());
-		password_salt = this->bcrypt_salt;
-	}
-	else
-	{
-		password_buffer = std::move(username + password.str());
-		password_salt = this->config["PasswordSalt"];
-	}
-
-	PasswordHashFn passwordHashFunc = this->passwordVersionMap[passwordVersion];
-	std::string passwordSrc = passwordHashFunc(password_buffer.str(), password_salt);
-	std::string passwordCopy = passwordSrc;
-
-	if (passwordVersion < static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"])))
-	{
-		this->passwordHashUpdater->QueueUpdatePassword(username, util::secure_string(std::move(passwordCopy)), passwordVersion);
-	}
-
-	return util::secure_string(std::move(passwordSrc));
-}
-
 LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
 {
-	password = std::move(this->HashPassword(username, std::move(password), true));
-
-	if (password.str().length() == 0)
-	{
-		return LOGIN_WRONG_USERPASS;
-	}
-
-	Database_Result res = this->db.Query("SELECT 1 FROM `accounts` WHERE `username` = '$' AND `password` = '$'", username.c_str(), password.str().c_str());
-	this->passwordHashUpdater->SignalUpdatePassword(username);
+	Database_Result res = this->db.Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
 	if (res.empty())
 	{
 		return LOGIN_WRONG_USERPASS;
 	}
-	else if (this->PlayerOnline(username))
+
+	HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+	HashFunc currentPasswordVersion = static_cast<HashFunc>(this->config["PasswordCurrentVersion"].GetInt());
+	std::string dbPasswordHash = std::string(res[0]["password"]);
+
+	if (dbPasswordVersion < currentPasswordVersion)
+	{
+		// A copy is made of the password since the background thread needs to have separate ownership of it
+		//
+		util::secure_string passwordCopy(std::string(password.str()));
+		this->passwordHashUpdater->QueueUpdatePassword(username, std::move(passwordCopy), currentPasswordVersion);
+	}
+
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	if (!this->passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
+	{
+		return LOGIN_WRONG_USERPASS;
+	}
+
+	if (this->PlayerOnline(username))
 	{
 		return LOGIN_LOGGEDIN;
 	}
@@ -1392,21 +1326,23 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 
 void World::ChangePassword(const std::string& username, util::secure_string&& password)
 {
-	auto password_version = int(this->config["PasswordCurrentVersion"]);
-	password = std::move(this->HashPassword(username, std::move(password), false));
+	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
 
-	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), password_version, username.c_str());
+	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), int(passwordVersion), username.c_str());
 }
 
 bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
 	const std::string& fullname, const std::string& location, const std::string& email,
 	const std::string& computer, int hdid, const std::string& ip)
 {
-	auto password_version = int(this->config["PasswordCurrentVersion"]);
-	password = std::move(this->HashPassword(username, std::move(password), false));
+	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
 
 	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`) VALUES ('$','$','$','$','$','$',#,'$',#,#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), password_version);
+		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), int(passwordVersion));
 
 	return !res.Error();
 }
