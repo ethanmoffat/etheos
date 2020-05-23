@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS `accounts`
 (
 	`username`         VARCHAR(16) NOT NULL,
-	`password`         CHAR(64)    NOT NULL,
+	`password`         VARCHAR(64) NOT NULL,
 	`fullname`         VARCHAR(64) NOT NULL,
 	`location`         VARCHAR(64) NOT NULL,
 	`email`            VARCHAR(64) NOT NULL,

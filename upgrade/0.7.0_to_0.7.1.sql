@@ -1,2 +1,3 @@
 ALTER TABLE `accounts`
-    ADD COLUMN `password_version` INTEGER DEFAULT 1 NOT NULL
+    ALTER COLUMN `password` VARCHAR(64) NOT NULL,
+    ADD COLUMN `password_version` INTEGER DEFAULT 1 NOT NULL;
