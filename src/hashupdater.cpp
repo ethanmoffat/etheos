@@ -66,7 +66,7 @@ void PasswordHashUpdater::updateThreadProc()
         }
 
         std::string username;
-        util::secure_string updatedPassword = "";
+        util::secure_string updatedPassword("");
         HashFunc hashFunc = NONE;
 
         {
