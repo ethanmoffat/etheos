@@ -13,7 +13,7 @@ BEGIN
         [lastip]           VARCHAR(15)          DEFAULT NULL,
         [created]          INTEGER     NOT NULL,
         [lastused]         INTEGER              DEFAULT NULL,
-        [password_version] INTEGER     NOT NULL DEFAULT 1,
+        [password_version] INTEGER     NOT NULL DEFAULT 2,
 
         PRIMARY KEY ([username])
     )
