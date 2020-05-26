@@ -20,7 +20,7 @@ enum HashFunc
 class Hasher
 {
 public:
-    HashFunc hashFunc;
+    const HashFunc hashFunc;
 
     Hasher(HashFunc hashFunc) : hashFunc(hashFunc) { }
 
