@@ -15,6 +15,7 @@
 #include "../src/timer.cpp"
 #include "../src/util.cpp"
 #include "../src/util/rpn.cpp"
+#include "../src/util/semaphore.cpp"
 #include "../src/util/variant.cpp"
 
 #ifdef WIN32

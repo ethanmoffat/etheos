@@ -1,3 +1,9 @@
+
+/* $Id$
+ * EOSERV is released under the zlib license.
+ * See LICENSE.txt for more info.
+ */
+
 #pragma once
 
 #include <condition_variable>
@@ -8,6 +14,7 @@
 #include "hash.hpp"
 #include "fwd/database.hpp"
 #include "util/secure_string.hpp"
+#include "util/semaphore.hpp"
 
 class PasswordHashUpdater
 {
@@ -35,9 +42,7 @@ private:
     };
 
     std::thread _updateThread;
-
-    std::mutex _updateMutex;
-    std::condition_variable _updateSignal;
+    util::Semaphore _updateSem;
 
     std::mutex _updateQueueLock;
     std::queue<UpdateState> _updateQueue;

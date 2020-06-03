@@ -1,3 +1,9 @@
+
+/* $Id$
+ * EOSERV is released under the zlib license.
+ * See LICENSE.txt for more info.
+ */
+
 #include "hashupdater.hpp"
 #include "util.hpp"
 #include "world.hpp"
@@ -7,6 +13,7 @@ PasswordHashUpdater::PasswordHashUpdater(Config& config, const std::unordered_ma
     , _passwordHashers(passwordHashers)
     , _database(nullptr)
     , _terminating(false)
+    , _updateSem(0)
 {
     this->_updateThread = std::thread([this] { this->updateThreadProc(); });
 
@@ -39,7 +46,7 @@ PasswordHashUpdater::~PasswordHashUpdater()
 {
     this->_terminating = true;
 
-    this->_updateSignal.notify_all();
+    this->_updateSem.Release();
     this->_updateThread.join();
 }
 
@@ -50,15 +57,14 @@ void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util:
     std::lock_guard<std::mutex> queueGuard(this->_updateQueueLock);
     this->_updateQueue.push(std::move(state));
 
-    this->_updateSignal.notify_one();
+    this->_updateSem.Release();
 }
 
 void PasswordHashUpdater::updateThreadProc()
 {
     while (!this->_terminating)
     {
-        std::unique_lock<std::mutex> lock(this->_updateMutex);
-        this->_updateSignal.wait(lock);
+        this->_updateSem.Wait();
 
         if (this->_terminating)
         {

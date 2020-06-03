@@ -167,6 +167,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/rpn.cpp
 	src/util/rpn.hpp
 	src/util/secure_string.hpp
+	src/util/semaphore.cpp
+	src/util/semaphore.hpp
 	src/util/variant.cpp
 	src/util/variant.hpp
 	src/version.h
