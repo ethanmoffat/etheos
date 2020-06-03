@@ -21,7 +21,7 @@ public:
 
     void Wait();
 
-    template <class _Rep = __int64, class _Period = std::milli>
+    template <class _Rep = long long, class _Period = std::milli>
     bool Wait(std::chrono::duration<_Rep, _Period> timeout);
 
     void Release(size_t count = 1);
