@@ -28,7 +28,6 @@
 #include "handlers/handlers.hpp"
 
 #include "console.hpp"
-#include "hash.hpp"
 #include "util.hpp"
 #include "util/secure_string.hpp"
 
@@ -36,6 +35,7 @@
 #include <array>
 #include <cmath>
 #include <ctime>
+#include <fstream>
 #include <limits>
 #include <list>
 #include <memory>
@@ -425,6 +425,10 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	Console::Out("Connecting to database (%s)...", dbdesc.c_str());
 	this->db.Connect(engine, dbinfo[1], util::to_int(dbinfo[5]), dbinfo[2], dbinfo[3], dbinfo[4]);
 	this->BeginDB();
+
+	this->passwordHashers[SHA256].reset(new Sha256Hasher());
+	this->passwordHashers[BCRYPT].reset(new BcryptHasher(int(this->config["BcryptWorkload"])));
+	this->passwordHashUpdater.reset(new PasswordHashUpdater(this->config, this->passwordHashers));
 
 	try
 	{
@@ -1285,18 +1289,32 @@ Player *World::Login(std::string username)
 
 LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
 {
-	{
-		util::secure_string password_buffer(std::move(std::string(this->config["PasswordSalt"]) + username + password.str()));
-		password = sha256(password_buffer.str());
-	}
-
-	Database_Result res = this->db.Query("SELECT 1 FROM `accounts` WHERE `username` = '$' AND `password` = '$'", username.c_str(), password.str().c_str());
+	Database_Result res = this->db.Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
 	if (res.empty())
 	{
 		return LOGIN_WRONG_USERPASS;
 	}
-	else if (this->PlayerOnline(username))
+
+	HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+	HashFunc currentPasswordVersion = static_cast<HashFunc>(this->config["PasswordCurrentVersion"].GetInt());
+	std::string dbPasswordHash = std::string(res[0]["password"]);
+
+	if (dbPasswordVersion < currentPasswordVersion)
+	{
+		// A copy is made of the password since the background thread needs to have separate ownership of it
+		//
+		util::secure_string passwordCopy(std::string(password.str()));
+		this->passwordHashUpdater->QueueUpdatePassword(username, std::move(passwordCopy), currentPasswordVersion);
+	}
+
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	if (!this->passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
+	{
+		return LOGIN_WRONG_USERPASS;
+	}
+
+	if (this->PlayerOnline(username))
 	{
 		return LOGIN_LOGGEDIN;
 	}
@@ -1306,19 +1324,27 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 	}
 }
 
+void World::ChangePassword(const std::string& username, util::secure_string&& password)
+{
+	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
+
+	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), int(passwordVersion), username.c_str());
+}
+
 bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
 	const std::string& fullname, const std::string& location, const std::string& email,
 	const std::string& computer, int hdid, const std::string& ip)
 {
-	{
-		util::secure_string password_buffer(std::move(std::string(this->config["PasswordSalt"]) + username + password.str()));
-		password = sha256(password_buffer.str());
-	}
+	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
+	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
+	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
 
-	Database_Result result = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`) VALUES ('$','$','$','$','$','$',#,'$',#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)));
+	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`) VALUES ('$','$','$','$','$','$',#,'$',#,#)",
+		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), int(passwordVersion));
 
-	return !result.Error();
+	return !res.Error();
 }
 
 bool World::PlayerExists(std::string username)

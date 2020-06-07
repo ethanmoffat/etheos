@@ -22,7 +22,9 @@
 #include "config.hpp"
 #include "database.hpp"
 #include "i18n.hpp"
+#include "hash.hpp"
 #include "map.hpp"
+#include "hashupdater.hpp"
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"
@@ -73,6 +75,10 @@ struct Home
  */
 class World
 {
+	private:
+		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
+		std::unique_ptr<PasswordHashUpdater> passwordHashUpdater;
+
 	protected:
 		int last_character_id;
 
@@ -176,6 +182,7 @@ class World
 		Player *Login(const std::string& username, util::secure_string&& password);
 		Player *Login(std::string username);
 		LoginReply LoginCheck(const std::string& username, util::secure_string&& password);
+		void ChangePassword(const std::string& username, util::secure_string&& password);
 
 		bool CreatePlayer(const std::string& username, util::secure_string&& password,
 			const std::string& fullname,const std::string& location, const std::string& email,

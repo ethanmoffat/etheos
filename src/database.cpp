@@ -184,6 +184,7 @@ Database::Database()
 { }
 
 Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
+	: impl(new impl_)
 {
 	this->connected = false;
 
@@ -359,6 +360,16 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 					HandleSqlServerError(SQL_HANDLE_STMT, this->impl->hstmt, ret, Console::Err);
 				this->connected = false;
 				throw Database_OpenFailed("Unable to allocate ODBC statement handle");
+			}
+
+			// Set transaction isolation level so that reads from other connections aren't blocked
+			// EOSERV operates in a pattern where transactions are always open (committed periodically)
+			// Default isolation level in SQL Server is `READ COMMITTED`
+			//
+			Database_Result res = this->Query("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED");
+			if (res.error)
+			{
+				throw Database_OpenFailed("Unable to set transaction isolation level for SQL Server!");
 			}
 
 			break;
@@ -789,7 +800,7 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 		}
 	}
 
-	return std::move(QueryParameterPair(finalquery, parameters));
+	return QueryParameterPair(finalquery, parameters);
 }
 
 Database_Result Database::Query(const char *format, ...)
@@ -801,7 +812,7 @@ Database_Result Database::Query(const char *format, ...)
 
 	std::va_list ap;
 	va_start(ap, format);
-	QueryParameterPair queryState = this->ParseQueryArgs(format, ap);
+	QueryParameterPair queryState = std::move(this->ParseQueryArgs(format, ap));
 	va_end(ap);
 
 	std::string& finalquery = queryState.first;
@@ -944,9 +955,8 @@ void Database::ExecuteFile(const std::string& filename)
 	queries.push_back(query);
 	query.erase();
 
-	std::remove_if(UTIL_RANGE(queries), [&](const std::string& s) { return util::trim(s).length() == 0; });
-
-	this->ExecuteQueries(UTIL_RANGE(queries));
+	auto queriesEnd = std::remove_if(UTIL_RANGE(queries), [&](const std::string& s) { return util::trim(s).length() == 0; });
+	this->ExecuteQueries(queries.begin(), queriesEnd);
 }
 
 bool Database::Pending() const

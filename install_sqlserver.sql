@@ -2,17 +2,18 @@ IF OBJECT_ID(N'accounts', 'U') is null
 BEGIN
     CREATE TABLE [accounts]
     (
-        [username]   VARCHAR(16) NOT NULL,
-        [password]   CHAR(64)    NOT NULL,
-        [fullname]   VARCHAR(64) NOT NULL,
-        [location]   VARCHAR(64) NOT NULL,
-        [email]      VARCHAR(64) NOT NULL,
-        [computer]   VARCHAR(64) NOT NULL,
-        [hdid]       INTEGER     NOT NULL,
-        [regip]      VARCHAR(15) NOT NULL,
-        [lastip]     VARCHAR(15)          DEFAULT NULL,
-        [created]    INTEGER     NOT NULL,
-        [lastused]   INTEGER              DEFAULT NULL,
+        [username]         VARCHAR(16) NOT NULL,
+        [password]         VARCHAR(64) NOT NULL,
+        [fullname]         VARCHAR(64) NOT NULL,
+        [location]         VARCHAR(64) NOT NULL,
+        [email]            VARCHAR(64) NOT NULL,
+        [computer]         VARCHAR(64) NOT NULL,
+        [hdid]             INTEGER     NOT NULL,
+        [regip]            VARCHAR(15) NOT NULL,
+        [lastip]           VARCHAR(15)          DEFAULT NULL,
+        [created]          INTEGER     NOT NULL,
+        [lastused]         INTEGER              DEFAULT NULL,
+        [password_version] INTEGER     NOT NULL DEFAULT 2,
 
         PRIMARY KEY ([username])
     )
