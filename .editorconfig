@@ -1,0 +1,7 @@
+# Root EditorConfig File
+root = true
+
+# C/C++ Settings
+[*.{c,cpp,h,hpp}]
+indent_style = space
+indent_size = 2
