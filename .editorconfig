@@ -1,7 +1,13 @@
-# Root EditorConfig File
 root = true
 
-# C/C++ Settings
-[*.{c,cpp,h,hpp}]
+# Default Settings
+[*]
 indent_style = space
 indent_size = 2
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Override Defaults
+[*.json]
+indent_size = 4
