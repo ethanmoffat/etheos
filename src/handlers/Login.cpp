@@ -55,7 +55,6 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		{
 			reply.SetID(PACKET_LOGIN, PACKET_REPLY);
 			reply.AddShort(LOGIN_ACCOUNT_BANNED);
-			client->Send(reply);
 		}
 
 		client->Send(reply);
