@@ -169,6 +169,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/secure_string.hpp
 	src/util/semaphore.cpp
 	src/util/semaphore.hpp
+	src/util/threadpool.cpp
+	src/util/threadpool.hpp
 	src/util/variant.cpp
 	src/util/variant.hpp
 	src/version.h

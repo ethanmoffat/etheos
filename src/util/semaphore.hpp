@@ -26,6 +26,8 @@ public:
 
     void Release(size_t count = 1);
 
+    size_t Count() const { return this->_count; }
+
 private:
     size_t _count;
     std::condition_variable _event;
