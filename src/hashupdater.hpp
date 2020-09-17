@@ -10,8 +10,10 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 #include "hash.hpp"
+#include "fwd/config.hpp"
 #include "fwd/database.hpp"
 #include "util/secure_string.hpp"
 #include "util/semaphore.hpp"
