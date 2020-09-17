@@ -33,8 +33,22 @@ bool Semaphore::Wait(std::chrono::duration<_Rep, _Period> timeout)
 void Semaphore::Release(size_t count)
 {
     std::unique_lock<std::mutex> lock(this->_mut);
-    this->_count += count;
+
+    this->_count = this->_count + count >= this->_maxCount
+        ? this->_maxCount
+        : this->_count + count;
+
     this->_event.notify_one();
+}
+
+void Semaphore::Reset(size_t count, size_t maxCount)
+{
+    std::unique_lock<std::mutex> lock(this->_mut);
+
+    this->_event.notify_all();
+
+    this->_count = count;
+    this->_maxCount = maxCount;
 }
 
 }
