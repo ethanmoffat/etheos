@@ -8,21 +8,22 @@
 
 namespace util
 {
+    // There should really only be a single thread pool per application
     static ThreadPool threadPoolInstance;
 
     void ThreadPool::Queue(const WorkFunc workerFunction, const void* state)
     {
-        threadPoolInstance.QueueWork(workerFunction, state);
+        threadPoolInstance.queueInternal(workerFunction, state);
     }
 
-    size_t ThreadPool::Workers()
+    size_t ThreadPool::GetAvailableWorkers()
     {
-        return threadPoolInstance.AvailableWorkers();
+        return threadPoolInstance.getAvailableWorkersInternal();
     }
 
     void ThreadPool::SetNumThreads(size_t numThreads)
     {
-        threadPoolInstance.SetNumWorkers(numThreads);
+        threadPoolInstance.setNumThreadsInternal(numThreads);
     }
 
     ThreadPool::ThreadPool(size_t numThreads)
@@ -31,7 +32,7 @@ namespace util
     {
         for (size_t i = 0; i < numThreads; i++)
         {
-            auto newThread = std::thread([this]() { this->_worker(); });
+            auto newThread = std::thread([this]() { this->_workerProc(); });
             this->_threads.push_back(std::move(newThread));
         }
     }
@@ -47,7 +48,7 @@ namespace util
         }
     }
 
-    void ThreadPool::QueueWork(const ThreadPool::WorkFunc workerFunction, const void* state)
+    void ThreadPool::queueInternal(const ThreadPool::WorkFunc workerFunction, const void* state)
     {
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
@@ -57,14 +58,14 @@ namespace util
         this->_workReadySemaphore.Release();
     }
 
-    void ThreadPool::SetNumWorkers(size_t numWorkers)
+    void ThreadPool::setNumThreadsInternal(size_t numWorkers)
     {
-        if (numWorkers == this->AvailableWorkers())
+        if (numWorkers == this->getAvailableWorkersInternal())
             return;
 
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
-        if (numWorkers < this->AvailableWorkers())
+        if (numWorkers < this->getAvailableWorkersInternal())
         {
             while (!this->_work.empty())
                 this->_work.pop();
@@ -83,12 +84,12 @@ namespace util
 
         for (size_t i = this->_threads.size(); i < numWorkers; ++i)
         {
-            auto newThread = std::thread([this]() { this->_worker(); });
+            auto newThread = std::thread([this]() { this->_workerProc(); });
             this->_threads.push_back(std::move(newThread));
         }
     }
 
-    void ThreadPool::_worker()
+    void ThreadPool::_workerProc()
     {
         while (!this->_terminating)
         {

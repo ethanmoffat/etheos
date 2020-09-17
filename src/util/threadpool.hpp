@@ -22,7 +22,7 @@ namespace util
         typedef void(*WorkFunc)(const void*);
 
         static void Queue(const WorkFunc workerFunction, const void* state);
-        static size_t Workers();
+        static size_t GetAvailableWorkers();
         static void SetNumThreads(size_t numThreads);
 
     public:
@@ -34,11 +34,11 @@ namespace util
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
 
-        void QueueWork(const WorkFunc workerFunction, const void* state);
-        size_t AvailableWorkers() const { return this->_workReadySemaphore.Count(); }
-        void SetNumWorkers(size_t numWorkers);
+        void queueInternal(const WorkFunc workerFunction, const void* state);
+        size_t getAvailableWorkersInternal() const { return this->_workReadySemaphore.Count(); }
+        void setNumThreadsInternal(size_t numWorkers);
 
-        void _worker();
+        void _workerProc();
 
         volatile bool _terminating;
 
