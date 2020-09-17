@@ -7,6 +7,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <queue>
 #include <thread>
@@ -19,22 +20,24 @@ namespace util
     class ThreadPool
     {
     public:
-        typedef void(*WorkFunc)(const void*);
+        typedef std::function<void(const void*)> WorkFunc;
 
-        static void Queue(const WorkFunc workerFunction, const void* state);
+        static void Queue(const WorkFunc workerFunction, const void * state);
         static size_t GetAvailableWorkers();
         static void SetNumThreads(size_t numThreads);
 
     public:
-        ThreadPool(size_t numThreads = std::thread::hardware_concurrency());
+        ThreadPool(size_t numThreads = 4);
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
 
     private:
+        static constexpr size_t MAX_THREADS = 32;
+
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
 
-        void queueInternal(const WorkFunc workerFunction, const void* state);
+        void queueInternal(const WorkFunc workerFunction, const void * state);
         size_t getAvailableWorkersInternal() const { return this->_workReadySemaphore.Count(); }
         void setNumThreadsInternal(size_t numWorkers);
 

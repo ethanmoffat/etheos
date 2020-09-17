@@ -316,12 +316,14 @@ int eoserv_main(int argc, char *argv[])
 			}
 		}
 
-		if (static_cast<int>(config["ThreadPoolThreads"]) > 0)
+		if (static_cast<int>(config["ThreadPoolThreads"]) <= 0)
 		{
-			size_t threadPoolThreads = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
-			Console::Out("Setting number of threadpool threads to %d", threadPoolThreads);
-			util::ThreadPool::SetNumThreads(threadPoolThreads);
+			config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
 		}
+
+		size_t threadPoolThreads = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
+		Console::Out("Setting number of threadpool threads to %d", threadPoolThreads);
+		util::ThreadPool::SetNumThreads(threadPoolThreads);
 
 		std::array<std::string, 6> dbinfo;
 		dbinfo[0] = std::string(config["DBType"]);
