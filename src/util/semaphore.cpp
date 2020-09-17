@@ -34,11 +34,13 @@ void Semaphore::Release(size_t count)
 {
     std::unique_lock<std::mutex> lock(this->_mut);
 
+    auto oldCount = this->_count;
     this->_count = this->_count + count >= this->_maxCount
         ? this->_maxCount
         : this->_count + count;
 
-    this->_event.notify_one();
+    for (size_t i = oldCount; i < this->_count; ++i)
+        this->_event.notify_one();
 }
 
 void Semaphore::Reset(size_t count, size_t maxCount)
