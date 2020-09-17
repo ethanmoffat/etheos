@@ -173,6 +173,7 @@ add_executable(eoserv
 add_executable(eoserv_test
 	${TestFiles}
 )
+target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(eoserv_test gtest_main)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)

@@ -45,8 +45,18 @@ void Login_Request(EOClient *client, PacketReader &reader)
 	if (client->server()->world->CheckBan(&username, 0, 0) != -1)
 	{
 		PacketBuilder reply(PACKET_F_INIT, PACKET_A_INIT, 2);
-		reply.AddByte(INIT_BANNED);
-		reply.AddByte(INIT_BAN_PERM);
+
+		if (static_cast<bool>(client->server()->world->config["InitLoginBan"]))
+		{
+			reply.AddByte(INIT_BANNED);
+			reply.AddByte(INIT_BAN_PERM);
+		}
+		else
+		{
+			reply.SetID(PACKET_LOGIN, PACKET_REPLY);
+			reply.AddShort(LOGIN_ACCOUNT_BANNED);
+		}
+
 		client->Send(reply);
 		client->Close();
 		return;

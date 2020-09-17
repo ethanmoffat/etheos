@@ -1,15 +1,16 @@
 #include <gtest/gtest.h>
+#include "config.hpp"
 
-#include "../config.hpp"
-
-GTEST_TEST(ConfigTests, TestTest)
+GTEST_TEST(ConfigTests, SampleTestPasses)
 {
     Config config;
     ASSERT_TRUE(true);
 }
 
-GTEST_TEST(ConfigTests, TestTest2)
+GTEST_TEST(ConfigTests, SampleTestFails)
 {
+    GTEST_SKIP();
+
     Config config;
     ASSERT_TRUE(false);
 }
