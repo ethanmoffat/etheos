@@ -23,9 +23,10 @@ namespace util
 
         static void Queue(const WorkFunc workerFunction, const void* state);
         static size_t Workers();
+        static void SetNumThreads(size_t numThreads);
 
     public:
-        ThreadPool(size_t numThreads = 0);
+        ThreadPool(size_t numThreads = std::thread::hardware_concurrency());
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
@@ -35,6 +36,7 @@ namespace util
 
         void QueueWork(const WorkFunc workerFunction, const void* state);
         size_t AvailableWorkers() const { return this->_workReadySemaphore.Count(); }
+        void SetNumWorkers(size_t numWorkers);
 
         void _worker();
 

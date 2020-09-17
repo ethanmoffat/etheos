@@ -26,6 +26,8 @@
 #include "platform.h"
 #include "version.h"
 
+#include "util/threadpool.hpp"
+
 #ifdef WIN32
 #include "eoserv_windows.h"
 #include "extra/ntservice.hpp"
@@ -312,6 +314,13 @@ int eoserv_main(int argc, char *argv[])
 					Console::Wrn("Failed to change stdout buffer settings");
 				}
 			}
+		}
+
+		if (static_cast<int>(config["ThreadPoolThreads"]) > 0)
+		{
+			size_t threadPoolThreads = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
+			Console::Out("Setting number of threadpool threads to %d", threadPoolThreads);
+			util::ThreadPool::SetNumThreads(threadPoolThreads);
 		}
 
 		std::array<std::string, 6> dbinfo;
