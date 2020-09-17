@@ -22,8 +22,10 @@ namespace util
     public:
         typedef std::function<void(const void*)> WorkFunc;
 
+        // Queue work on the thread pool. Memory allocated and passed to 'state' must be freed by the caller.
         static void Queue(const WorkFunc workerFunction, const void * state);
-        static size_t GetAvailableWorkers();
+
+        // Set the number of threads in the thread pool. Any queued work will be removed. In-progress work will be allowed to complete.
         static void SetNumThreads(size_t numThreads);
 
     public:
@@ -38,7 +40,6 @@ namespace util
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
 
         void queueInternal(const WorkFunc workerFunction, const void * state);
-        size_t getAvailableWorkersInternal() const { return this->_workReadySemaphore.Count(); }
         void setNumThreadsInternal(size_t numWorkers);
 
         void _workerProc();

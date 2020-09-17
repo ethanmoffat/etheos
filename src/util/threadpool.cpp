@@ -16,11 +16,6 @@ namespace util
         threadPoolInstance.queueInternal(workerFunction, state);
     }
 
-    size_t ThreadPool::GetAvailableWorkers()
-    {
-        return threadPoolInstance.getAvailableWorkersInternal();
-    }
-
     void ThreadPool::SetNumThreads(size_t numThreads)
     {
         threadPoolInstance.setNumThreadsInternal(numThreads);
