@@ -24,7 +24,7 @@
 #include "i18n.hpp"
 #include "hash.hpp"
 #include "map.hpp"
-#include "hashupdater.hpp"
+#include "loginmanager.hpp"
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"

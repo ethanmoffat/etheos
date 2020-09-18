@@ -4,7 +4,7 @@
  * See LICENSE.txt for more info.
  */
 
-#include "hashupdater.hpp"
+#include "loginmanager.hpp"
 #include "util/threadpool.hpp"
 #include "world.hpp"
 
