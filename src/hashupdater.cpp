@@ -11,31 +11,7 @@
 PasswordHashUpdater::PasswordHashUpdater(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
     : _config(config)
     , _passwordHashers(passwordHashers)
-    , _database(nullptr)
 {
-    auto dbType = util::lowercase(std::string(config["DBType"]));
-
-    Database::Engine engine = Database::MySQL;
-    if (!dbType.compare("sqlite"))
-    {
-        engine = Database::SQLite;
-    }
-    else if (!dbType.compare("sqlserver"))
-    {
-        engine = Database::SqlServer;
-    }
-    else if (!dbType.compare("mysql"))
-    {
-        engine = Database::MySQL;
-    }
-
-    auto dbHost = std::string(config["DBHost"]);
-    auto dbUser = std::string(config["DBUser"]);
-    auto dbPass = std::string(config["DBPass"]);
-    auto dbName = std::string(config["DBName"]);
-    auto dbPort = int(config["DBPort"]);
-
-    this->_database.reset(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
 }
 
 void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
@@ -55,7 +31,7 @@ void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util:
 
         updatedPassword = std::move(this->_passwordHashers[hashFunc]->hash(std::move(updatedPassword.str())));
 
-        this->_database->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+        this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
             updatedPassword.str().c_str(),
             hashFunc,
             username.c_str());
@@ -65,4 +41,31 @@ void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util:
 
     auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), hashFunc });
     util::ThreadPool::Queue(updateThreadProc, state);
+}
+
+std::unique_ptr<Database> PasswordHashUpdater::CreateDbConnection()
+{
+    auto dbType = util::lowercase(std::string(this->_config["DBType"]));
+
+    Database::Engine engine = Database::MySQL;
+    if (!dbType.compare("sqlite"))
+    {
+        engine = Database::SQLite;
+    }
+    else if (!dbType.compare("sqlserver"))
+    {
+        engine = Database::SqlServer;
+    }
+    else if (!dbType.compare("mysql"))
+    {
+        engine = Database::MySQL;
+    }
+
+    auto dbHost = std::string(this->_config["DBHost"]);
+    auto dbUser = std::string(this->_config["DBUser"]);
+    auto dbPass = std::string(this->_config["DBPass"]);
+    auto dbName = std::string(this->_config["DBName"]);
+    auto dbPort = int(this->_config["DBPort"]);
+
+    return std::move(std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
 }

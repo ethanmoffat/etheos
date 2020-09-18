@@ -26,10 +26,11 @@ public:
     void QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
 private:
-    Config& _config;
+    // Factory function for creating a database connection on-demand in background threads
+    //   based on values in _config
+    std::unique_ptr<Database> CreateDbConnection();
 
-    // Maintain a separate database connection for the background thread
-    std::unique_ptr<Database> _database;
+    Config& _config;
     std::unordered_map<HashFunc, std::shared_ptr<Hasher>> _passwordHashers;
 
     struct UpdateState
