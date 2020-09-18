@@ -428,7 +428,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 
 	this->passwordHashers[SHA256].reset(new Sha256Hasher());
 	this->passwordHashers[BCRYPT].reset(new BcryptHasher(int(this->config["BcryptWorkload"])));
-	this->passwordHashUpdater.reset(new PasswordHashUpdater(this->config, this->passwordHashers));
+	this->passwordHashUpdater.reset(new LoginManager(this->config, this->passwordHashers));
 
 	try
 	{

@@ -8,22 +8,22 @@
 #include "util/threadpool.hpp"
 #include "world.hpp"
 
-PasswordHashUpdater::PasswordHashUpdater(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
+LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
     : _config(config)
     , _passwordHashers(passwordHashers)
 {
 }
 
-void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+void LoginManager::QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
 {
     auto updateThreadProc = [this](const void * state)
     {
-        auto updateState = reinterpret_cast<const PasswordHashUpdater::UpdateState*>(state);
+        auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
 
         auto username = updateState->username;
         auto updatedPassword = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]),
                                                               username,
-                                                              std::move(const_cast<PasswordHashUpdater::UpdateState*>(updateState)->password)));
+                                                              std::move(const_cast<LoginManager::UpdateState*>(updateState)->password)));
         auto hashFunc = updateState->hashFunc;
 
         if (hashFunc == NONE)
@@ -43,7 +43,7 @@ void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util:
     util::ThreadPool::Queue(updateThreadProc, state);
 }
 
-std::unique_ptr<Database> PasswordHashUpdater::CreateDbConnection()
+std::unique_ptr<Database> LoginManager::CreateDbConnection()
 {
     auto dbType = util::lowercase(std::string(this->_config["DBType"]));
 

@@ -77,7 +77,7 @@ class World
 {
 	private:
 		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
-		std::unique_ptr<PasswordHashUpdater> passwordHashUpdater;
+		std::unique_ptr<LoginManager> passwordHashUpdater;
 
 	protected:
 		int last_character_id;

@@ -18,10 +18,10 @@
 #include "util/secure_string.hpp"
 #include "util/semaphore.hpp"
 
-class PasswordHashUpdater
+class LoginManager
 {
 public:
-    PasswordHashUpdater(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
+    LoginManager(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
 
     void QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
