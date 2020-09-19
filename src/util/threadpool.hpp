@@ -34,9 +34,8 @@ namespace util
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
 
-    private:
         static constexpr size_t MAX_THREADS = 32;
-
+    private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
 
         void queueInternal(const WorkFunc workerFunction, const void * state);

@@ -318,7 +318,13 @@ int eoserv_main(int argc, char *argv[])
 
 		if (static_cast<int>(config["ThreadPoolThreads"]) <= 0)
 		{
+			Console::Wrn("Overriding user-defined threadpool threads with %d", std::thread::hardware_concurrency());
 			config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
+		}
+		else if (static_cast<int>(config["ThreadPoolThreads"]) > util::ThreadPool::MAX_THREADS)
+		{
+			Console::Wrn("Overriding user-defined threadpool threads with %d", util::ThreadPool::MAX_THREADS);
+			config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::MAX_THREADS);
 		}
 
 		size_t threadPoolThreads = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
