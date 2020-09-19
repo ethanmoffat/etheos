@@ -124,12 +124,25 @@ void Account_Create(EOClient *client, PacketReader &reader)
 			succeededReply.AddShort(ACCOUNT_CREATED);
 			succeededReply.AddString("OK");
 
-			// TODO: there are potential implications for thread safety of Send (and other client methods)
-			client->Send(succeededReply);
+			// The client may disconnect if the password generation takes too long
+			if (client->Connected())
+			{
+				// TODO: there are potential implications for thread safety of Send (and other client methods)
+				client->Send(succeededReply);
+			}
+
+			// allow client object to be cleaned up in Server::BuryTheDead()
+			client->AsyncOpPending(false);
 
 			Console::Out("New account: %s", username.c_str());
 		};
 
+		if (client->IsAsyncOpPending())
+		{
+			throw std::runtime_error("Client attempted to do something asynchronously but is already running an async operation");
+		}
+
+		client->AsyncOpPending(true);
 		client->server()->world->CreatePlayer(std::move(accountInfo), onSuccess);
 	}
 }
@@ -137,21 +150,22 @@ void Account_Create(EOClient *client, PacketReader &reader)
 // Change password
 void Account_Agree(Player *player, PacketReader &reader)
 {
-	std::string username = reader.GetBreakString();
-	util::secure_string oldpassword(std::move(reader.GetBreakString()));
-	util::secure_string newpassword(std::move(reader.GetBreakString()));
+	PasswordChangeInfo passwordChangeInfo;;
+	passwordChangeInfo.username = reader.GetBreakString();
+	passwordChangeInfo.oldpassword = std::move(reader.GetBreakString());
+	passwordChangeInfo.newpassword = std::move(reader.GetBreakString());
 
-	if (username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
-	 || username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
-	 || oldpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
-	 || oldpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"]))
-	 || newpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
-	 || newpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"])))
+	if (passwordChangeInfo.username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
+	 || passwordChangeInfo.username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
+	 || passwordChangeInfo.oldpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
+	 || passwordChangeInfo.oldpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"]))
+	 || passwordChangeInfo.newpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
+	 || passwordChangeInfo.newpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"])))
 	{
 		return;
 	}
 
-	if (!Player::ValidName(username))
+	if (!Player::ValidName(passwordChangeInfo.username))
 	{
 		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
 		reply.AddShort(ACCOUNT_NOT_APPROVED);
@@ -159,37 +173,58 @@ void Account_Agree(Player *player, PacketReader &reader)
 		player->Send(reply);
 		return;
 	}
-	else if (!player->world->PlayerExists(username))
+	else if (!player->world->PlayerExists(passwordChangeInfo.username))
 	{
 		return;
 	}
 
 	if (player->world->config["SeoseCompat"])
-		oldpassword = std::move(seose_str_hash(oldpassword.str(), player->world->config["SeoseCompatKey"]));
-
-	if (player->world->config["SeoseCompat"])
-		newpassword = std::move(seose_str_hash(newpassword.str(), player->world->config["SeoseCompatKey"]));
-
 	{
-		std::unique_ptr<Player> changepass(player->world->Login(username, std::move(oldpassword)));
-
-		if (!changepass)
-		{
-			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-			reply.AddShort(ACCOUNT_CHANGE_FAILED);
-			reply.AddString("NO");
-			player->Send(reply);
-			return;
-		}
-
-		changepass->ChangePass(std::move(newpassword));
+		passwordChangeInfo.oldpassword = std::move(seose_str_hash(passwordChangeInfo.oldpassword.str(), player->world->config["SeoseCompatKey"]));
+		passwordChangeInfo.newpassword = std::move(seose_str_hash(passwordChangeInfo.newpassword.str(), player->world->config["SeoseCompatKey"]));
 	}
 
-	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-	reply.AddShort(ACCOUNT_CHANGED);
-	reply.AddString("OK");
+	auto client = player->client;
 
-	player->Send(reply);
+	auto onSuccess = [client]()
+	{
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGED);
+		reply.AddString("OK");
+
+		// The client may disconnect if the password generation takes too long
+		if (client->Connected())
+		{
+			client->Send(reply);
+		}
+
+		// allow client object to be cleaned up in Server::BuryTheDead()
+		client->AsyncOpPending(false);
+	};
+
+	auto onFailure = [client]()
+	{
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGE_FAILED);
+		reply.AddString("NO");
+
+		// The client may disconnect if the password generation takes too long
+		if (client->Connected())
+		{
+			client->Send(reply);
+		}
+
+		// allow client object to be cleaned up in Server::BuryTheDead()
+		client->AsyncOpPending(false);
+	};
+
+	if (client->IsAsyncOpPending())
+	{
+		throw std::runtime_error("Client attempted to do something asynchronously but is already running an async operation");
+	}
+
+	client->AsyncOpPending(true);
+	player->world->ChangePassword(std::move(passwordChangeInfo), onSuccess, onFailure);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)

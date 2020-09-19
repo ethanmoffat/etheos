@@ -36,6 +36,16 @@ struct AccountCreateInfo
 		: hdid(0), password("") { }
 };
 
+struct PasswordChangeInfo
+{
+	std::string username;
+	util::secure_string oldpassword;
+	util::secure_string newpassword;
+
+	PasswordChangeInfo()
+		: oldpassword(""), newpassword("") { }
+};
+
 /**
  * Object representing a player, but not a character
  */
@@ -56,7 +66,6 @@ class Player
 
 		static bool ValidName(std::string username);
 		bool AddCharacter(std::string name, Gender gender, int hairstyle, int haircolor, Skin race);
-		void ChangePass(util::secure_string&& password);
 
 		AdminLevel Admin() const;
 

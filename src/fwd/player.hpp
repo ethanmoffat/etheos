@@ -8,6 +8,7 @@
 #define FWD_PLAYER_HPP_INCLUDED
 
 struct AccountCreateInfo;
+struct PasswordChangeInfo;
 
 class Player;
 

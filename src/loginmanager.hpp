@@ -25,12 +25,12 @@ class LoginManager
 public:
     LoginManager(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
 
-    void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
-
-    LoginReply CheckLogin(const std::string& username, util::secure_string&& password);
-
+    bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
-    void UpdatePasswordVersion(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
+
+    void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
+    void SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
+    void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
 private:
     // Factory function for creating a database connection on-demand in background threads

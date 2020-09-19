@@ -179,10 +179,9 @@ class World
 		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
 		void DeleteCharacter(std::string name);
 
-		Player *Login(const std::string& username, util::secure_string&& password);
 		Player *Login(std::string username);
 		LoginReply LoginCheck(const std::string& username, util::secure_string&& password);
-		void ChangePassword(const std::string& username, util::secure_string&& password);
+		void ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successAction, std::function<void(void)> failureAction);
 
 		void CreatePlayer(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
 

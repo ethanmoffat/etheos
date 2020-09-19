@@ -18,7 +18,36 @@ LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, st
 {
 }
 
-void LoginManager::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
+bool LoginManager::CheckLogin(const std::string& username, util::secure_string&& password)
+{
+    auto res = this->CreateDbConnection()->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
+
+    if (res.empty())
+    {
+        return false;
+    }
+
+    HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+    std::string dbPasswordHash = std::string(res[0]["password"]);
+
+    password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+
+    return this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash);
+}
+
+void LoginManager::SetPassword(const std::string& username, util::secure_string&& password)
+{
+    auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
+    password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+    password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
+
+    this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'",
+        password.str().c_str(),
+        int(passwordVersion),
+        username.c_str());
+}
+
+void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
 {
     auto createAccountThreadProc = [this, successCallback](const void * state)
     {
@@ -49,7 +78,30 @@ void LoginManager::CreateAccount(AccountCreateInfo&& accountInfo, std::function<
     util::ThreadPool::Queue(createAccountThreadProc, state);
 }
 
-void LoginManager::UpdatePasswordVersion(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+void LoginManager::SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
+{
+    auto setPasswordThreadProc = [this, successCallback, failureCallback](const void * state)
+    {
+        auto passwordChangeInfo = const_cast<PasswordChangeInfo*>(reinterpret_cast<const PasswordChangeInfo*>(state));
+
+        if (this->CheckLogin(passwordChangeInfo->username, std::move(passwordChangeInfo->oldpassword)))
+        {
+            this->SetPassword(passwordChangeInfo->username, std::move(passwordChangeInfo->newpassword));
+            successCallback();
+        }
+        else
+        {
+            failureCallback();
+        }
+
+        delete passwordChangeInfo;
+    };
+
+    auto state = reinterpret_cast<void*>(new PasswordChangeInfo(std::move(passwordChangeInfo)));
+    util::ThreadPool::Queue(setPasswordThreadProc, state);
+}
+
+void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
 {
     auto updateThreadProc = [this](const void * state)
     {

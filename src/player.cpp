@@ -95,11 +95,6 @@ bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int ha
 	return true;
 }
 
-void Player::ChangePass(util::secure_string&& password)
-{
-	this->world->ChangePassword(this->username, std::move(password));
-}
-
 AdminLevel Player::Admin() const
 {
 	AdminLevel admin = ADMIN_PLAYER;
@@ -133,6 +128,7 @@ void Player::Logout()
 		this->world->db.Query("UPDATE `accounts` SET `lastused` = #, `hdid` = #, `lastip` = '$' WHERE username = '$'", int(std::time(0)), this->client->hdid, static_cast<std::string>(this->client->GetRemoteAddr()).c_str(), this->username.c_str());
 
 		// Disconnect the client to make sure this null pointer is never dereferenced
+		this->client->AsyncOpPending(false);
 		this->client->Close();
 		this->client->player = nullptr;
 		this->client = nullptr; // Not reference counted!

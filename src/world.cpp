@@ -1274,14 +1274,6 @@ void World::DeleteCharacter(std::string name)
 	this->db.Query("DELETE FROM `characters` WHERE name = '$'", name.c_str());
 }
 
-Player *World::Login(const std::string& username, util::secure_string&& password)
-{
-	if (LoginCheck(username, std::move(password)) == LOGIN_WRONG_USERPASS)
-		return 0;
-
-	return new Player(username, this);
-}
-
 Player *World::Login(std::string username)
 {
 	return new Player(username, this);
@@ -1305,7 +1297,7 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 		// A copy is made of the password since the background thread needs to have separate ownership of it
 		//
 		util::secure_string passwordCopy(std::string(password.str()));
-		this->loginManager->UpdatePasswordVersion(username, std::move(passwordCopy), currentPasswordVersion);
+		this->loginManager->UpdatePasswordVersionAsync(username, std::move(passwordCopy), currentPasswordVersion);
 	}
 
 	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
@@ -1324,18 +1316,14 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 	}
 }
 
-void World::ChangePassword(const std::string& username, util::secure_string&& password)
+void World::ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successAction, std::function<void(void)> failureAction)
 {
-	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
-
-	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), int(passwordVersion), username.c_str());
+	this->loginManager->SetPasswordAsync(std::move(passwordChangeInfo), successAction, failureAction);
 }
 
 void World::CreatePlayer(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
 {
-	this->loginManager->CreateAccount(std::move(accountInfo), successCallback);
+	this->loginManager->CreateAccountAsync(std::move(accountInfo), successCallback);
 }
 
 bool World::PlayerExists(std::string username)
