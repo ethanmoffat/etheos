@@ -16,8 +16,25 @@
 
 #include "util/secure_string.hpp"
 
+#include "socket.hpp"
+
 #include <string>
 #include <vector>
+
+struct AccountCreateInfo
+{
+	std::string username;
+	util::secure_string password;
+	std::string fullname;
+	std::string location;
+	std::string email;
+	std::string computer;
+	int hdid;
+	IPAddress remoteIp;
+
+	AccountCreateInfo()
+		: hdid(0), password("") { }
+};
 
 /**
  * Object representing a player, but not a character

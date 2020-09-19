@@ -428,7 +428,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 
 	this->passwordHashers[SHA256].reset(new Sha256Hasher());
 	this->passwordHashers[BCRYPT].reset(new BcryptHasher(int(this->config["BcryptWorkload"])));
-	this->passwordHashUpdater.reset(new LoginManager(this->config, this->passwordHashers));
+	this->loginManager.reset(new LoginManager(this->config, this->passwordHashers));
 
 	try
 	{
@@ -1305,7 +1305,7 @@ LoginReply World::LoginCheck(const std::string& username, util::secure_string&& 
 		// A copy is made of the password since the background thread needs to have separate ownership of it
 		//
 		util::secure_string passwordCopy(std::string(password.str()));
-		this->passwordHashUpdater->QueueUpdatePassword(username, std::move(passwordCopy), currentPasswordVersion);
+		this->loginManager->UpdatePasswordVersion(username, std::move(passwordCopy), currentPasswordVersion);
 	}
 
 	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
@@ -1333,18 +1333,9 @@ void World::ChangePassword(const std::string& username, util::secure_string&& pa
 	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), int(passwordVersion), username.c_str());
 }
 
-bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
-	const std::string& fullname, const std::string& location, const std::string& email,
-	const std::string& computer, int hdid, const std::string& ip)
+void World::CreatePlayer(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
 {
-	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
-
-	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`) VALUES ('$','$','$','$','$','$',#,'$',#,#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), int(passwordVersion));
-
-	return !res.Error();
+	this->loginManager->CreateAccount(std::move(accountInfo), successCallback);
 }
 
 bool World::PlayerExists(std::string username)

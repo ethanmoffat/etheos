@@ -15,6 +15,8 @@
 #include "hash.hpp"
 #include "fwd/config.hpp"
 #include "fwd/database.hpp"
+#include "fwd/player.hpp"
+#include "fwd/world.hpp"
 #include "util/secure_string.hpp"
 #include "util/semaphore.hpp"
 
@@ -23,7 +25,12 @@ class LoginManager
 public:
     LoginManager(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
 
-    void QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
+    void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
+
+    LoginReply CheckLogin(const std::string& username, util::secure_string&& password);
+
+    void SetPassword(const std::string& username, util::secure_string&& password);
+    void UpdatePasswordVersion(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
 private:
     // Factory function for creating a database connection on-demand in background threads

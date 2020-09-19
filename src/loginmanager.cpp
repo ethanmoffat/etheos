@@ -4,8 +4,12 @@
  * See LICENSE.txt for more info.
  */
 
-#include "loginmanager.hpp"
+#include <ctime>
+
 #include "util/threadpool.hpp"
+
+#include "loginmanager.hpp"
+#include "player.hpp"
 #include "world.hpp"
 
 LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
@@ -14,7 +18,38 @@ LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, st
 {
 }
 
-void LoginManager::QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+void LoginManager::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
+{
+    auto createAccountThreadProc = [this, successCallback](const void * state)
+    {
+        auto accountCreateInfo = const_cast<AccountCreateInfo*>(reinterpret_cast<const AccountCreateInfo*>(state));
+        auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
+        auto password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), accountCreateInfo->username, std::move(accountCreateInfo->password)));
+        password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
+
+        auto db_res = this->CreateDbConnection()->Query(
+            "INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`)"
+            " VALUES ('$','$','$','$','$','$',#,'$',#,#)",
+            accountCreateInfo->username.c_str(),
+            password.str().c_str(),
+            accountCreateInfo->fullname.c_str(),
+            accountCreateInfo->location.c_str(),
+            accountCreateInfo->email.c_str(),
+            accountCreateInfo->computer.c_str(),
+            accountCreateInfo->hdid,
+            static_cast<std::string>(accountCreateInfo->remoteIp).c_str(),
+            int(std::time(0)),
+            int(passwordVersion));
+
+        if (!db_res.Error())
+            successCallback();
+    };
+
+    auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));
+    util::ThreadPool::Queue(createAccountThreadProc, state);
+}
+
+void LoginManager::UpdatePasswordVersion(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
 {
     auto updateThreadProc = [this](const void * state)
     {

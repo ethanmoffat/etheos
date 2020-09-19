@@ -65,63 +65,73 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	reader.GetShort(); // Account creation "session ID"
 	reader.GetByte(); // ?
 
-	std::string username = reader.GetBreakString();
-	util::secure_string password(std::move(reader.GetBreakString()));
-	std::string fullname = reader.GetBreakString();
-	std::string location = reader.GetBreakString();
-	std::string email = reader.GetBreakString();
-	std::string computer = reader.GetBreakString();
+	AccountCreateInfo accountInfo;
 
-	if (username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"]))
-	 || username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
-	 || password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"]))
-	 || password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"]))
-	 || fullname.length() > std::size_t(int(client->server()->world->config["RealNameMaxLength"]))
-	 || location.length() > std::size_t(int(client->server()->world->config["LocationMaxLength"]))
-	 || email.length() > std::size_t(int(client->server()->world->config["EmailMaxLength"]))
-	 || computer.length() > std::size_t(int(client->server()->world->config["ComputerNameLength"])))
-	{
-		return;
-	}
+	accountInfo.username = util::lowercase(reader.GetBreakString());
+	accountInfo.password = std::move(reader.GetBreakString());
+	accountInfo.fullname = reader.GetBreakString();
+	accountInfo.location = reader.GetBreakString();
+	accountInfo.email = reader.GetBreakString();
+	accountInfo.computer = reader.GetBreakString();
+	accountInfo.remoteIp = client->GetRemoteAddr();
 
-	int hdid;
 	try
 	{
-		hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
+		accountInfo.hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
 	}
 	catch (std::invalid_argument&)
 	{
 		return;
 	}
 
-	username = util::lowercase(username);
+	if (accountInfo.username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"]))
+	 || accountInfo.username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
+	 || accountInfo.password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"]))
+	 || accountInfo.password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"]))
+	 || accountInfo.fullname.length() > std::size_t(int(client->server()->world->config["RealNameMaxLength"]))
+	 || accountInfo.location.length() > std::size_t(int(client->server()->world->config["LocationMaxLength"]))
+	 || accountInfo.email.length() > std::size_t(int(client->server()->world->config["EmailMaxLength"]))
+	 || accountInfo.computer.length() > std::size_t(int(client->server()->world->config["ComputerNameLength"])))
+	{
+		return;
+	}
 
 	if (client->server()->world->config["SeoseCompat"])
-		password = std::move(seose_str_hash(password.str(), client->server()->world->config["SeoseCompatKey"]));
+		accountInfo.password = std::move(seose_str_hash(accountInfo.password.str(), client->server()->world->config["SeoseCompatKey"]));
 
 	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
 
-	if (!Player::ValidName(username))
+	if (!Player::ValidName(accountInfo.username))
 	{
 		reply.AddShort(ACCOUNT_NOT_APPROVED);
 		reply.AddString("NO");
+		client->Send(reply);
 	}
-	else if (client->server()->world->PlayerExists(username))
+	else if (client->server()->world->PlayerExists(accountInfo.username))
 	{
 		reply.AddShort(ACCOUNT_EXISTS);
 		reply.AddString("NO");
+		client->Send(reply);
 	}
 	else
 	{
-		username = util::lowercase(username);
+		// Player is created on a background thread. This callback is called on a different thread assuming the operation is successful.
+		// Username is captured by value so the function can safely return without the memory being deallocated / stack corrupted.
+		std::string username(accountInfo.username);
+		auto onSuccess = [client, username]()
+		{
+			PacketBuilder succeededReply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+			succeededReply.AddShort(ACCOUNT_CREATED);
+			succeededReply.AddString("OK");
 
-		client->server()->world->CreatePlayer(username, std::move(password), fullname, location, email, computer, hdid, static_cast<std::string>(client->GetRemoteAddr()));
-		reply.AddShort(ACCOUNT_CREATED);
-		reply.AddString("OK");
-		Console::Out("New account: %s", username.c_str());
+			// TODO: there are potential implications for thread safety of Send (and other client methods)
+			client->Send(succeededReply);
+
+			Console::Out("New account: %s", username.c_str());
+		};
+
+		client->server()->world->CreatePlayer(std::move(accountInfo), onSuccess);
 	}
-
-	client->Send(reply);
 }
 
 // Change password
