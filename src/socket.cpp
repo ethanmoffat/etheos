@@ -884,7 +884,7 @@ void Server::BuryTheDead()
 	{
 		Client *client = *it;
 
-		if (!client->Connected() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
+		if (!client->Connected() && !client->IsAsyncOpPending() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
 		{
 #ifdef WIN32
 			closesocket(client->impl->sock);

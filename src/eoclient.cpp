@@ -72,7 +72,6 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 		std::string act = PacketProcessor::GetActionName(action);
 		if (ignoreFamilies.find(fam) == std::string::npos)
 		{
-			// TODO: log to console/file based on configuration setting
 			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | RECV Family: %-15s | Action: %-15s | SIZE=%d",
 				timeinfo->tm_mon + 1,
 				timeinfo->tm_mday,

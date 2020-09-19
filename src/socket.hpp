@@ -219,6 +219,8 @@ class Client
 		struct impl_;
 		std::unique_ptr<impl_> impl;
 
+		volatile bool async_op_pending;
+
 	protected:
 		Server *server;
 		bool connected;
@@ -262,6 +264,9 @@ class Client
 
 		bool Connected() const;
 		IPAddress GetRemoteAddr() const;
+
+		void AsyncOpPending(bool asyncOpPending) { this->async_op_pending = asyncOpPending; }
+		bool IsAsyncOpPending() const { return this->async_op_pending; }
 
 		void Close(bool force = false);
 
