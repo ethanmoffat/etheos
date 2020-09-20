@@ -17,6 +17,18 @@
             "externalConsole": true
         },
         {
+            "name": "Debug - Tests - Windows",
+            "preLaunchTask": "Build (Windows) - Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/test/eoserv_test",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/install/test",
+            "environment": [],
+            "externalConsole": true
+        },
+        {
             "name": "Debug - Linux",
             "preLaunchTask": "Build (Linux) - Debug",
             "type": "cppvsdbg",
