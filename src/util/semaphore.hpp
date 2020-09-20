@@ -27,7 +27,7 @@ public:
     bool Wait(std::chrono::duration<_Rep, _Period> timeout);
 
     void Release(size_t count = 1);
-    void Reset(size_t count, size_t maxCount);
+    void Reset(size_t count, size_t maxCount = static_cast<size_t>(-1));
 
     size_t Count() const { return this->_count; }
     size_t MaxCount() const { return this->_maxCount; }

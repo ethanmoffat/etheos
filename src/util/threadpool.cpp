@@ -23,7 +23,7 @@ namespace util
 
     ThreadPool::ThreadPool(size_t numThreads)
         : _terminating(false)
-        , _workReadySemaphore(0, numThreads > MAX_THREADS ? MAX_THREADS : numThreads)
+        , _workReadySemaphore(0)
     {
         for (size_t i = 0; i < numThreads; i++)
         {
@@ -55,12 +55,12 @@ namespace util
 
     void ThreadPool::setNumThreadsInternal(size_t numWorkers)
     {
-        if (numWorkers == this->_workReadySemaphore.MaxCount())
+        if (numWorkers == this->_threads.size())
             return;
 
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
-        if (numWorkers < this->_workReadySemaphore.MaxCount())
+        if (numWorkers < this->_threads.size())
         {
             while (!this->_work.empty())
                 this->_work.pop();
@@ -75,7 +75,7 @@ namespace util
             this->_terminating = false;
         }
 
-        this->_workReadySemaphore.Reset(0, numWorkers);
+        this->_workReadySemaphore.Reset(0);
 
         for (size_t i = this->_threads.size(); i < numWorkers; ++i)
         {
