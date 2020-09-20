@@ -57,7 +57,22 @@ if ($Debug) {
 }
 
 cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
+$tmpResult=$?
+if (-not $tmpResult)
+{
+    Set-Location $PSScriptRoot
+    Write-Error "Error during cmake generation!"
+    exit $tmpResult
+}
+
 cmake --build . --config $buildMode --target INSTALL --
+$tmpResult=$?
+if (-not $tmpResult)
+{
+    Set-Location $PSScriptRoot
+    Write-Error "Error during cmake build!"
+    exit $tmpResult
+}
 
 Set-Location $PSScriptRoot
 

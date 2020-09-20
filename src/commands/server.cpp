@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-extern volatile std::sig_atomic_t eoserv_sig_abort;
+volatile std::sig_atomic_t eoserv_sig_abort = false;
 
 namespace Commands
 {

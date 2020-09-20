@@ -40,13 +40,16 @@ endif()
 
 if(EOSERV_USE_UNITY_BUILD)
 	set(eoserv_SOURCE_FILES ${eoserv_UNITY_SOURCE_FILES})
+	set(eoserv_MAIN_FILES tu/main.cpp)
 else()
 	set(eoserv_SOURCE_FILES ${eoserv_ALL_SOURCE_FILES})
+	set(eoserv_MAIN_FILES src/main.cpp)
 endif()
 
 # Fancy icon on Windows
 if(WIN32)
-	list(APPEND eoserv_SOURCE_FILES "project/winres.rc")
+	list(APPEND eoserv_MAIN_FILES "project/winres.rc")
+	list(APPEND eoserv_MAIN_FILES ${eoserv_WIN32_SOURCE_FILES_MAIN})
 
 	# Link directly to SQLite on Windows
 	if(EOSERV_WANT_SQLITE)
@@ -166,15 +169,12 @@ include(DownloadGoogleTest)
 #  Outputs
 # ---------
 
-add_executable(eoserv
-	${eoserv_SOURCE_FILES}
-)
+add_library(eoserv_lib STATIC ${eoserv_SOURCE_FILES})
+add_executable(eoserv ${eoserv_MAIN_FILES})
+add_executable(eoserv_test ${TestFiles})
 
-add_executable(eoserv_test
-	${TestFiles}
-)
 target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(eoserv_test gtest_main)
+target_link_libraries(eoserv_test gtest_main eoserv_lib)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)
 	add_dependencies(eoserv_test eoserv-pch)
@@ -232,9 +232,11 @@ endif()
 include(DownloadBcrypt)
 
 target_include_directories(eoserv PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
+target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
 
-target_link_libraries(eoserv ${eoserv_LIBRARIES})
+target_link_libraries(eoserv eoserv_lib ${eoserv_LIBRARIES})
+target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})
 
 install(TARGETS eoserv RUNTIME DESTINATION .)
 install(TARGETS eoserv_test RUNTIME DESTINATION ./test)
@@ -282,6 +284,7 @@ if(EOSERV_USE_PRECOMPILED_HEADERS)
 
 	add_dependencies(eoserv-pch-autogen eoserv-pch)
 	add_dependencies(eoserv eoserv-pch)
+	add_dependencies(eoserv_lib eoserv-pch)
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${eoserv-pch_INCLUDE_FLAG}")
 endif()

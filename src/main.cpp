@@ -33,8 +33,8 @@
 #include "extra/ntservice.hpp"
 #endif // WIN32
 
-volatile std::sig_atomic_t eoserv_sig_abort = false;
-volatile std::sig_atomic_t eoserv_sig_rehash = false;
+extern volatile std::sig_atomic_t eoserv_sig_abort;
+volatile std::sig_atomic_t eoserv_sig_rehash;
 volatile bool eoserv_running = true;
 
 #ifdef SIGHUP

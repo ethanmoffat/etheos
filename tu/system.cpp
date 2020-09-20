@@ -19,7 +19,3 @@
 #include "../src/util/threadpool.cpp"
 #include "../src/util/variant.cpp"
 
-#ifdef WIN32
-#include "../src/extra/ntservice.cpp"
-#endif // WIN32
-

@@ -3,7 +3,6 @@
 # See LICENSE.txt for more info.
 
 set(eoserv_UNITY_SOURCE_FILES
-	tu/main.cpp
 	tu/system.cpp
 	tu/game_1.cpp
 	tu/game_2.cpp
@@ -135,7 +134,6 @@ set(eoserv_ALL_SOURCE_FILES
 	src/hashupdater.hpp
 	src/i18n.cpp
 	src/i18n.hpp
-	src/main.cpp
 	src/map.cpp
 	src/map.hpp
 	src/nanohttp.cpp
@@ -180,6 +178,9 @@ set(eoserv_ALL_SOURCE_FILES
 
 set(eoserv_WIN32_SOURCE_FILES
 	src/eoserv_windows.h
+)
+
+set(eoserv_WIN32_SOURCE_FILES_MAIN
 	src/extra/ntservice.cpp
 	src/extra/ntservice.hpp
 )
