@@ -232,6 +232,7 @@ Client::Client()
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, async_op_pending(false)
 { }
 
 Client::Client(const IPAddress &addr, uint16_t port)
@@ -245,6 +246,7 @@ Client::Client(const IPAddress &addr, uint16_t port)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, async_op_pending(false)
 {
 	this->Connect(addr, port);
 }
@@ -260,6 +262,7 @@ Client::Client(Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, async_op_pending(false)
 { }
 
 Client::Client(const Socket &sock, Server *server)
@@ -273,6 +276,7 @@ Client::Client(const Socket &sock, Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, async_op_pending(false)
 { }
 
 inline void assert_power_of_two(std::size_t size)
