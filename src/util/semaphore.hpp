@@ -39,4 +39,18 @@ private:
     std::mutex _mut;
 };
 
+template <class _Rep, class _Period>
+bool Semaphore::Wait(std::chrono::duration<_Rep, _Period> timeout)
+{
+    std::unique_lock<std::mutex> lock(this->_mut);
+    if (!this->_event.wait_for(lock, timeout, [&]() { return _count > 0; }))
+    {
+        return false;
+    }
+
+    --this->_count;
+
+    return true;
+}
+
 }
