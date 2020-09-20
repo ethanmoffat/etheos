@@ -4,6 +4,7 @@
  * See LICENSE.txt for more info.
  */
 
+#include "../console.hpp"
 #include "threadpool.hpp"
 
 namespace util
@@ -27,7 +28,7 @@ namespace util
     {
         for (size_t i = 0; i < numThreads; i++)
         {
-            auto newThread = std::thread([this]() { this->_workerProc(); });
+            auto newThread = std::thread([this, i]() { this->_workerProc(i); });
             this->_threads.push_back(std::move(newThread));
         }
     }
@@ -79,16 +80,24 @@ namespace util
 
         for (size_t i = this->_threads.size(); i < numWorkers; ++i)
         {
-            auto newThread = std::thread([this]() { this->_workerProc(); });
+            auto newThread = std::thread([this, i]() { this->_workerProc(i); });
             this->_threads.push_back(std::move(newThread));
         }
     }
 
-    void ThreadPool::_workerProc()
+    void ThreadPool::_workerProc(size_t threadNum)
     {
+#if !DEBUG
+        (void)threadNum;
+#endif
+
         while (!this->_terminating)
         {
             this->_workReadySemaphore.Wait();
+
+#if DEBUG
+            Console::Dbg("Thread %d starting work", threadNum);
+#endif
 
             if (this->_terminating)
                 break;
@@ -102,6 +111,14 @@ namespace util
             }
 
             workPair->first(workPair->second);
+
+#if DEBUG
+            Console::Dbg("Thread %d completed work", threadNum);
+#endif
         }
+
+#if DEBUG
+        Console::Dbg("Thread %d terminating", threadNum);
+#endif
     }
 }
