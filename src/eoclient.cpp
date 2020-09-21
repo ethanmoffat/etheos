@@ -163,7 +163,7 @@ void EOClient::Tick()
 					{
 						break;
 					}
-
+					// fall through
 				case EOClient::ReadLen2:
 					this->raw_length[1] = data[0];
 					data[0] = '\0';
@@ -175,7 +175,7 @@ void EOClient::Tick()
 					{
 						break;
 					}
-
+					// fall through
 				case EOClient::ReadData:
 					oldlength = this->data.length();
 					this->data += data.substr(0, this->length);

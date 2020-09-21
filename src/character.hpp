@@ -292,7 +292,7 @@ class Character : public Command_Source
 		bool CanInteractCharMod() const { return !(nointeract & NoInteractCharMod); }
 		bool CanInteractPKCombat() const { return !(nointeract & NoInteractPKCombat); }
 
-		int PlayerID() const;
+		unsigned int PlayerID() const;
 
 		void Login();
 

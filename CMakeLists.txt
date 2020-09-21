@@ -122,7 +122,7 @@ endif()
 
 # These non-standard anti-optimizations are currently required for a correctly functioning server
 if(eoserv_GCC OR eoserv_CLANG)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fwrapv -fno-strict-aliasing")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fwrapv -fno-strict-aliasing -Wall -Wextra")
 endif()
 
 if(NOT eoserv_COMPILER_SUPPORTED)

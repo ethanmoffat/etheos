@@ -46,6 +46,7 @@ GTEST_TEST(ThreadPoolTests, QueueDoesWork)
     volatile bool done = false;
     auto workFunc = [&done](const void * state)
     {
+        (void)state;
         SLEEP_MS(100);
         done = true;
     };
@@ -95,6 +96,7 @@ GTEST_TEST(ThreadPoolTests, QueueRespectsMaxThreads)
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
+        (void)state;
         workCounter++;
         s.Wait(std::chrono::milliseconds(1000));
     };
@@ -130,6 +132,7 @@ GTEST_TEST(ThreadPoolTests, ResizeLessThreadsReducesThreadPoolSize)
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
+        (void)state;
         workCounter++;
         s.Wait(std::chrono::milliseconds(1000));
     };
@@ -168,6 +171,7 @@ GTEST_TEST(ThreadPoolTests, ResizeMoreThreadsIncreasesThreadPoolSize)
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
+        (void)state;
         workCounter++;
         s.Wait(std::chrono::milliseconds(1000));
     };

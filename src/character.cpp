@@ -499,7 +499,7 @@ Character::Character(std::string name, World *world)
 	}
 }
 
-int Character::PlayerID() const
+unsigned int Character::PlayerID() const
 {
 	return this->player->id;
 }

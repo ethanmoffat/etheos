@@ -89,7 +89,7 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	{
 		hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
 	}
-	catch (std::invalid_argument)
+	catch (std::invalid_argument&)
 	{
 		return;
 	}

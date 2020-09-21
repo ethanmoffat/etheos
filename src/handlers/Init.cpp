@@ -51,7 +51,7 @@ void Init_Init(EOClient *client, PacketReader &reader)
 	{
 		client->hdid = int(util::to_uint_raw(reader.GetEndString()));
 	}
-	catch (std::invalid_argument)
+	catch (std::invalid_argument&)
 	{
 		client->Close();
 		return;

@@ -93,6 +93,7 @@ void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN co
 }
 #endif
 
+#ifdef DATABASE_SQLITE
 static int sqlite_callback(void *data, int num, char *fields[], char *columns[])
 {
 	std::unordered_map<std::string, util::variant> result;
@@ -126,6 +127,7 @@ static int sqlite_callback(void *data, int num, char *fields[], char *columns[])
 	static_cast<Database *>(data)->callbackdata.push_back(result);
 	return 0;
 }
+#endif
 
 int Database_Result::AffectedRows()
 {
@@ -393,18 +395,27 @@ void Database::Close()
 	switch (this->engine)
 	{
 #ifdef DATABASE_MYSQL
+		case SQLite:
+		case SqlServer:
+			break;
 		case MySQL:
 			mysql_close(this->impl->mysql_handle);
 			break;
 #endif // DATABASE_MYSQL
 
 #ifdef DATABASE_SQLITE
+		case MySQL:
+		case SqlServer:
+			break;
 		case SQLite:
 			sqlite3_close(this->impl->sqlite_handle);
 			break;
 #endif // DATABASE_SQLITE
 
 #ifdef DATABASE_SQLSERVER
+		case MySQL:
+		case SQLite:
+			break;
 		case SqlServer:
 			SQLFreeHandle(SQL_HANDLE_STMT, this->impl->hstmt);
 			SQLDisconnect(this->impl->hConn);
@@ -422,9 +433,11 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 		throw Database_QueryFailed("Not connected to database.");
 	}
 
-	std::size_t query_length = std::strlen(query);
-
 	Database_Result result;
+
+#ifndef DATABASE_MYSQL
+	(void)tx_control;
+#endif
 
 #ifndef DATABASE_SQLSERVER
 	(void)prepared;
@@ -442,6 +455,7 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 			MYSQL_RES* mresult = nullptr;
 			MYSQL_FIELD* fields = nullptr;
 			int num_fields = 0;
+			std::size_t query_length = std::strlen(query);
 
 			exec_query:
 			if (mysql_real_query(this->impl->mysql_handle, query, query_length) != 0)
@@ -734,8 +748,12 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 
 	int tempi;
 	char *tempc;
+#if defined(DATABASE_MYSQL) || defined(DATABASE_SQLITE)
 	char *escret;
+#ifdef DATABASE_MYSQL
 	unsigned long esclen;
+#endif
+#endif
 
 	bool removeQuote = false;
 	for (const char *p = format; *p != '\0'; ++p)
@@ -756,26 +774,26 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 			tempc = va_arg(ap,char *);
 			switch (this->engine)
 			{
-#ifdef DATABASE_MYSQL
 				case MySQL:
+#ifdef DATABASE_MYSQL
 					tempi = strlen(tempc);
 					escret = new char[tempi*2+1];
 					esclen = mysql_real_escape_string(this->impl->mysql_handle, escret, tempc, tempi);
 					finalquery += std::string(escret, esclen);
 					delete[] escret;
-					break;
 #endif // DATABASE_MYSQL
+					break;
 
-#ifdef DATABASE_SQLITE
 				case SQLite:
+#ifdef DATABASE_SQLITE
 					escret = sqlite3_mprintf("%q",tempc);
 					finalquery += escret;
 					sqlite3_free(escret);
-					break;
 #endif // DATABASE_SQLITE
+					break;
 
-#ifdef DATABASE_SQLSERVER
 				case SqlServer:
+#ifdef DATABASE_SQLSERVER
 					// SQL Server prepared statements do not require quoted values
 					if (finalquery.back() == '\'')
 					{
@@ -785,8 +803,8 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 
 					finalquery += "?";
 					parameters.push_back(std::string(tempc));
-					break;
 #endif // DATABASE_SQLSERVER
+					break;
 			}
 		}
 		else if ((*p == '`' && this->engine == SqlServer) || // filter backticks (for SqlServer)
@@ -868,6 +886,7 @@ std::string Database::Escape(const std::string& raw)
 #if defined(DATABASE_MYSQL) || defined(DATABASE_SQLITE)
 	char *escret;
 #endif
+
 #ifdef DATABASE_MYSQL
 	unsigned long esclen;
 #endif
@@ -875,29 +894,29 @@ std::string Database::Escape(const std::string& raw)
 
 	switch (this->engine)
 	{
-#ifdef DATABASE_MYSQL
 		case MySQL:
+#ifdef DATABASE_MYSQL
 			escret = new char[raw.length()*2+1];
 			esclen = mysql_real_escape_string(this->impl->mysql_handle, escret, raw.c_str(), raw.length());
 			result.assign(escret, esclen);
 			delete[] escret;
-			break;
 #endif // DATABASE_MYSQL
+			break;
 
-#ifdef DATABASE_SQLITE
 		case SQLite:
+#ifdef DATABASE_SQLITE
 			escret = sqlite3_mprintf("%q", raw.c_str());
 			result = escret;
 			sqlite3_free(escret);
-			break;
 #endif // DATABASE_SQLITE
+			break;
 
-#ifdef DATABASE_SQLSERVER
 		case SqlServer:
+#ifdef DATABASE_SQLSERVER
 			//todo: escape query string
 			result = raw;
-			break;
 #endif // DATABASE_SQLSERVER
+			break;
 	}
 
 	for (std::string::iterator it = result.begin(); it != result.end(); ++it)
@@ -981,23 +1000,23 @@ bool Database::BeginTransaction()
 
 			switch (this->engine)
 			{
-#ifdef DATABASE_MYSQL
 				case MySQL:
+#ifdef DATABASE_MYSQL
 					this->RawQuery("START TRANSACTION", true);
-					break;
 #endif // DATABASE_MYSQL
+					break;
 
-#ifdef DATABASE_SQLITE
 				case SQLite:
+#ifdef DATABASE_SQLITE
 					this->RawQuery("BEGIN", true);
-					break;
 #endif // DATABASE_SQLITE
-
-#ifdef DATABASE_SQLSERVER
-				case SqlServer:
-					this->RawQuery("BEGIN TRANSACTION", true);
 					break;
+
+				case SqlServer:
+#ifdef DATABASE_SQLSERVER
+					this->RawQuery("BEGIN TRANSACTION", true);
 #endif // DATABASE_SQLSERVER
+					break;
 			}
 
 			break;
