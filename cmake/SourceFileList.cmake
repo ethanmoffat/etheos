@@ -269,6 +269,7 @@ set(ExtraFiles
 set(TestFiles
 	src/test/config_test.cpp
 	src/test/util/semaphore_test.cpp
+	src/test/util/threadpool_test.cpp
 )
 
 set(LocalConf

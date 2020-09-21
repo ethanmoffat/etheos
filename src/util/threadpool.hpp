@@ -37,11 +37,11 @@ namespace util
         static constexpr size_t MAX_THREADS = 32;
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
+        void _workerProc();
 
+    protected:
         void queueInternal(const WorkFunc workerFunction, const void * state);
         void setNumThreadsInternal(size_t numWorkers);
-
-        void _workerProc();
 
         volatile bool _terminating;
 
