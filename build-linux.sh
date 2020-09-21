@@ -45,8 +45,8 @@ function main() {
         sqlite="$2"
         shift
         ;;
-      --maria)
-        sqlite="$2"
+      --mariadb)
+        mariadb="$2"
         shift
         ;;
       --sqlserver)

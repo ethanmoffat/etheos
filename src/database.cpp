@@ -394,35 +394,26 @@ void Database::Close()
 
 	switch (this->engine)
 	{
+		case MySQL:
 #ifdef DATABASE_MYSQL
-		case SQLite:
-		case SqlServer:
-			break;
-		case MySQL:
 			mysql_close(this->impl->mysql_handle);
-			break;
 #endif // DATABASE_MYSQL
+			break;
 
+		case SQLite:
 #ifdef DATABASE_SQLITE
-		case MySQL:
-		case SqlServer:
-			break;
-		case SQLite:
 			sqlite3_close(this->impl->sqlite_handle);
-			break;
 #endif // DATABASE_SQLITE
-
-#ifdef DATABASE_SQLSERVER
-		case MySQL:
-		case SQLite:
 			break;
+
 		case SqlServer:
+#ifdef DATABASE_SQLSERVER
 			SQLFreeHandle(SQL_HANDLE_STMT, this->impl->hstmt);
 			SQLDisconnect(this->impl->hConn);
 			SQLFreeHandle(SQL_HANDLE_DBC, this->impl->hConn);
 			SQLFreeHandle(SQL_HANDLE_ENV, this->impl->hEnv);
-			break;
 #endif // DATABASE_SQLSERVER
+			break;
 	}
 }
 
@@ -834,11 +825,11 @@ Database_Result Database::Query(const char *format, ...)
 	va_end(ap);
 
 	std::string& finalquery = queryState.first;
-	std::list<std::string>& parameters = queryState.second;
-
 	bool prepared = false;
 
 #ifdef DATABASE_SQLSERVER
+	std::list<std::string>& parameters = queryState.second;
+
 	if (!parameters.empty())
 	{
 		prepared = true;
