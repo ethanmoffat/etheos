@@ -22,17 +22,17 @@ bool LoginManager::CheckLogin(const std::string& username, util::secure_string&&
 {
     auto res = this->CreateDbConnection()->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
-    if (res.empty())
+    if (!res.empty())
     {
-        return false;
+        HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+        std::string dbPasswordHash = std::string(res[0]["password"]);
+
+        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+
+        return this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash);
     }
 
-    HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
-    std::string dbPasswordHash = std::string(res[0]["password"]);
-
-    password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
-
-    return this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash);
+    return false;
 }
 
 void LoginManager::SetPassword(const std::string& username, util::secure_string&& password)
@@ -51,9 +51,11 @@ void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::func
 {
     auto createAccountThreadProc = [this, successCallback, failureCallback](const void * state)
     {
-        auto accountCreateInfo = const_cast<AccountCreateInfo*>(reinterpret_cast<const AccountCreateInfo*>(state));
+        auto accountCreateInfo = reinterpret_cast<const AccountCreateInfo*>(state);
         auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
-        auto password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), accountCreateInfo->username, std::move(accountCreateInfo->password)));
+
+        auto password = std::move(accountCreateInfo->password);
+        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), accountCreateInfo->username, std::move(password)));
         password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
 
         auto db_res = this->CreateDbConnection()->Query(
@@ -78,6 +80,8 @@ void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::func
         {
             failureCallback();
         }
+
+        delete accountCreateInfo;
     };
 
     auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));
@@ -88,11 +92,13 @@ void LoginManager::SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std
 {
     auto setPasswordThreadProc = [this, successCallback, failureCallback](const void * state)
     {
-        auto passwordChangeInfo = const_cast<PasswordChangeInfo*>(reinterpret_cast<const PasswordChangeInfo*>(state));
+        auto passwordChangeInfo = reinterpret_cast<const PasswordChangeInfo*>(state);
+        auto oldPassword = std::move(passwordChangeInfo->oldpassword);
+        auto newPassword = std::move(passwordChangeInfo->newpassword);
 
-        if (this->CheckLogin(passwordChangeInfo->username, std::move(passwordChangeInfo->oldpassword)))
+        if (this->CheckLogin(passwordChangeInfo->username, std::move(oldPassword)))
         {
-            this->SetPassword(passwordChangeInfo->username, std::move(passwordChangeInfo->newpassword));
+            this->SetPassword(passwordChangeInfo->username, std::move(newPassword));
             successCallback();
         }
         else
@@ -112,24 +118,21 @@ void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util:
     auto updateThreadProc = [this](const void * state)
     {
         auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
-
         auto username = updateState->username;
-        auto updatedPassword = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]),
-                                                              username,
-                                                              std::move(const_cast<LoginManager::UpdateState*>(updateState)->password)));
+        auto password = std::move(updateState->password);
         auto hashFunc = updateState->hashFunc;
-
-        if (hashFunc == NONE)
-            return;
-
-        updatedPassword = std::move(this->_passwordHashers[hashFunc]->hash(std::move(updatedPassword.str())));
-
-        this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
-            updatedPassword.str().c_str(),
-            hashFunc,
-            username.c_str());
-
         delete updateState;
+
+        if (hashFunc != NONE)
+        {
+            password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+            password = std::move(this->_passwordHashers[hashFunc]->hash(std::move(password.str())));
+
+            this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+                password.str().c_str(),
+                hashFunc,
+                username.c_str());
+        }
     };
 
     auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), hashFunc });
@@ -141,45 +144,49 @@ void LoginManager::CheckLoginAsync(const std::string& username, util::secure_str
     auto loginThreadProc = [this, successCallback, failureCallback](const void * state)
     {
         auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
-        auto username = const_cast<const LoginManager::UpdateState*>(updateState)->username;
-        auto password = std::move(const_cast<const LoginManager::UpdateState*>(updateState)->password);
+        auto username = updateState->username;
+        auto password = std::move(updateState->password);
         delete updateState;
 
         auto database = this->CreateDbConnection();
         Database_Result res = database->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
-        if (res.empty())
+        if (!res.empty())
+        {
+            HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+            HashFunc currentPasswordVersion = static_cast<HashFunc>(this->_config["PasswordCurrentVersion"].GetInt());
+            std::string dbPasswordHash = std::string(res[0]["password"]);
+
+            if (dbPasswordVersion < currentPasswordVersion)
+            {
+                // A copy is made of the password since the background thread needs to have separate ownership of it
+                //
+                util::secure_string passwordCopy(std::string(password.str()));
+                this->UpdatePasswordVersionAsync(updateState->username, std::move(passwordCopy), currentPasswordVersion);
+            }
+
+            password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+            if (this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
+            {
+                successCallback(database.get());
+            }
+            else
+            {
+                failureCallback(LOGIN_WRONG_USERPASS);
+            }
+        }
+        else
         {
             failureCallback(LOGIN_WRONG_USER);
-            delete updateState;
-            return;
         }
 
-        HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
-        HashFunc currentPasswordVersion = static_cast<HashFunc>(this->_config["PasswordCurrentVersion"].GetInt());
-        std::string dbPasswordHash = std::string(res[0]["password"]);
-
-        if (dbPasswordVersion < currentPasswordVersion)
-        {
-            // A copy is made of the password since the background thread needs to have separate ownership of it
-            //
-            util::secure_string passwordCopy(std::string(password.str()));
-            this->UpdatePasswordVersionAsync(updateState->username, std::move(passwordCopy), currentPasswordVersion);
-        }
-
-        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
-        if (!this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
-        {
-            failureCallback(LOGIN_WRONG_USERPASS);
-            return;
-        }
-
-        successCallback(database.get());
+        this->_processCount--;
     };
 
     // use UpdateState in place of std::pair because it is easier to work with
     auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), HashFunc::NONE });
     util::ThreadPool::Queue(loginThreadProc, state);
+    this->_processCount++;
 }
 
 std::unique_ptr<Database> LoginManager::CreateDbConnection()

@@ -1287,6 +1287,12 @@ void World::CheckCredential(const std::string& username, util::secure_string&& p
 		return;
 	}
 
+	if (this->loginManager->LoginBusy())
+	{
+		failureCallback(LOGIN_BUSY);
+		return;
+	}
+
 	this->loginManager->CheckLoginAsync(username, std::move(password), successCallback, failureCallback);
 }
 

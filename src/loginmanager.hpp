@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <queue>
 #include <string>
@@ -33,6 +34,8 @@ public:
     void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
     void CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
 
+    bool LoginBusy() const { return this->_processCount > static_cast<int>(this->_config["LoginQueueSize"]); };
+
 private:
     // Factory function for creating a database connection on-demand in background threads
     //   based on values in _config
@@ -40,6 +43,9 @@ private:
 
     Config& _config;
     std::unordered_map<HashFunc, std::shared_ptr<Hasher>> _passwordHashers;
+
+    // Count of the number of concurrent login requests
+    volatile std::atomic_int _processCount;
 
     struct UpdateState
     {
