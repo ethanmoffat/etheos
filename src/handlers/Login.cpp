@@ -87,59 +87,75 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		return;
 	}
 
-	LoginReply login_reply = client->server()->world->LoginCheck(username, std::move(password));
-
-	if (login_reply != LOGIN_OK)
+	auto onSuccess = [client, username](Database * database)
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(login_reply);
-		client->Send(reply);
+		client->player = client->server()->world->PlayerFactory(username, database);
 
-		int max_login_attempts = int(client->server()->world->config["MaxLoginAttempts"]);
-
-		if (max_login_attempts != 0 && ++client->login_attempts >= max_login_attempts)
+		// The client may disconnect if the password generation takes too long
+		if (client->Connected())
 		{
-			client->Close();
+			if (!client->player)
+			{
+				// Someone deleted the account between checking it and logging in
+				PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
+				reply.AddShort(LOGIN_WRONG_USER);
+				client->Send(reply);
+			}
+			else
+			{
+				client->player->id = client->id;
+				client->player->client = client;
+				client->state = EOClient::LoggedIn;
+
+				PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + client->player->characters.size() * 34);
+				reply.AddShort(LOGIN_OK);
+				reply.AddChar(static_cast<unsigned char>(client->player->characters.size()));
+				reply.AddByte(2);
+				reply.AddByte(255);
+
+				UTIL_FOREACH(client->player->characters, character)
+				{
+					reply.AddBreakString(character->SourceName());
+					reply.AddInt(character->id);
+					reply.AddChar(character->level);
+					reply.AddChar(character->gender);
+					reply.AddChar(character->hairstyle);
+					reply.AddChar(character->haircolor);
+					reply.AddChar(character->race);
+					reply.AddChar(character->admin);
+					character->AddPaperdollData(reply, "BAHSW");
+
+					reply.AddByte(255);
+				}
+
+				client->Send(reply);
+			}
 		}
 
-		return;
-	}
+		client->AsyncOpPending(false);
+	};
 
-	client->player = client->server()->world->Login(username);
-
-	if (!client->player)
+	auto onFailure = [client](LoginReply failureReason)
 	{
-		// Someone deleted the account between checking it and logging in
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USER);
-		client->Send(reply);
-		return;
-	}
+		if (failureReason != LOGIN_OK)
+		{
+			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
+			reply.AddShort(failureReason);
+			client->Send(reply);
 
-	client->player->id = client->id;
-	client->player->client = client;
-	client->state = EOClient::LoggedIn;
+			int max_login_attempts = int(client->server()->world->config["MaxLoginAttempts"]);
 
-	PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + client->player->characters.size() * 34);
-	reply.AddShort(LOGIN_OK);
-	reply.AddChar(static_cast<unsigned char>(client->player->characters.size()));
-	reply.AddByte(2);
-	reply.AddByte(255);
-	UTIL_FOREACH(client->player->characters, character)
-	{
-		reply.AddBreakString(character->SourceName());
-		reply.AddInt(character->id);
-		reply.AddChar(character->level);
-		reply.AddChar(character->gender);
-		reply.AddChar(character->hairstyle);
-		reply.AddChar(character->haircolor);
-		reply.AddChar(character->race);
-		reply.AddChar(character->admin);
-		character->AddPaperdollData(reply, "BAHSW");
+			if (max_login_attempts != 0 && ++client->login_attempts >= max_login_attempts)
+			{
+				client->Close();
+			}
+		}
 
-		reply.AddByte(255);
-	}
-	client->Send(reply);
+		client->AsyncOpPending(false);
+	};
+
+	client->AsyncOpPending(true);
+	client->server()->world->CheckCredential(username, std::move(password), onSuccess, onFailure);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOGIN)

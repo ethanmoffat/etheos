@@ -136,6 +136,52 @@ void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util:
     util::ThreadPool::Queue(updateThreadProc, state);
 }
 
+void LoginManager::CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback)
+{
+    auto loginThreadProc = [this, successCallback, failureCallback](const void * state)
+    {
+        auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
+        auto username = const_cast<const LoginManager::UpdateState*>(updateState)->username;
+        auto password = std::move(const_cast<const LoginManager::UpdateState*>(updateState)->password);
+        delete updateState;
+
+        auto database = this->CreateDbConnection();
+        Database_Result res = database->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
+
+        if (res.empty())
+        {
+            failureCallback(LOGIN_WRONG_USER);
+            delete updateState;
+            return;
+        }
+
+        HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
+        HashFunc currentPasswordVersion = static_cast<HashFunc>(this->_config["PasswordCurrentVersion"].GetInt());
+        std::string dbPasswordHash = std::string(res[0]["password"]);
+
+        if (dbPasswordVersion < currentPasswordVersion)
+        {
+            // A copy is made of the password since the background thread needs to have separate ownership of it
+            //
+            util::secure_string passwordCopy(std::string(password.str()));
+            this->UpdatePasswordVersionAsync(updateState->username, std::move(passwordCopy), currentPasswordVersion);
+        }
+
+        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+        if (!this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
+        {
+            failureCallback(LOGIN_WRONG_USERPASS);
+            return;
+        }
+
+        successCallback(database.get());
+    };
+
+    // use UpdateState in place of std::pair because it is easier to work with
+    auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), HashFunc::NONE });
+    util::ThreadPool::Queue(loginThreadProc, state);
+}
+
 std::unique_ptr<Database> LoginManager::CreateDbConnection()
 {
     auto dbType = util::lowercase(std::string(this->_config["DBType"]));

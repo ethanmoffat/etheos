@@ -31,6 +31,7 @@ public:
     void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
     void SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
     void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
+    void CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
 
 private:
     // Factory function for creating a database connection on-demand in background threads

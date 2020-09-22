@@ -10,6 +10,7 @@
 #include "fwd/player.hpp"
 
 #include "fwd/character.hpp"
+#include "fwd/database.hpp"
 #include "fwd/eoclient.hpp"
 #include "fwd/packet.hpp"
 #include "fwd/world.hpp"
@@ -59,7 +60,7 @@ class Player
 
 		std::string dutylast;
 
-		Player(std::string username, World *);
+		Player(std::string username, World *, Database * = nullptr);
 
 		std::vector<Character *> characters;
 		Character *character;

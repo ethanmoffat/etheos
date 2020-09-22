@@ -24,11 +24,13 @@
 #include <unordered_map>
 #include <utility>
 
-Player::Player(std::string username, World *world)
+Player::Player(std::string username, World * world, Database * database)
 {
 	this->world = world;
 
-	Database_Result res = this->world->db.Query("SELECT `username`, `password` FROM `accounts` WHERE `username` = '$'", username.c_str());
+	auto dbPointer = database ? database : &this->world->db;
+
+	Database_Result res = dbPointer->Query("SELECT `username`, `password` FROM `accounts` WHERE `username` = '$'", username.c_str());
 	if (res.empty())
 	{
 		throw std::runtime_error("Player not found (" + username + ")");
@@ -42,7 +44,7 @@ Player::Player(std::string username, World *world)
 
 	this->username = static_cast<std::string>(row["username"]);
 
-	res = this->world->db.Query("SELECT `name` FROM `characters` WHERE `account` = '$' ORDER BY `exp` DESC", username.c_str());
+	res = dbPointer->Query("SELECT `name` FROM `characters` WHERE `account` = '$' ORDER BY `exp` DESC", username.c_str());
 
 	UTIL_FOREACH_REF(res, row)
 	{

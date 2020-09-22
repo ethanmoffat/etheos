@@ -1274,51 +1274,25 @@ void World::DeleteCharacter(std::string name)
 	this->db.Query("DELETE FROM `characters` WHERE name = '$'", name.c_str());
 }
 
-Player *World::Login(std::string username)
+Player *World::PlayerFactory(std::string username, Database * database)
 {
-	return new Player(username, this);
+	return new Player(username, this, database);
 }
 
-LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
+void World::CheckCredential(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback)
 {
-	Database_Result res = this->db.Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
-
-	if (res.empty())
-	{
-		return LOGIN_WRONG_USERPASS;
-	}
-
-	HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
-	HashFunc currentPasswordVersion = static_cast<HashFunc>(this->config["PasswordCurrentVersion"].GetInt());
-	std::string dbPasswordHash = std::string(res[0]["password"]);
-
-	if (dbPasswordVersion < currentPasswordVersion)
-	{
-		// A copy is made of the password since the background thread needs to have separate ownership of it
-		//
-		util::secure_string passwordCopy(std::string(password.str()));
-		this->loginManager->UpdatePasswordVersionAsync(username, std::move(passwordCopy), currentPasswordVersion);
-	}
-
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	if (!this->passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
-	{
-		return LOGIN_WRONG_USERPASS;
-	}
-
 	if (this->PlayerOnline(username))
 	{
-		return LOGIN_LOGGEDIN;
+		failureCallback(LOGIN_LOGGEDIN);
+		return;
 	}
-	else
-	{
-		return LOGIN_OK;
-	}
+
+	this->loginManager->CheckLoginAsync(username, std::move(password), successCallback, failureCallback);
 }
 
-void World::ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successAction, std::function<void(void)> failureAction)
+void World::ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
 {
-	this->loginManager->SetPasswordAsync(std::move(passwordChangeInfo), successAction, failureAction);
+	this->loginManager->SetPasswordAsync(std::move(passwordChangeInfo), successCallback, failureCallback);
 }
 
 void World::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)

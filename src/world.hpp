@@ -179,9 +179,9 @@ class World
 		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
 		void DeleteCharacter(std::string name);
 
-		Player *Login(std::string username);
-		LoginReply LoginCheck(const std::string& username, util::secure_string&& password);
-		void ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successAction, std::function<void(void)> failureAction);
+		Player *PlayerFactory(std::string username, Database * database = nullptr);
+		void CheckCredential(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
+		void ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
 
 		void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
 
