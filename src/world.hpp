@@ -183,7 +183,7 @@ class World
 		LoginReply LoginCheck(const std::string& username, util::secure_string&& password);
 		void ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successAction, std::function<void(void)> failureAction);
 
-		void CreatePlayer(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
+		void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);

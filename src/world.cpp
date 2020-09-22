@@ -1321,9 +1321,9 @@ void World::ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::functio
 	this->loginManager->SetPasswordAsync(std::move(passwordChangeInfo), successAction, failureAction);
 }
 
-void World::CreatePlayer(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
+void World::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
 {
-	this->loginManager->CreateAccountAsync(std::move(accountInfo), successCallback);
+	this->loginManager->CreateAccountAsync(std::move(accountInfo), successCallback, failureCallback);
 }
 
 bool World::PlayerExists(std::string username)

@@ -137,13 +137,19 @@ void Account_Create(EOClient *client, PacketReader &reader)
 			Console::Out("New account: %s", username.c_str());
 		};
 
+		auto onFailure = [client]()
+		{
+			client->AsyncOpPending(false);
+			client->Close();
+		};
+
 		if (client->IsAsyncOpPending())
 		{
 			throw std::runtime_error("Client attempted to do something asynchronously but is already running an async operation");
 		}
 
 		client->AsyncOpPending(true);
-		client->server()->world->CreatePlayer(std::move(accountInfo), onSuccess);
+		client->server()->world->CreateAccount(std::move(accountInfo), onSuccess, onFailure);
 	}
 }
 

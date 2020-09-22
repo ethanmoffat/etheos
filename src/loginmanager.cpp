@@ -47,9 +47,9 @@ void LoginManager::SetPassword(const std::string& username, util::secure_string&
         username.c_str());
 }
 
-void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback)
+void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
 {
-    auto createAccountThreadProc = [this, successCallback](const void * state)
+    auto createAccountThreadProc = [this, successCallback, failureCallback](const void * state)
     {
         auto accountCreateInfo = const_cast<AccountCreateInfo*>(reinterpret_cast<const AccountCreateInfo*>(state));
         auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
@@ -71,7 +71,13 @@ void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::func
             int(passwordVersion));
 
         if (!db_res.Error())
+        {
             successCallback();
+        }
+        else
+        {
+            failureCallback();
+        }
     };
 
     auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));

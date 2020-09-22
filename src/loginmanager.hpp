@@ -28,7 +28,7 @@ public:
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
 
-    void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback);
+    void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
     void SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
     void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
