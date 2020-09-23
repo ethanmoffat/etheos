@@ -92,11 +92,16 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 
 	# Fix warnings due to not using the _s version of a lot of different functions on MSVC
 	#
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
 		set(eoserv_COMPILER_SUPPORTED FALSE)
 	endif()
+
+	add_compile_definitions(
+		$<$<CONFIG:Debug>:DEBUG>
+		$<$<CONFIG:Release>:RELEASE>
+	)
 endif()
 
 if((eoserv_GCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
@@ -139,18 +144,18 @@ if(EOSERV_USE_CLANG_MODULES)
 		endif()
 
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules")
-		add_definitions(-DCLANG_MODULES_WORKAROUND)
+		add_compile_definitions(CLANG_MODULES_WORKAROUND)
 	endif()
 endif()
 
 if(EOSERV_DEBUG_QUERIES)
-	add_definitions(-DDATABASE_DEBUG)
+	add_compile_definitions(DATABASE_DEBUG)
 endif()
 
 string(TOLOWER "${CMAKE_BUILD_TYPE}" BuildType)
 
 if(BuildType STREQUAL "debug")
-	add_definitions(-DDEBUG)
+	add_compile_definitions(DEBUG)
 
 	# Disable optimizations for debug builds with GCC.
 	IF(CMAKE_COMPILER_IS_GNUCC)
@@ -192,7 +197,7 @@ if(EOSERV_WANT_MYSQL)
 	find_package(MariaDB REQUIRED)
 	include_directories(${MARIADB_INCLUDE_DIR})
 	list(APPEND eoserv_LIBRARIES ${MARIADB_LIBRARY})
-	add_definitions(-DDATABASE_MYSQL)
+	add_compile_definitions(DATABASE_MYSQL)
 endif()
 
 if(EOSERV_WANT_SQLITE)
@@ -205,14 +210,14 @@ if(EOSERV_WANT_SQLITE)
 		list(APPEND eoserv_LIBRARIES ${SQLITE3_LIBRARY})
 	endif()
 
-	add_definitions(-DDATABASE_SQLITE)
+	add_compile_definitions(DATABASE_SQLITE)
 endif()
 
 if(EOSERV_WANT_SQLSERVER)
 	find_package(ODBC REQUIRED)
 	include_directories(${ODBC_INCLUDE_DIRS})
 	list(APPEND eoserv_LIBRARIES ${ODBC_LIBRARIES})
-	add_definitions(-DDATABASE_SQLSERVER)
+	add_compile_definitions(DATABASE_SQLSERVER)
 endif()
 
 if (NOT EOSERV_WANT_MYSQL AND NOT EOSERV_WANT_SQLITE AND NOT EOSERV_WANT_SQLSERVER)
