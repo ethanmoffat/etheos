@@ -40,10 +40,10 @@ endif()
 
 if(EOSERV_USE_UNITY_BUILD)
 	set(eoserv_SOURCE_FILES ${eoserv_UNITY_SOURCE_FILES})
-	set(eoserv_MAIN_FILES tu/main.cpp)
+	set(eoserv_MAIN_FILES ${eoserv_UNITY_HANDLER_FILES} tu/main.cpp)
 else()
 	set(eoserv_SOURCE_FILES ${eoserv_ALL_SOURCE_FILES})
-	set(eoserv_MAIN_FILES src/main.cpp)
+	set(eoserv_MAIN_FILES ${eoserv_ALL_HANDLER_FILES} src/main.cpp)
 endif()
 
 # Fancy icon on Windows
