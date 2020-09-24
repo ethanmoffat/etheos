@@ -217,10 +217,15 @@ void EOServer::Tick()
 			Console::Wrn("Connection from %s was rejected (too many connections from this address)", std::string(remote_addr).c_str());
 			newclient->Close(true);
 		}
+		else if (this->clients.size() >= this->maxconn)
+		{
+			Console::Wrn("Connection from %s was rejected (too many connections to server)", std::string(remote_addr).c_str());
+			newclient->Close(true);
+		}
 		else
 		{
 			connection_log[remote_addr] = Timer::GetTime();
-			Console::Out("New connection from %s (%i/%i connections)", std::string(newclient->GetRemoteAddr()).c_str(), this->Connections(), this->MaxConnections());
+			Console::Out("New connection from %s (%i/%i connections)", std::string(remote_addr).c_str(), this->Connections(), this->MaxConnections());
 		}
 	}
 
