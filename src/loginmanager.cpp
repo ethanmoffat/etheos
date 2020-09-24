@@ -15,6 +15,7 @@
 LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
     : _config(config)
     , _passwordHashers(passwordHashers)
+    , _processCount(0)
 {
 }
 

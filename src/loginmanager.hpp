@@ -34,7 +34,7 @@ public:
     void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
     void CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
 
-    bool LoginBusy() const { return this->_processCount > static_cast<int>(this->_config["LoginQueueSize"]); };
+    bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
 
 private:
     // Factory function for creating a database connection on-demand in background threads
