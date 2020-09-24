@@ -352,13 +352,13 @@ int eoserv_main(int argc, char *argv[])
 
 			try
 			{
-				Database_Result acc_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `accounts`");
-				Database_Result character_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `characters`");
-				Database_Result admin_character_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
-				Database_Result guild_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `guilds`");
-				Database_Result ban_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans`");
-				Database_Result ban_active_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
-				Database_Result ban_perm_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
+				Database_Result acc_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `accounts`");
+				Database_Result character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters`");
+				Database_Result admin_character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
+				Database_Result guild_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `guilds`");
+				Database_Result ban_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans`");
+				Database_Result ban_active_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
+				Database_Result ban_perm_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
 
 				Console::Out("Database info:");
 				Console::Out("  Accounts:   %i", int(acc_count.front()["count"]));
@@ -395,7 +395,7 @@ int eoserv_main(int argc, char *argv[])
 				try
 				{
 					server.world->CommitDB();
-					server.world->db.ExecuteFile(install_script);
+					server.world->db->ExecuteFile(install_script);
 					server.world->BeginDB();
 				}
 				catch (Database_Exception& e)

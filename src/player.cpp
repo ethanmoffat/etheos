@@ -28,7 +28,7 @@ Player::Player(std::string username, World * world, Database * database)
 {
 	this->world = world;
 
-	auto dbPointer = database ? database : &this->world->db;
+	auto dbPointer = database ? database : this->world->db.get();
 
 	Database_Result res = dbPointer->Query("SELECT `username`, `password` FROM `accounts` WHERE `username` = '$'", username.c_str());
 	if (res.empty())
@@ -127,7 +127,7 @@ void Player::Logout()
 #ifdef DEBUG
 		Console::Dbg("Saving player '%s' (session lasted %i minutes)", this->username.c_str(), int(std::time(0) - this->login_time) / 60);
 #endif // DEBUG
-		this->world->db.Query("UPDATE `accounts` SET `lastused` = #, `hdid` = #, `lastip` = '$' WHERE username = '$'", int(std::time(0)), this->client->hdid, static_cast<std::string>(this->client->GetRemoteAddr()).c_str(), this->username.c_str());
+		this->world->db->Query("UPDATE `accounts` SET `lastused` = #, `hdid` = #, `lastip` = '$' WHERE username = '$'", int(std::time(0)), this->client->hdid, static_cast<std::string>(this->client->GetRemoteAddr()).c_str(), this->username.c_str());
 
 		// Disconnect the client to make sure this null pointer is never dereferenced
 		this->client->AsyncOpPending(false);

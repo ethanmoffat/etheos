@@ -162,6 +162,30 @@ void EOServer::Initialize(std::array<std::string, 6> dbinfo, const Config &eoser
 	this->start = Timer::GetTime();
 }
 
+void EOServer::Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config)
+{
+	this->world = new World(std::move(database), eoserv_config, admin_config);
+
+	TimeEvent *event = new TimeEvent(server_ping_all, this, double(this->world->config["PingRate"]), Timer::FOREVER);
+	this->world->timer.Register(event);
+
+	event = new TimeEvent(server_pump_queue, this, 0.001, Timer::FOREVER);
+	this->world->timer.Register(event);
+
+	this->world->server = this;
+
+	if (this->world->config["SLN"])
+	{
+		this->sln = new SLN(this);
+	}
+	else
+	{
+		this->sln = 0;
+	}
+
+	this->start = Timer::GetTime();
+}
+
 Client *EOServer::ClientFactory(const Socket &sock)
 {
 	 return new EOClient(sock, this);

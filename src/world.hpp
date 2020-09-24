@@ -88,7 +88,7 @@ class World
 		Timer timer;
 
 		EOServer *server;
-		Database db;
+		std::unique_ptr<Database> db;
 
 		GuildManager *guildmanager;
 
@@ -125,6 +125,9 @@ class World
 		int admin_count;
 
 		World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config);
+		World(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
+
+		void Initialize();
 
 		void BeginDB();
 		void CommitDB();

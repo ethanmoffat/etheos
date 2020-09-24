@@ -112,7 +112,7 @@ std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag)
 	}
 	else
 	{
-		Database_Result res = this->world->db.Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `tag` = '$'", tag.c_str());
+		Database_Result res = this->world->db->Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `tag` = '$'", tag.c_str());
 
 		if (res.empty())
 		{
@@ -128,7 +128,7 @@ std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag)
 		guild->ranks = RankUnserialize(static_cast<std::string>(row["ranks"]));
 		guild->bank = static_cast<int>(row["bank"]);
 
-		res = this->world->db.Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", tag.c_str());
+		res = this->world->db->Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", tag.c_str());
 
 		UTIL_FOREACH_REF(res, row)
 		{
@@ -154,7 +154,7 @@ std::shared_ptr<Guild> GuildManager::GetGuildName(std::string name)
 	}
 	else
 	{
-		Database_Result res = this->world->db.Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `name` = '$'", name.c_str());
+		Database_Result res = this->world->db->Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `name` = '$'", name.c_str());
 
 		if (res.empty())
 		{
@@ -170,7 +170,7 @@ std::shared_ptr<Guild> GuildManager::GetGuildName(std::string name)
 		guild->ranks = RankUnserialize(static_cast<std::string>(row["ranks"]));
 		guild->bank = static_cast<int>(row["bank"]);
 
-		res = this->world->db.Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", static_cast<std::string>(row["tag"]).c_str());
+		res = this->world->db->Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", static_cast<std::string>(row["tag"]).c_str());
 
 		UTIL_FOREACH_REF(res, row)
 		{
@@ -221,7 +221,7 @@ std::shared_ptr<Guild> GuildManager::CreateGuild(std::shared_ptr<Guild_Create> c
 {
 	description = util::text_word_wrap(description, this->world->config["GuildMaxWidth"]);
 
-	this->world->db.Query("INSERT INTO `guilds` (`tag`, `name`, `description`, `created`, `ranks`) VALUES ('$', '$', '$', #, '$')", create->tag.c_str(), create->name.c_str(), description.c_str(), int(std::time(0)), static_cast<std::string>(this->world->config["GuildDefaultRanks"]).c_str());
+	this->world->db->Query("INSERT INTO `guilds` (`tag`, `name`, `description`, `created`, `ranks`) VALUES ('$', '$', '$', #, '$')", create->tag.c_str(), create->name.c_str(), description.c_str(), int(std::time(0)), static_cast<std::string>(this->world->config["GuildDefaultRanks"]).c_str());
 
 	this->create_cache.erase(create->tag);
 
@@ -423,7 +423,7 @@ void Guild::DelMember(std::string kicked, Character *kicker, bool alert)
 		}
 	}
 
-	world->db.Query("UPDATE `characters` SET `guild` = NULL, `guild_rank` = NULL, `guild_rank_string` = NULL WHERE `name` = '$'", kicked.c_str());
+	world->db->Query("UPDATE `characters` SET `guild` = NULL, `guild_rank` = NULL, `guild_rank_string` = NULL WHERE `name` = '$'", kicked.c_str());
 }
 
 void Guild::SetMemberRank(std::string name, int rank)
@@ -461,7 +461,7 @@ void Guild::SetMemberRank(std::string name, int rank)
 			}
 		}
 
-		world->db.Query("UPDATE `characters` SET `guild_rank` = #, `guild_rank_string` = '$' WHERE `name` = '$'",
+		world->db->Query("UPDATE `characters` SET `guild_rank` = #, `guild_rank_string` = '$' WHERE `name` = '$'",
 			rank, rank_str.c_str(), name.c_str());
 	}
 }
@@ -562,7 +562,7 @@ void Guild::Save()
 {
 	if (this->needs_save)
 	{
-		this->manager->world->db.Query("UPDATE `guilds` SET `description` = '$', `ranks` = '$', `bank` = # WHERE tag = '$'", this->description.c_str(), RankSerialize(this->ranks).c_str(), this->bank, this->tag.c_str());
+		this->manager->world->db->Query("UPDATE `guilds` SET `description` = '$', `ranks` = '$', `bank` = # WHERE tag = '$'", this->description.c_str(), RankSerialize(this->ranks).c_str(), this->bank, this->tag.c_str());
 		this->needs_save = false;
 	}
 }
@@ -588,7 +588,7 @@ Guild::~Guild()
 	}
 	else
 	{
-		this->manager->world->db.Query("UPDATE `characters` SET `guild` = NULL, `guild_rank` = NULL, `guild_rank_string` = NULL WHERE `guild` = '$'", this->tag.c_str());
-		this->manager->world->db.Query("DELETE FROM `guilds` WHERE tag = '$'", this->tag.c_str());
+		this->manager->world->db->Query("UPDATE `characters` SET `guild` = NULL, `guild_rank` = NULL, `guild_rank_string` = NULL WHERE `guild` = '$'", this->tag.c_str());
+		this->manager->world->db->Query("DELETE FROM `guilds` WHERE tag = '$'", this->tag.c_str());
 	}
 }
