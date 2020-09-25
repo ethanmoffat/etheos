@@ -24,8 +24,6 @@
 #include <string>
 #include <vector>
 
-extern volatile std::sig_atomic_t eoserv_sig_abort;
-
 static void limit_message(std::string &message, std::size_t chatlength)
 {
 	if (message.length() > chatlength)

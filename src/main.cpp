@@ -34,7 +34,7 @@
 #endif // WIN32
 
 extern volatile std::sig_atomic_t eoserv_sig_abort;
-volatile std::sig_atomic_t eoserv_sig_rehash;
+volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
 #ifdef SIGHUP
