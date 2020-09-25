@@ -240,7 +240,7 @@ target_include_directories(eoserv PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
 
-target_link_libraries(eoserv eoserv_lib ${eoserv_LIBRARIES})
+target_link_libraries(eoserv eoserv_lib)
 target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})
 
 install(TARGETS eoserv RUNTIME DESTINATION .)
