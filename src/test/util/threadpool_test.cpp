@@ -21,6 +21,8 @@ public:
         this->queueInternal(workFunc, state);
     }
 
+    size_t GetNumThreads() const { return this->_threads.size(); }
+
     void SetNumThreads(size_t numThreads)
     {
         this->setNumThreadsInternal(numThreads);
@@ -40,6 +42,25 @@ public:
         this->_threads.clear();
     }
 };
+
+GTEST_TEST(ThreadPoolTests, ZeroThreadsUsesDefault)
+{
+    TestThreadPool t(0);
+    ASSERT_EQ(ThreadPool::DEFAULT_THREADS, t.GetNumThreads());
+}
+
+GTEST_TEST(ThreadPoolTests, GreaterThanMaxThreadsUsesDefault)
+{
+    {
+        TestThreadPool t(ThreadPool::MAX_THREADS);
+        ASSERT_EQ(ThreadPool::MAX_THREADS, t.GetNumThreads());
+    }
+
+    {
+        TestThreadPool t(ThreadPool::MAX_THREADS + 1);
+        ASSERT_EQ(ThreadPool::DEFAULT_THREADS, t.GetNumThreads());
+    }
+}
 
 GTEST_TEST(ThreadPoolTests, QueueDoesWork)
 {
@@ -117,6 +138,28 @@ GTEST_TEST(ThreadPoolTests, QueueRespectsMaxThreads)
 
     s.Release(defaultMaxThreads);
     testThreadPool.JoinAll();
+}
+
+GTEST_TEST(ThreadPoolTests, ResizeToZeroUsesDefault)
+{
+    TestThreadPool t;
+    t.SetNumThreads(0);
+    ASSERT_EQ(ThreadPool::DEFAULT_THREADS, t.GetNumThreads());
+}
+
+GTEST_TEST(ThreadPoolTests, ResizeToGreaterThanMaxUsesDefault)
+{
+    {
+        TestThreadPool t;
+        t.SetNumThreads(ThreadPool::MAX_THREADS);
+        ASSERT_EQ(ThreadPool::MAX_THREADS, t.GetNumThreads());
+    }
+
+    {
+        TestThreadPool t;
+        t.SetNumThreads(ThreadPool::MAX_THREADS+1);
+        ASSERT_EQ(ThreadPool::DEFAULT_THREADS, t.GetNumThreads());
+    }
 }
 
 GTEST_TEST(ThreadPoolTests, ResizeLessThreadsReducesThreadPoolSize)
