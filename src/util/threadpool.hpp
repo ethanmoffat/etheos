@@ -29,12 +29,14 @@ namespace util
         static void SetNumThreads(size_t numThreads);
 
     public:
-        ThreadPool(size_t numThreads = 4);
+        ThreadPool(size_t numThreads = DEFAULT_THREADS);
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
 
         static constexpr size_t MAX_THREADS = 32;
+        static constexpr size_t DEFAULT_THREADS = 4;
+
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
 

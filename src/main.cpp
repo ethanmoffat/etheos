@@ -34,7 +34,7 @@
 #endif // WIN32
 
 extern volatile std::sig_atomic_t eoserv_sig_abort;
-volatile std::sig_atomic_t eoserv_sig_rehash;
+volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
 #ifdef SIGHUP
@@ -318,12 +318,18 @@ int eoserv_main(int argc, char *argv[])
 
 		if (static_cast<int>(config["ThreadPoolThreads"]) <= 0)
 		{
-			Console::Wrn("Overriding user-defined threadpool threads with %d", std::thread::hardware_concurrency());
-			config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
+			if (std::thread::hardware_concurrency() == 0)
+			{
+				config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::DEFAULT_THREADS);
+			}
+			else
+			{
+				config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
+			}
 		}
 		else if (static_cast<size_t>(config["ThreadPoolThreads"].GetInt()) > util::ThreadPool::MAX_THREADS)
 		{
-			Console::Wrn("Overriding user-defined threadpool threads with %d", util::ThreadPool::MAX_THREADS);
+			Console::Wrn("Value of ThreadPoolThreads is too high. Overriding user-defined threadpool threads with %d", util::ThreadPool::MAX_THREADS);
 			config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::MAX_THREADS);
 		}
 

@@ -26,6 +26,11 @@ namespace util
         : _terminating(false)
         , _workReadySemaphore(0)
     {
+        if (numThreads == 0 || numThreads > MAX_THREADS)
+        {
+            numThreads = DEFAULT_THREADS;
+        }
+
         for (size_t i = 0; i < numThreads; i++)
         {
             auto newThread = std::thread([this, i]() { this->_workerProc(i); });
@@ -56,6 +61,11 @@ namespace util
 
     void ThreadPool::setNumThreadsInternal(size_t numWorkers)
     {
+        if (numWorkers == 0 || numWorkers > MAX_THREADS)
+        {
+            numWorkers = DEFAULT_THREADS;
+        }
+
         if (numWorkers == this->_threads.size())
             return;
 
