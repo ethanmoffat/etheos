@@ -4,6 +4,8 @@
  * See LICENSE.txt for more info.
  */
 
+#include <future>
+
 #include "../console.hpp"
 #include "threadpool.hpp"
 
@@ -97,10 +99,6 @@ namespace util
 
     void ThreadPool::_workerProc(size_t threadNum)
     {
-#if !DEBUG
-        (void)threadNum;
-#endif
-
         while (!this->_terminating)
         {
             this->_workReadySemaphore.Wait();
@@ -120,7 +118,14 @@ namespace util
                 this->_work.pop();
             }
 
-            workPair->first(workPair->second);
+            try
+            {
+                workPair->first(workPair->second);
+            }
+            catch(const std::exception& e)
+            {
+                Console::Err("Exception on thread %d: %s", threadNum, e.what());
+            }
 
 #if DEBUG
             Console::Dbg("Thread %d completed work", threadNum);
