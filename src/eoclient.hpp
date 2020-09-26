@@ -144,9 +144,9 @@ class EOClient : public Client
 
 		bool Upload(FileType type, int id, InitReply init_reply);
 		bool Upload(FileType type, const std::string &filename, InitReply init_reply);
-		void Send(const PacketBuilder &packet);
+		virtual void Send(const PacketBuilder &packet);
 
-		~EOClient();
+		virtual ~EOClient();
 };
 
 #endif // EOCLIENT_HPP_INCLUDED

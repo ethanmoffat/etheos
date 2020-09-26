@@ -77,5 +77,7 @@ if (-not $tmpResult)
 Set-Location $PSScriptRoot
 
 if ($Test) {
-    ./install/test/eoserv_test.exe
+    Set-Location install/test
+    ./eoserv_test.exe
+    Set-Location $PSScriptRoot
 }

@@ -384,6 +384,7 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 	, admin_count(0)
 	, config(eoserv_config)
 	, admin_config(admin_config)
+	, db(new Database)
 {
 	Database::Engine engine;
 

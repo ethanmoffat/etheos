@@ -696,6 +696,11 @@ PacketBuilder::operator std::string() const
 	return this->Get();
 }
 
+bool PacketBuilder::operator==(const PacketBuilder& rhs) const
+{
+	return this->Get() == rhs.Get();
+}
+
 PacketBuilder::~PacketBuilder()
 {
 	std::fill(UTIL_RANGE(this->data), '\0');

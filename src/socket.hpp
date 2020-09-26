@@ -268,7 +268,7 @@ class Client
 		void AsyncOpPending(bool asyncOpPending) { this->async_op_pending = asyncOpPending; }
 		bool IsAsyncOpPending() const { return this->async_op_pending; }
 
-		void Close(bool force = false);
+		virtual void Close(bool force = false);
 
 		std::time_t ConnectTime() const;
 
