@@ -21,6 +21,11 @@ namespace util
         threadPoolInstance.setNumThreadsInternal(numThreads);
     }
 
+    void ThreadPool::Shutdown()
+    {
+        threadPoolInstance.shutdownInternal();
+    }
+
     ThreadPool::ThreadPool(size_t numThreads)
         : _terminating(false)
         , _workReadySemaphore(0)
@@ -39,13 +44,7 @@ namespace util
 
     ThreadPool::~ThreadPool()
     {
-        this->_terminating = true;
-        this->_workReadySemaphore.Release(this->_threads.size());
-
-        for (auto& thread : this->_threads)
-        {
-            thread.join();
-        }
+        this->shutdownInternal();
     }
 
     void ThreadPool::queueInternal(const ThreadPool::WorkFunc workerFunction, const void* state)
@@ -91,6 +90,20 @@ namespace util
         {
             auto newThread = std::thread([this]() { this->_workerProc(); });
             this->_threads.push_back(std::move(newThread));
+        }
+    }
+
+    void ThreadPool::shutdownInternal()
+    {
+        if (!this->_terminating)
+        {
+            this->_terminating = true;
+            this->_workReadySemaphore.Release(this->_threads.size());
+
+            for (auto& thread : this->_threads)
+            {
+                thread.join();
+            }
         }
     }
 

@@ -28,6 +28,9 @@ namespace util
         // Set the number of threads in the thread pool. Any queued work will be removed. In-progress work will be allowed to complete.
         static void SetNumThreads(size_t numThreads);
 
+        // Shut down the threadpool
+        static void Shutdown();
+
     public:
         ThreadPool(size_t numThreads = DEFAULT_THREADS);
         ThreadPool(const ThreadPool&) = delete;
@@ -44,6 +47,7 @@ namespace util
     protected:
         void queueInternal(const WorkFunc workerFunction, const void * state);
         void setNumThreadsInternal(size_t numWorkers);
+        void shutdownInternal();
 
         volatile bool _terminating;
 
