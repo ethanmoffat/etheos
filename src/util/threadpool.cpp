@@ -49,6 +49,11 @@ namespace util
 
     void ThreadPool::queueInternal(const ThreadPool::WorkFunc workerFunction, const void* state)
     {
+        if (this->_terminating)
+        {
+            throw std::runtime_error("Unable to queue work while ThreadPool is terminating");
+        }
+
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
         auto newPair = std::make_pair(workerFunction, state);
@@ -66,6 +71,11 @@ namespace util
 
         if (numWorkers == this->_threads.size())
             return;
+
+        if (this->_terminating)
+        {
+            throw std::runtime_error("Unable to set number of threads while ThreadPool is terminating");
+        }
 
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
