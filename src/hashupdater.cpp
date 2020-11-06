@@ -26,21 +26,29 @@ void PasswordHashUpdater::QueueUpdatePassword(const std::string& username, util:
                                                               std::move(const_cast<PasswordHashUpdater::UpdateState*>(updateState)->password)));
         auto hashFunc = updateState->hashFunc;
 
-        if (hashFunc == NONE)
-            return;
+        if (hashFunc != NONE)
+        {
+            updatedPassword = std::move(this->_passwordHashers[hashFunc]->hash(std::move(updatedPassword.str())));
 
-        updatedPassword = std::move(this->_passwordHashers[hashFunc]->hash(std::move(updatedPassword.str())));
-
-        this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
-            updatedPassword.str().c_str(),
-            hashFunc,
-            username.c_str());
+            this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+                updatedPassword.str().c_str(),
+                hashFunc,
+                username.c_str());
+        }
 
         delete updateState;
     };
 
-    auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), hashFunc });
+    auto state = reinterpret_cast<void*>(new (std::nothrow) UpdateState { username, std::move(password), hashFunc });
     util::ThreadPool::Queue(updateThreadProc, state);
+}
+
+PasswordHashUpdater::~PasswordHashUpdater()
+{
+	// Allow any pending threadpool work to finish on shutdown
+	// Prevents access violation if the lambda in PasswordHashUpdater::QueueUpdatePassword outlives this instance
+	//
+	util::ThreadPool::Shutdown();
 }
 
 std::unique_ptr<Database> PasswordHashUpdater::CreateDbConnection()
@@ -67,5 +75,5 @@ std::unique_ptr<Database> PasswordHashUpdater::CreateDbConnection()
     auto dbName = std::string(this->_config["DBName"]);
     auto dbPort = int(this->_config["DBPort"]);
 
-    return std::move(std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
+    return std::move(std::unique_ptr<Database>(new (std::nothrow) Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
 }

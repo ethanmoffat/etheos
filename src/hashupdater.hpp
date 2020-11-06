@@ -22,6 +22,7 @@ class PasswordHashUpdater
 {
 public:
     PasswordHashUpdater(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
+    ~PasswordHashUpdater();
 
     void QueueUpdatePassword(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
