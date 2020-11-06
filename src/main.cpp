@@ -316,7 +316,8 @@ int eoserv_main(int argc, char *argv[])
 			}
 		}
 
-		if (static_cast<int>(config["ThreadPoolThreads"]) <= 0)
+		const auto threadPoolThreads = static_cast<int>(config["ThreadPoolThreads"]);
+		if (threadPoolThreads <= 0)
 		{
 			if (std::thread::hardware_concurrency() == 0)
 			{
@@ -327,15 +328,15 @@ int eoserv_main(int argc, char *argv[])
 				config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
 			}
 		}
-		else if (static_cast<size_t>(config["ThreadPoolThreads"].GetInt()) > util::ThreadPool::MAX_THREADS)
+		else if (static_cast<size_t>(threadPoolThreads) > util::ThreadPool::MAX_THREADS)
 		{
-			Console::Wrn("Value of ThreadPoolThreads is too high. Overriding user-defined threadpool threads with %d", util::ThreadPool::MAX_THREADS);
+			Console::Wrn("Value of ThreadPoolThreads is too high. Overriding user-defined threadpool threads (%d) with %d", threadPoolThreads, util::ThreadPool::MAX_THREADS);
 			config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::MAX_THREADS);
 		}
 
-		size_t threadPoolThreads = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
-		Console::Out("Setting number of threadpool threads to %d", threadPoolThreads);
-		util::ThreadPool::SetNumThreads(threadPoolThreads);
+		const auto threadPoolSize = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
+		Console::Out("Setting number of threadpool threads to %d", threadPoolSize);
+		util::ThreadPool::SetNumThreads(threadPoolSize);
 
 		std::array<std::string, 6> dbinfo;
 		dbinfo[0] = std::string(config["DBType"]);
