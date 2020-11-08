@@ -16,9 +16,6 @@
 #include "../src/util.cpp"
 #include "../src/util/rpn.cpp"
 #include "../src/util/semaphore.cpp"
+#include "../src/util/threadpool.cpp"
 #include "../src/util/variant.cpp"
-
-#ifdef WIN32
-#include "../src/extra/ntservice.cpp"
-#endif // WIN32
 

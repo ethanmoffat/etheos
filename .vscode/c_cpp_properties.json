@@ -99,6 +99,104 @@
                 "databaseFilename": ""
             },
             "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "SqlServer - Windows (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DEBUG"
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "MySQL + SqlServer - Windows (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DATABASE_MYSQL",
+                "DEBUG"
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "SqlServer - Linux (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DEBUG"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "MySQL + SqlServer - Linux (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLSERVER",
+                "DATABASE_MYSQL",
+                "DEBUG"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
         }
     ],
     "version": 4

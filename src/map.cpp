@@ -2128,7 +2128,6 @@ void Map::SpellGroup(Character *from, unsigned short spell_id)
 		if (member->map != from->map)
 			continue;
 
-		int displayhp = spell.hp;
 		int hpgain = spell.hp;
 
 		if (this->world->config["LimitDamage"])

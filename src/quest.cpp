@@ -388,6 +388,8 @@ Quest_Context::Quest_Context(Character* character, const Quest* quest)
 
 void Quest_Context::BeginState(const std::string& name, const EOPlus::State& state)
 {
+	(void)name;
+
 	this->state_desc = state.desc;
 
 	for (auto it = this->progress.begin(); it != this->progress.end(); )

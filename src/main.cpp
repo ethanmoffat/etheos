@@ -26,12 +26,14 @@
 #include "platform.h"
 #include "version.h"
 
+#include "util/threadpool.hpp"
+
 #ifdef WIN32
 #include "eoserv_windows.h"
 #include "extra/ntservice.hpp"
 #endif // WIN32
 
-volatile std::sig_atomic_t eoserv_sig_abort = false;
+extern volatile std::sig_atomic_t eoserv_sig_abort;
 volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
@@ -313,6 +315,28 @@ int eoserv_main(int argc, char *argv[])
 				}
 			}
 		}
+
+		const auto threadPoolThreads = static_cast<int>(config["ThreadPoolThreads"]);
+		if (threadPoolThreads <= 0)
+		{
+			if (std::thread::hardware_concurrency() == 0)
+			{
+				config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::DEFAULT_THREADS);
+			}
+			else
+			{
+				config["ThreadPoolThreads"] = static_cast<int>(std::thread::hardware_concurrency());
+			}
+		}
+		else if (static_cast<size_t>(threadPoolThreads) > util::ThreadPool::MAX_THREADS)
+		{
+			Console::Wrn("Value of ThreadPoolThreads is too high. Overriding user-defined threadpool threads (%d) with %d", threadPoolThreads, util::ThreadPool::MAX_THREADS);
+			config["ThreadPoolThreads"] = static_cast<int>(util::ThreadPool::MAX_THREADS);
+		}
+
+		const auto threadPoolSize = static_cast<size_t>(static_cast<int>(config["ThreadPoolThreads"]));
+		Console::Out("Setting number of threadpool threads to %d", threadPoolSize);
+		util::ThreadPool::SetNumThreads(threadPoolSize);
 
 		std::array<std::string, 6> dbinfo;
 		dbinfo[0] = std::string(config["DBType"]);

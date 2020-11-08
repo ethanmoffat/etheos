@@ -54,7 +54,7 @@ if [ -z "$PLATFORM_NAME" ]; then
     fi
 fi
 
-SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 6 7 8 "
+SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 6 7 8 "
 VERSION_IS_SUPPORTED=$(echo $SUPPORTED_VERSIONS | grep -oP " $PLATFORM_VERSION ")
 if [ -z "$PLATFORM_VERSION" ]; then
     >&2 echo "Unable to detect platform version! Check that /etc/os-release has a VERSION_ID= set."

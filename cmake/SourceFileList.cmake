@@ -3,15 +3,17 @@
 # See LICENSE.txt for more info.
 
 set(eoserv_UNITY_SOURCE_FILES
-	tu/main.cpp
 	tu/system.cpp
 	tu/game_1.cpp
 	tu/game_2.cpp
 	tu/game_3.cpp
-	tu/handlers.cpp
-	tu/commands.cpp
 	tu/eoplus.cpp
 	tu/sha256.c
+)
+
+set(eoserv_UNITY_HANDLER_FILES
+	tu/handlers.cpp
+	tu/commands.cpp
 )
 
 set(eoserv_ALL_SOURCE_FILES
@@ -21,16 +23,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/character.hpp
 	src/command_source.cpp
 	src/command_source.hpp
-	src/commands/admin.cpp
-	src/commands/char_mod.cpp
 	src/commands/commands.cpp
 	src/commands/commands.hpp
-	src/commands/debug.cpp
-	src/commands/info.cpp
-	src/commands/map.cpp
-	src/commands/moderation.cpp
-	src/commands/server.cpp
-	src/commands/warp.cpp
 	src/config.cpp
 	src/config.hpp
 	src/console.cpp
@@ -89,53 +83,14 @@ set(eoserv_ALL_SOURCE_FILES
 	src/fwd/world.hpp
 	src/guild.cpp
 	src/guild.hpp
-	src/handlers/Account.cpp
-	src/handlers/AdminInteract.cpp
-	src/handlers/Attack.cpp
-	src/handlers/Bank.cpp
-	src/handlers/Barber.cpp
-	src/handlers/Board.cpp
-	src/handlers/Book.cpp
-	src/handlers/Chair.cpp
-	src/handlers/Character.cpp
-	src/handlers/Chest.cpp
-	src/handlers/Citizen.cpp
-	src/handlers/Connection.cpp
-	src/handlers/Door.cpp
-	src/handlers/Emote.cpp
-	src/handlers/Face.cpp
-	src/handlers/Global.cpp
-	src/handlers/Guild.cpp
 	src/handlers/handlers.cpp
 	src/handlers/handlers.hpp
-	src/handlers/Init.cpp
-	src/handlers/Internal.cpp
-	src/handlers/Item.cpp
-	src/handlers/Jukebox.cpp
-	src/handlers/Locker.cpp
-	src/handlers/Login.cpp
-	src/handlers/Message.cpp
-	src/handlers/Paperdoll.cpp
-	src/handlers/Party.cpp
-	src/handlers/Players.cpp
-	src/handlers/Quest.cpp
-	src/handlers/Refresh.cpp
-	src/handlers/Shop.cpp
-	src/handlers/Sit.cpp
-	src/handlers/Spell.cpp
-	src/handlers/StatSkill.cpp
-	src/handlers/Talk.cpp
-	src/handlers/Trade.cpp
-	src/handlers/Walk.cpp
-	src/handlers/Warp.cpp
-	src/handlers/Welcome.cpp
 	src/hash.cpp
 	src/hash.hpp
 	src/hashupdater.cpp
 	src/hashupdater.hpp
 	src/i18n.cpp
 	src/i18n.hpp
-	src/main.cpp
 	src/map.cpp
 	src/map.hpp
 	src/nanohttp.cpp
@@ -169,6 +124,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/secure_string.hpp
 	src/util/semaphore.cpp
 	src/util/semaphore.hpp
+	src/util/threadpool.cpp
+	src/util/threadpool.hpp
 	src/util/variant.cpp
 	src/util/variant.hpp
 	src/version.h
@@ -176,8 +133,60 @@ set(eoserv_ALL_SOURCE_FILES
 	src/world.hpp
 )
 
+set(eoserv_ALL_HANDLER_FILES
+	src/commands/admin.cpp
+	src/commands/char_mod.cpp
+	src/commands/debug.cpp
+	src/commands/info.cpp
+	src/commands/map.cpp
+	src/commands/moderation.cpp
+	src/commands/server.cpp
+	src/commands/warp.cpp
+	src/handlers/Account.cpp
+	src/handlers/AdminInteract.cpp
+	src/handlers/Attack.cpp
+	src/handlers/Bank.cpp
+	src/handlers/Barber.cpp
+	src/handlers/Board.cpp
+	src/handlers/Book.cpp
+	src/handlers/Chair.cpp
+	src/handlers/Character.cpp
+	src/handlers/Chest.cpp
+	src/handlers/Citizen.cpp
+	src/handlers/Connection.cpp
+	src/handlers/Door.cpp
+	src/handlers/Emote.cpp
+	src/handlers/Face.cpp
+	src/handlers/Global.cpp
+	src/handlers/Guild.cpp
+	src/handlers/Init.cpp
+	src/handlers/Internal.cpp
+	src/handlers/Item.cpp
+	src/handlers/Jukebox.cpp
+	src/handlers/Locker.cpp
+	src/handlers/Login.cpp
+	src/handlers/Message.cpp
+	src/handlers/Paperdoll.cpp
+	src/handlers/Party.cpp
+	src/handlers/Players.cpp
+	src/handlers/Quest.cpp
+	src/handlers/Refresh.cpp
+	src/handlers/Shop.cpp
+	src/handlers/Sit.cpp
+	src/handlers/Spell.cpp
+	src/handlers/StatSkill.cpp
+	src/handlers/Talk.cpp
+	src/handlers/Trade.cpp
+	src/handlers/Walk.cpp
+	src/handlers/Warp.cpp
+	src/handlers/Welcome.cpp
+)
+
 set(eoserv_WIN32_SOURCE_FILES
 	src/eoserv_windows.h
+)
+
+set(eoserv_WIN32_SOURCE_FILES_MAIN
 	src/extra/ntservice.cpp
 	src/extra/ntservice.hpp
 )
@@ -265,6 +274,8 @@ set(ExtraFiles
 
 set(TestFiles
 	src/test/config_test.cpp
+	src/test/util/semaphore_test.cpp
+	src/test/util/threadpool_test.cpp
 )
 
 set(LocalConf

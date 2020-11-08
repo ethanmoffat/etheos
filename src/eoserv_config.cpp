@@ -270,6 +270,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "MaxTrade"           , 2000000000);
 	eoserv_config_default(config, "IgnorePacketFamilies", "*");
 	eoserv_config_default(config, "InitLoginBan"       , true);
+	eoserv_config_default(config, "ThreadPoolThreads"  , 0);
 }
 
 void eoserv_config_validate_admin(Config& config)
