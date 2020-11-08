@@ -37,8 +37,8 @@ namespace util
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
 
-        static constexpr size_t MAX_THREADS = 32;
-        static constexpr size_t DEFAULT_THREADS = 4;
+        static const size_t MAX_THREADS;
+        static const size_t DEFAULT_THREADS;
 
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;

@@ -8,6 +8,11 @@
 
 namespace util
 {
+    // These are initialized here to allow tests to compile on Ubuntu Linux (g++ 7.4.0)
+    // Otherwise, they aren't in the object file in unity build mode and test linking fails
+    const size_t ThreadPool::MAX_THREADS = 32;
+    const size_t ThreadPool::DEFAULT_THREADS = 4;
+
     // There should really only be a single thread pool per application
     static ThreadPool threadPoolInstance;
 
