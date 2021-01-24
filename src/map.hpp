@@ -252,6 +252,8 @@ class Map
 		bool evacuate_lock;
 		bool has_timed_spikes;
 
+		int currentQuakeTick, nextQuakeTick;
+
 		Arena *arena;
 
 		Map(int id, World *world);
