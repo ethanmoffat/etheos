@@ -2647,16 +2647,7 @@ void Map::TimedQuakes()
 		else
 		{
 			auto quakeStrength = util::rand(util::to_int(quakeData[2]), util::to_int(quakeData[3]));
-
-			PacketBuilder builder(PACKET_EFFECT, PACKET_USE, 2);
-			builder.AddChar(MAP_EFFECT_QUAKE);
-			builder.AddChar(quakeStrength);
-
-			for (const auto& character : this->characters)
-			{
-				character->Send(builder);
-			}
-
+			this->Effect(MAP_EFFECT_QUAKE, util::clamp(quakeStrength, 0, 8));
 			this->currentQuakeTick = 0;
 			this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
 		}
