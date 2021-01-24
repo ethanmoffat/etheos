@@ -356,6 +356,7 @@ Map::Map(int id, World *world)
 
 	this->currentQuakeTick = 0;
 	this->nextQuakeTick = 0;
+	this->TimedQuakes(); // load initial quake data
 }
 
 void Map::LoadArena()
@@ -2630,7 +2631,7 @@ void Map::TimedQuakes()
 
 	this->currentQuakeTick++;
 
-	if (this->currentQuakeTick == this->nextQuakeTick || this->nextQuakeTick == 0)
+	if (this->currentQuakeTick >= this->nextQuakeTick || this->nextQuakeTick == 0)
 	{
 		auto quakeData = util::explode(",", this->world->config[configString]);
 		if (quakeData.size() != 4)
@@ -2642,6 +2643,7 @@ void Map::TimedQuakes()
 
 		if (this->nextQuakeTick == 0)
 		{
+			this->currentQuakeTick = 0;
 			this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
 		}
 		else
