@@ -356,7 +356,7 @@ Map::Map(int id, World *world)
 
 	this->currentQuakeTick = 0;
 	this->nextQuakeTick = 0;
-	this->TimedQuakes(); // load initial quake data
+	this->TimedQuakes(true); // load initial quake data
 }
 
 void Map::LoadArena()
@@ -2617,7 +2617,7 @@ void Map::TimedDrains()
 	}
 }
 
-void Map::TimedQuakes()
+void Map::TimedQuakes(bool initialize)
 {
 	std::string configString;
 	switch (this->effect)
@@ -2631,7 +2631,7 @@ void Map::TimedQuakes()
 
 	this->currentQuakeTick++;
 
-	if (this->currentQuakeTick >= this->nextQuakeTick || this->nextQuakeTick == 0)
+	if (this->currentQuakeTick >= this->nextQuakeTick || initialize)
 	{
 		auto quakeData = util::explode(",", this->world->config[configString]);
 		if (quakeData.size() != 4)
@@ -2641,17 +2641,13 @@ void Map::TimedQuakes()
 			return;
 		}
 
-		if (this->nextQuakeTick == 0)
-		{
-			this->currentQuakeTick = 0;
-			this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
-		}
-		else
+		this->currentQuakeTick = 0;
+		this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
+
+		if (!initialize)
 		{
 			auto quakeStrength = util::rand(util::to_int(quakeData[2]), util::to_int(quakeData[3]));
 			this->Effect(MAP_EFFECT_QUAKE, util::clamp(quakeStrength, 0, 8));
-			this->currentQuakeTick = 0;
-			this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
 		}
 	}
 }

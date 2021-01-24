@@ -312,7 +312,7 @@ class Map
 
 		void TimedSpikes();
 		void TimedDrains();
-		void TimedQuakes();
+		void TimedQuakes(bool initialize = false);
 
 		Character *GetCharacter(std::string name);
 		Character *GetCharacterPID(unsigned int id);
