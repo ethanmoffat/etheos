@@ -353,6 +353,10 @@ Map::Map(int id, World *world)
 		TimeEvent *event = new TimeEvent(map_spawn_chests, this, 60.0, Timer::FOREVER);
 		this->world->timer.Register(event);
 	}
+
+	this->currentQuakeTick = 0;
+	this->nextQuakeTick = 0;
+	this->TimedQuakes(true); // load initial quake data
 }
 
 void Map::LoadArena()
@@ -2613,9 +2617,39 @@ void Map::TimedDrains()
 	}
 }
 
-void Map::TimedQuakes()
+void Map::TimedQuakes(bool initialize)
 {
+	std::string configString;
+	switch (this->effect)
+	{
+		case EffectQuake1: configString = "Quake1"; break;
+		case EffectQuake2: configString = "Quake2"; break;
+		case EffectQuake3: configString = "Quake3"; break;
+		case EffectQuake4: configString = "Quake4"; break;
+		default: return;
+	}
 
+	this->currentQuakeTick++;
+
+	if (this->currentQuakeTick >= this->nextQuakeTick || initialize)
+	{
+		auto quakeData = util::explode(",", this->world->config[configString]);
+		if (quakeData.size() != 4)
+		{
+			Console::Dbg("Timed quake on map %d failed - invalid parameters for %s in config (expected 4 comma-delimited values, got: %s)",
+				this->id, configString.c_str(), this->world->config[configString].GetString().c_str());
+			return;
+		}
+
+		this->currentQuakeTick = 0;
+		this->nextQuakeTick = util::rand(util::to_int(quakeData[0]), util::to_int(quakeData[1]));
+
+		if (!initialize)
+		{
+			auto quakeStrength = util::rand(util::to_int(quakeData[2]), util::to_int(quakeData[3]));
+			this->Effect(MAP_EFFECT_QUAKE, util::clamp(quakeStrength, 0, 8));
+		}
+	}
 }
 
 Character *Map::GetCharacter(std::string name)
