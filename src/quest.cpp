@@ -323,7 +323,7 @@ Quest::Quest(short id, World* world)
 
 void Quest::Load()
 {
-	char namebuf[6];
+	char namebuf[7];
 
 	std::string filename = this->world->config["QuestDir"];
 	std::sprintf(namebuf, "%05i", this->id);

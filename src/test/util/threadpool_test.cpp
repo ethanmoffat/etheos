@@ -275,7 +275,7 @@ GTEST_TEST(ThreadPoolTests, ShutdownPreventsStateChanges)
     testThreadPool.QueueWork(workFunc, nullptr);
     testThreadPool.Shutdown();
 
-    ASSERT_THROW(testThreadPool.QueueWork([](const void * state) { }, nullptr), std::runtime_error) << "Expected exception when queuing ThreadPool work during shutdown";
+    ASSERT_THROW(testThreadPool.QueueWork([](const void * state) { (void)state; }, nullptr), std::runtime_error) << "Expected exception when queuing ThreadPool work during shutdown";
     ASSERT_THROW(testThreadPool.SetNumThreads(defaultMaxThreads + 1), std::runtime_error) << "Expected exception when resizing ThreadPool during shutdown";
     ASSERT_NO_THROW(testThreadPool.SetNumThreads(defaultMaxThreads)) << "Expected no exception when setting same number of threads during shutdown";
 
