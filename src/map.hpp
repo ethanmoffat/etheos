@@ -252,6 +252,8 @@ class Map
 		bool evacuate_lock;
 		bool has_timed_spikes;
 
+		int currentQuakeTick, nextQuakeTick;
+
 		Arena *arena;
 
 		Map(int id, World *world);
@@ -310,7 +312,7 @@ class Map
 
 		void TimedSpikes();
 		void TimedDrains();
-		void TimedQuakes();
+		void TimedQuakes(bool initialize = false);
 
 		Character *GetCharacter(std::string name);
 		Character *GetCharacterPID(unsigned int id);

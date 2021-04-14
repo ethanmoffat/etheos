@@ -11,6 +11,11 @@
 
 namespace util
 {
+    // These are initialized here to allow tests to compile on Ubuntu Linux (g++ 7.4.0)
+    // Otherwise, they aren't in the object file in unity build mode and test linking fails
+    const size_t ThreadPool::MAX_THREADS = 32;
+    const size_t ThreadPool::DEFAULT_THREADS = 4;
+
     // There should really only be a single thread pool per application
     static ThreadPool threadPoolInstance;
 
@@ -22,6 +27,11 @@ namespace util
     void ThreadPool::SetNumThreads(size_t numThreads)
     {
         threadPoolInstance.setNumThreadsInternal(numThreads);
+    }
+
+    void ThreadPool::Shutdown()
+    {
+        threadPoolInstance.shutdownInternal();
     }
 
     ThreadPool::ThreadPool(size_t numThreads)
@@ -42,17 +52,16 @@ namespace util
 
     ThreadPool::~ThreadPool()
     {
-        this->_terminating = true;
-        this->_workReadySemaphore.Release(this->_threads.size());
-
-        for (auto& thread : this->_threads)
-        {
-            thread.join();
-        }
+        this->shutdownInternal();
     }
 
     void ThreadPool::queueInternal(const ThreadPool::WorkFunc workerFunction, const void* state)
     {
+        if (this->_terminating)
+        {
+            throw std::runtime_error("Unable to queue work while ThreadPool is terminating");
+        }
+
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
         auto newPair = std::make_pair(workerFunction, state);
@@ -70,6 +79,11 @@ namespace util
 
         if (numWorkers == this->_threads.size())
             return;
+
+        if (this->_terminating)
+        {
+            throw std::runtime_error("Unable to set number of threads while ThreadPool is terminating");
+        }
 
         std::lock_guard<std::mutex> queueGuard(this->_workQueueLock);
 
@@ -94,6 +108,20 @@ namespace util
         {
             auto newThread = std::thread([this, i]() { this->_workerProc(i); });
             this->_threads.push_back(std::move(newThread));
+        }
+    }
+
+    void ThreadPool::shutdownInternal()
+    {
+        if (!this->_terminating)
+        {
+            this->_terminating = true;
+            this->_workReadySemaphore.Release(this->_threads.size());
+
+            for (auto& thread : this->_threads)
+            {
+                thread.join();
+            }
         }
     }
 

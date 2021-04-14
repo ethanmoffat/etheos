@@ -28,14 +28,17 @@ namespace util
         // Set the number of threads in the thread pool. Any queued work will be removed. In-progress work will be allowed to complete.
         static void SetNumThreads(size_t numThreads);
 
+        // Shut down the threadpool
+        static void Shutdown();
+
     public:
         ThreadPool(size_t numThreads = DEFAULT_THREADS);
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool(ThreadPool&&) = delete;
         virtual ~ThreadPool();
 
-        static constexpr size_t MAX_THREADS = 32;
-        static constexpr size_t DEFAULT_THREADS = 4;
+        static const size_t MAX_THREADS;
+        static const size_t DEFAULT_THREADS;
 
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
@@ -43,6 +46,7 @@ namespace util
     protected:
         void queueInternal(const WorkFunc workerFunction, const void * state);
         void setNumThreadsInternal(size_t numWorkers);
+        void shutdownInternal();
 
         void _workerProc(size_t threadNum);
 

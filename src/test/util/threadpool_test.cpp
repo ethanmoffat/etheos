@@ -23,22 +23,22 @@ public:
 
     size_t GetNumThreads() const { return this->_threads.size(); }
 
+    bool IsShutdown() const { return this->_workReadySemaphore.Count() == this->_threads.size() && this->_terminating; }
+
     void SetNumThreads(size_t numThreads)
     {
         this->setNumThreadsInternal(numThreads);
     }
 
+    void Shutdown()
+    {
+        this->shutdownInternal();
+    }
+
     // Allow for tests to force threadpool threads to join so tests don't hang
     void JoinAll()
     {
-        this->_terminating = true;
-        this->_workReadySemaphore.Release(this->_threads.size());
-
-        for (auto& thread : this->_threads)
-        {
-            thread.join();
-        }
-
+        this->Shutdown();
         this->_threads.clear();
     }
 };
@@ -228,6 +228,56 @@ GTEST_TEST(ThreadPoolTests, ResizeMoreThreadsIncreasesThreadPoolSize)
     ASSERT_EQ(workCounter, newThreadPoolSize) << "Expected work counter to match increased threadpool size";
 
     s.Release(newThreadPoolSize);
+
+    testThreadPool.JoinAll();
+}
+
+GTEST_TEST(ThreadPoolTests, ShutdownAllowsWorkToComplete)
+{
+    const size_t defaultMaxThreads = 1;
+
+    TestThreadPool testThreadPool(defaultMaxThreads);
+
+    volatile unsigned workCounter = 0;
+
+    auto workFunc = [&workCounter](const void * state)
+    {
+        (void)state;
+        SLEEP_MS(1000);
+        workCounter++;
+    };
+
+    testThreadPool.QueueWork(workFunc, nullptr);
+    SLEEP_MS(100);
+
+    testThreadPool.Shutdown();
+    ASSERT_TRUE(testThreadPool.IsShutdown()) << "Expected threadpool to be shutdown but it was not";
+    ASSERT_EQ(workCounter, 1) << "Expected work counter to indicate threadpool task had completed";
+
+    testThreadPool.JoinAll();
+}
+
+GTEST_TEST(ThreadPoolTests, ShutdownPreventsStateChanges)
+{
+    const size_t defaultMaxThreads = 1;
+
+    TestThreadPool testThreadPool(defaultMaxThreads);
+
+    volatile unsigned workCounter = 0;
+
+    auto workFunc = [&workCounter](const void * state)
+    {
+        (void)state;
+        SLEEP_MS(1000);
+        workCounter++;
+    };
+
+    testThreadPool.QueueWork(workFunc, nullptr);
+    testThreadPool.Shutdown();
+
+    ASSERT_THROW(testThreadPool.QueueWork([](const void * state) { (void)state; }, nullptr), std::runtime_error) << "Expected exception when queuing ThreadPool work during shutdown";
+    ASSERT_THROW(testThreadPool.SetNumThreads(defaultMaxThreads + 1), std::runtime_error) << "Expected exception when resizing ThreadPool during shutdown";
+    ASSERT_NO_THROW(testThreadPool.SetNumThreads(defaultMaxThreads)) << "Expected no exception when setting same number of threads during shutdown";
 
     testThreadPool.JoinAll();
 }
