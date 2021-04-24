@@ -139,7 +139,6 @@ void Account_Create(EOClient *client, PacketReader &reader)
 
 		auto onFailure = [client]()
 		{
-			client->AsyncOpPending(false);
 			client->Close();
 		};
 

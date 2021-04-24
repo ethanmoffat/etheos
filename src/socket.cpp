@@ -554,6 +554,8 @@ bool Client::Connected() const
 
 void Client::Close(bool force)
 {
+	this->async_op_pending = false;
+
 	if (this->Connected())
 	{
 		this->connected = false;

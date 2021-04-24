@@ -130,7 +130,6 @@ void Player::Logout()
 		this->world->db->Query("UPDATE `accounts` SET `lastused` = #, `hdid` = #, `lastip` = '$' WHERE username = '$'", int(std::time(0)), this->client->hdid, static_cast<std::string>(this->client->GetRemoteAddr()).c_str(), this->username.c_str());
 
 		// Disconnect the client to make sure this null pointer is never dereferenced
-		this->client->AsyncOpPending(false);
 		this->client->Close();
 		this->client->player = nullptr;
 		this->client = nullptr; // Not reference counted!
