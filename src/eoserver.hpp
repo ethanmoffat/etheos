@@ -33,6 +33,7 @@ class EOServer : public Server
 		std::unordered_map<IPAddress, double, std::hash<IPAddress>> connection_log;
 		void Initialize(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config);
 		void Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
+		void InitializeShared();
 
 	protected:
 		virtual Client *ClientFactory(const Socket &);

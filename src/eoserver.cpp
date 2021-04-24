@@ -141,31 +141,17 @@ void server_pump_queue(void *server_void)
 void EOServer::Initialize(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config)
 {
 	this->world = new World(dbinfo, eoserv_config, admin_config);
-
-	TimeEvent *event = new TimeEvent(server_ping_all, this, double(this->world->config["PingRate"]), Timer::FOREVER);
-	this->world->timer.Register(event);
-
-	event = new TimeEvent(server_pump_queue, this, 0.001, Timer::FOREVER);
-	this->world->timer.Register(event);
-
-	this->world->server = this;
-
-	if (this->world->config["SLN"])
-	{
-		this->sln = new SLN(this);
-	}
-	else
-	{
-		this->sln = 0;
-	}
-
-	this->start = Timer::GetTime();
+	this->InitializeShared();
 }
 
 void EOServer::Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config)
 {
 	this->world = new World(std::move(database), eoserv_config, admin_config);
+	this->InitializeShared();
+}
 
+void EOServer::InitializeShared()
+{
 	TimeEvent *event = new TimeEvent(server_ping_all, this, double(this->world->config["PingRate"]), Timer::FOREVER);
 	this->world->timer.Register(event);
 
