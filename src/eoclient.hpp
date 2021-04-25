@@ -23,6 +23,7 @@
 #include <queue>
 #include <string>
 #include <utility>
+#include <mutex>
 
 /**
  * An action the server will execute for the client
@@ -96,6 +97,8 @@ class EOClient : public Client
 		int seq_start;
 		int upcoming_seq_start;
 		int seq;
+
+		std::mutex send_mutex;
 
 	public:
 		EOServer *server() { return static_cast<EOServer *>(Client::server); };

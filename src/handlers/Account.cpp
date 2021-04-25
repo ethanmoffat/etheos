@@ -127,7 +127,6 @@ void Account_Create(EOClient *client, PacketReader &reader)
 			// The client may disconnect if the password generation takes too long
 			if (client->Connected())
 			{
-				// TODO: there are potential implications for thread safety of Send (and other client methods)
 				client->Send(succeededReply);
 			}
 

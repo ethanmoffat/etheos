@@ -395,6 +395,8 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 
 void EOClient::Send(const PacketBuilder &builder)
 {
+	std::lock_guard<std::mutex> lock(send_mutex);
+
 	auto fam = PacketFamily(PacketProcessor::EPID(builder.GetID())[1]);
 	auto act = PacketAction(PacketProcessor::EPID(builder.GetID())[0]);
 	this->LogPacket(fam, act, builder.Length());
