@@ -14,6 +14,7 @@
 #include "../src/socket.cpp"
 #include "../src/timer.cpp"
 #include "../src/util.cpp"
+#include "../src/util/async.cpp"
 #include "../src/util/rpn.cpp"
 #include "../src/util/semaphore.cpp"
 #include "../src/util/threadpool.cpp"

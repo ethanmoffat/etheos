@@ -89,9 +89,9 @@ void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::func
     util::ThreadPool::Queue(createAccountThreadProc, state);
 }
 
-void LoginManager::SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
+AsyncOperation* LoginManager::SetPasswordAsync(EOClient* client)
 {
-    auto setPasswordThreadProc = [this, successCallback, failureCallback](const void * state)
+    auto setPasswordThreadProc = [this](const void * state)
     {
         auto passwordChangeInfo = reinterpret_cast<const PasswordChangeInfo*>(state);
         auto oldPassword = std::move(passwordChangeInfo->oldpassword);
@@ -100,18 +100,13 @@ void LoginManager::SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std
         if (this->CheckLogin(passwordChangeInfo->username, std::move(oldPassword)))
         {
             this->SetPassword(passwordChangeInfo->username, std::move(newPassword));
-            successCallback();
-        }
-        else
-        {
-            failureCallback();
+            return true;
         }
 
-        delete passwordChangeInfo;
+        return false;
     };
 
-    auto state = reinterpret_cast<void*>(new PasswordChangeInfo(std::move(passwordChangeInfo)));
-    util::ThreadPool::Queue(setPasswordThreadProc, state);
+    return new AsyncOperation(client, setPasswordThreadProc, true);
 }
 
 void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc)

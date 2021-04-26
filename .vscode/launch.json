@@ -14,7 +14,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install",
             "environment": [],
-            "externalConsole": true
+            "console": "newExternalWindow"
         },
         {
             "name": "Debug - Tests - Windows",
@@ -26,7 +26,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install/test",
             "environment": [],
-            "externalConsole": true
+            "console": "newExternalWindow"
         },
         {
             "name": "Debug - Linux",
@@ -38,7 +38,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install",
             "environment": [],
-            "externalConsole": true
+            "console": "internalConsole"
         }
     ]
 }

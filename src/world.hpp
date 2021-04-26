@@ -29,6 +29,7 @@
 
 #include "fwd/socket.hpp"
 #include "util/secure_string.hpp"
+#include "util/async.hpp"
 
 #include <array>
 #include <list>
@@ -184,7 +185,7 @@ class World
 
 		Player *PlayerFactory(std::string username, Database * database = nullptr);
 		void CheckCredential(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
-		void ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
+		AsyncOperation* ChangePassword(EOClient* client);
 
 		void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
 

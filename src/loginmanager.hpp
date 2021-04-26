@@ -20,6 +20,7 @@
 #include "fwd/world.hpp"
 #include "util/secure_string.hpp"
 #include "util/semaphore.hpp"
+#include "util/async.hpp"
 
 class LoginManager
 {
@@ -30,7 +31,7 @@ public:
     void SetPassword(const std::string& username, util::secure_string&& password);
 
     void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
-    void SetPasswordAsync(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
+    AsyncOperation* SetPasswordAsync(EOClient* client);
     void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
     void CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
 

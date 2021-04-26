@@ -188,47 +188,32 @@ void Account_Agree(Player *player, PacketReader &reader)
 		passwordChangeInfo.newpassword = std::move(seose_str_hash(passwordChangeInfo.newpassword.str(), player->world->config["SeoseCompatKey"]));
 	}
 
-	auto client = player->client;
-
-	auto onSuccess = [client]()
-	{
-		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-		reply.AddShort(ACCOUNT_CHANGED);
-		reply.AddString("OK");
-
-		// The client may disconnect if the password generation takes too long
-		if (client->Connected())
+	auto state = reinterpret_cast<void*>(new PasswordChangeInfo(std::move(passwordChangeInfo)));
+	player->world->ChangePassword(player->client)
+	->OnSuccess([](EOClient* client)
 		{
-			client->Send(reply);
-		}
+			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+			reply.AddShort(ACCOUNT_CHANGED);
+			reply.AddString("OK");
 
-		// allow client object to be cleaned up in Server::BuryTheDead()
-		client->AsyncOpPending(false);
-	};
-
-	auto onFailure = [client]()
-	{
-		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-		reply.AddShort(ACCOUNT_CHANGE_FAILED);
-		reply.AddString("NO");
-
-		// The client may disconnect if the password generation takes too long
-		if (client->Connected())
+			// The client may disconnect if the password generation takes too long
+			if (client->Connected())
+			{
+				client->Send(reply);
+			}
+		})->OnFailure([](EOClient* client)
 		{
-			client->Send(reply);
-		}
+			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+			reply.AddShort(ACCOUNT_CHANGE_FAILED);
+			reply.AddString("NO");
 
-		// allow client object to be cleaned up in Server::BuryTheDead()
-		client->AsyncOpPending(false);
-	};
-
-	if (client->IsAsyncOpPending())
-	{
-		throw std::runtime_error("Client attempted to do something asynchronously but is already running an async operation");
-	}
-
-	client->AsyncOpPending(true);
-	player->world->ChangePassword(std::move(passwordChangeInfo), onSuccess, onFailure);
+			// The client may disconnect if the password generation takes too long
+			if (client->Connected())
+			{
+				client->Send(reply);
+			}
+		})->OnComplete([state]() { delete state; })
+		->Execute(state);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)

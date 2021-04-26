@@ -1311,9 +1311,9 @@ void World::CheckCredential(const std::string& username, util::secure_string&& p
 	this->loginManager->CheckLoginAsync(username, std::move(password), successCallback, failureCallback);
 }
 
-void World::ChangePassword(PasswordChangeInfo&& passwordChangeInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
+AsyncOperation* World::ChangePassword(EOClient* client)
 {
-	this->loginManager->SetPasswordAsync(std::move(passwordChangeInfo), successCallback, failureCallback);
+	return this->loginManager->SetPasswordAsync(client);
 }
 
 void World::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
