@@ -286,6 +286,7 @@ void EOClient::Execute(const std::string &data)
 	if (reader.Family() == PACKET_INTERNAL)
 	{
 		Console::Wrn("Closing client connection sending a reserved packet ID: %s", static_cast<std::string>(this->GetRemoteAddr()).c_str());
+		this->AsyncOpPending(false);
 		this->Close();
 		return;
 	}
@@ -310,6 +311,7 @@ void EOClient::Execute(const std::string &data)
 			if (client_seq != server_seq)
 			{
 				Console::Wrn("Closing client connection sending invalid sequence: %s, Got %i, expected %i.", static_cast<std::string>(this->GetRemoteAddr()).c_str(), client_seq, server_seq);
+				this->AsyncOpPending(false);
 				this->Close();
 				return;
 			}
