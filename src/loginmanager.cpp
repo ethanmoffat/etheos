@@ -48,11 +48,10 @@ void LoginManager::SetPassword(const std::string& username, util::secure_string&
         username.c_str());
 }
 
-AsyncOperation* LoginManager::CreateAccountAsync(EOClient* client)
+AsyncOperation<AccountCreateInfo, bool>* LoginManager::CreateAccountAsync(EOClient* client)
 {
-    auto createAccountThreadProc = [this](const void * state)
+    auto createAccountThreadProc = [this](std::shared_ptr<AccountCreateInfo> accountCreateInfo)
     {
-        auto accountCreateInfo = reinterpret_cast<const AccountCreateInfo*>(state);
         auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
 
         auto password = std::move(accountCreateInfo->password);
@@ -76,14 +75,13 @@ AsyncOperation* LoginManager::CreateAccountAsync(EOClient* client)
         return !db_res.Error();
     };
 
-    return new AsyncOperation(client, createAccountThreadProc, true);
+    return new AsyncOperation<AccountCreateInfo, bool>(client, createAccountThreadProc, true);
 }
 
-AsyncOperation* LoginManager::SetPasswordAsync(EOClient* client)
+AsyncOperation<PasswordChangeInfo, bool>* LoginManager::SetPasswordAsync(EOClient* client)
 {
-    auto setPasswordThreadProc = [this](const void * state)
+    auto setPasswordThreadProc = [this](std::shared_ptr<PasswordChangeInfo> passwordChangeInfo)
     {
-        auto passwordChangeInfo = reinterpret_cast<const PasswordChangeInfo*>(state);
         auto oldPassword = std::move(passwordChangeInfo->oldpassword);
         auto newPassword = std::move(passwordChangeInfo->newpassword);
 
@@ -96,18 +94,16 @@ AsyncOperation* LoginManager::SetPasswordAsync(EOClient* client)
         return false;
     };
 
-    return new AsyncOperation(client, setPasswordThreadProc, true);
+    return new AsyncOperation<PasswordChangeInfo, bool>(client, setPasswordThreadProc, true);
 }
 
-AsyncOperation* LoginManager::UpdatePasswordVersionAsync(EOClient* client)
+AsyncOperation<AccountCredentials>* LoginManager::UpdatePasswordVersionAsync(EOClient* client)
 {
-    auto updateThreadProc = [this](const void * state)
+    auto updateThreadProc = [this](std::shared_ptr<AccountCredentials> updateState)
     {
-        auto updateState = reinterpret_cast<const AccountCredentials*>(state);
         auto username = updateState->username;
         auto password = std::move(updateState->password);
         auto hashFunc = updateState->hashFunc;
-        delete updateState;
 
         if (hashFunc != NONE)
         {
@@ -123,14 +119,13 @@ AsyncOperation* LoginManager::UpdatePasswordVersionAsync(EOClient* client)
         return 0;
     };
 
-    return new AsyncOperation(client, updateThreadProc);
+    return new AsyncOperation<AccountCredentials>(client, updateThreadProc);
 }
 
-AsyncOperation* LoginManager::CheckLoginAsync(EOClient* client)
+AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EOClient* client)
 {
-    auto loginThreadProc = [this, client](const void * state)
+    auto loginThreadProc = [this, client](std::shared_ptr<AccountCredentials> updateState)
     {
-        auto updateState = reinterpret_cast<const AccountCredentials*>(state);
         auto username = updateState->username;
         auto password = std::move(updateState->password);
 
@@ -152,10 +147,8 @@ AsyncOperation* LoginManager::CheckLoginAsync(EOClient* client)
                 // 3. User changes password while updating version in background
                 // 4. Password version completes update; overwrites changed password
                 util::secure_string passwordCopy(std::string(password.str()));
-                auto state = reinterpret_cast<void*>(new AccountCredentials { username, std::move(password), currentPasswordVersion });
                 this->UpdatePasswordVersionAsync(client)
-                    ->OnComplete([state]() { delete state; })
-                    ->Execute(state);
+                    ->Execute(std::shared_ptr<AccountCredentials>(new AccountCredentials { username, std::move(password), currentPasswordVersion }));
             }
 
             password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
@@ -176,7 +169,7 @@ AsyncOperation* LoginManager::CheckLoginAsync(EOClient* client)
 
     this->_processCount++;
 
-    auto asyncOp = new AsyncOperation(client, loginThreadProc, LOGIN_OK);
+    auto asyncOp = new AsyncOperation<AccountCredentials, LoginReply>(client, loginThreadProc, LOGIN_OK);
     return asyncOp->OnComplete([this]() { this->_processCount--; });
 }
 

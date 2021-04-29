@@ -1303,22 +1303,22 @@ Player *World::PlayerFactory(std::string username)
 	return new Player(username, this, database.get());
 }
 
-AsyncOperation* World::CheckCredential(EOClient* client)
+AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient* client)
 {
 	if (this->loginManager->LoginBusy())
 	{
-		return new AsyncOperation(client, [](void*) { return LOGIN_BUSY; }, LOGIN_OK);
+		return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
 	}
 
 	return this->loginManager->CheckLoginAsync(client);
 }
 
-AsyncOperation* World::ChangePassword(EOClient* client)
+AsyncOperation<PasswordChangeInfo, bool>* World::ChangePassword(EOClient* client)
 {
 	return this->loginManager->SetPasswordAsync(client);
 }
 
-AsyncOperation* World::CreateAccount(EOClient * client)
+AsyncOperation<AccountCreateInfo, bool>* World::CreateAccount(EOClient * client)
 {
 	return this->loginManager->CreateAccountAsync(client);
 }

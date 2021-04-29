@@ -119,7 +119,6 @@ set(eoserv_ALL_SOURCE_FILES
 	src/timer.hpp
 	src/util.cpp
 	src/util.hpp
-	src/util/async.cpp
 	src/util/async.hpp
 	src/util/rpn.cpp
 	src/util/rpn.hpp

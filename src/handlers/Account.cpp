@@ -133,12 +133,10 @@ void Account_Create(EOClient *client, PacketReader &reader)
 			Console::Out("New account: %s", username.c_str());
 		};
 
-		auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));
 		client->server()->world->CreateAccount(client)
 			->OnSuccess(successCallback)
 			->OnFailure([](EOClient* c, int result) { c->Close(); })
-			->OnComplete([state]() { delete state; })
-			->Execute(state);
+			->Execute(std::shared_ptr<AccountCreateInfo>(new AccountCreateInfo(std::move(accountInfo))));
 	}
 }
 
@@ -205,12 +203,10 @@ void Account_Agree(Player *player, PacketReader &reader)
 		c->Send(reply);
 	};
 
-	auto state = reinterpret_cast<void*>(new PasswordChangeInfo(std::move(passwordChangeInfo)));
 	player->world->ChangePassword(player->client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
-		->OnComplete([state]() { delete state; })
-		->Execute(state);
+		->Execute(std::shared_ptr<PasswordChangeInfo>(new PasswordChangeInfo(std::move(passwordChangeInfo))));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)

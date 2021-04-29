@@ -30,10 +30,10 @@ public:
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
 
-    AsyncOperation* CreateAccountAsync(EOClient* client);
-    AsyncOperation* SetPasswordAsync(EOClient* client);
-    AsyncOperation* UpdatePasswordVersionAsync(EOClient* client);
-    AsyncOperation* CheckLoginAsync(EOClient* client);
+    AsyncOperation<AccountCreateInfo, bool>* CreateAccountAsync(EOClient* client);
+    AsyncOperation<PasswordChangeInfo, bool>* SetPasswordAsync(EOClient* client);
+    AsyncOperation<AccountCredentials>* UpdatePasswordVersionAsync(EOClient* client);
+    AsyncOperation<AccountCredentials, LoginReply>* CheckLoginAsync(EOClient* client);
 
     bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
 

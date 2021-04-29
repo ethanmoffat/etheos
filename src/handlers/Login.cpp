@@ -136,18 +136,15 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	auto failureCallback = [](EOClient* c, int failureReason)
 	{
-		if (failureReason != LOGIN_OK)
+		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
+		reply.AddShort(failureReason);
+		c->Send(reply);
+
+		int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
+
+		if (max_login_attempts != 0 && ++c->login_attempts >= max_login_attempts)
 		{
-			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-			reply.AddShort(failureReason);
-			c->Send(reply);
-
-			int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
-
-			if (max_login_attempts != 0 && ++c->login_attempts >= max_login_attempts)
-			{
-				c->Close();
-			}
+			c->Close();
 		}
 	};
 
@@ -159,12 +156,10 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		return;
 	}
 
-	auto state = reinterpret_cast<void*>(new AccountCredentials { username, std::move(password), HashFunc::NONE });
 	client->server()->world->CheckCredential(client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
-		->OnComplete([state]() { delete state; })
-		->Execute(state);
+		->Execute(std::shared_ptr<AccountCredentials>(new AccountCredentials { username, std::move(password), HashFunc::NONE }));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOGIN)

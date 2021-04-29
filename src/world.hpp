@@ -186,10 +186,10 @@ class World
 		void DeleteCharacter(std::string name);
 
 		Player *PlayerFactory(std::string username);
-		AsyncOperation* CheckCredential(EOClient* client);
-		AsyncOperation* ChangePassword(EOClient* client);
+		AsyncOperation<AccountCredentials, LoginReply>* CheckCredential(EOClient* client);
+		AsyncOperation<PasswordChangeInfo, bool>* ChangePassword(EOClient* client);
 
-		AsyncOperation* CreateAccount(EOClient* client);
+		AsyncOperation<AccountCreateInfo, bool>* CreateAccount(EOClient* client);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);
