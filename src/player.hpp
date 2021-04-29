@@ -17,6 +17,7 @@
 
 #include "util/secure_string.hpp"
 
+#include "hash.hpp"
 #include "socket.hpp"
 
 #include <string>
@@ -45,6 +46,19 @@ struct PasswordChangeInfo
 
 	PasswordChangeInfo()
 		: oldpassword(""), newpassword("") { }
+};
+
+struct AccountCredentials
+{
+	std::string username;
+	util::secure_string password;
+	HashFunc hashFunc;
+
+	AccountCredentials()
+		: username(""), password(""), hashFunc(NONE) { }
+
+	AccountCredentials(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+		: username(username), password(password), hashFunc(hashFunc) { }
 };
 
 /**

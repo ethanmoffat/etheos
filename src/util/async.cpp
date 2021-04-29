@@ -3,28 +3,30 @@
 #include "threadpool.hpp"
 
 AsyncOperation::AsyncOperation(EOClient* client, std::function<int(void*)> operation, int successCode)
-    : _client(client), _operation(operation), _successCode(successCode)
+    : _client(client), _operation(operation), _successCode(successCode) { }
+
+AsyncOperation::~AsyncOperation()
 {
-    this->_successCallback = [](EOClient *) { };
-    this->_failureCallback = [](EOClient *) { };
-    this->_completeCallback = []() { };
+    this->_successCallbacks.clear();
+    this->_failureCallbacks.clear();
+    this->_completeCallbacks.clear();
 }
 
 AsyncOperation* AsyncOperation::OnSuccess(std::function<void(EOClient*)> successCallback)
 {
-    this->_successCallback = successCallback;
+    this->_successCallbacks.push_back(successCallback);
     return this;
 }
 
-AsyncOperation* AsyncOperation::OnFailure(std::function<void(EOClient*)> failureCallback)
+AsyncOperation* AsyncOperation::OnFailure(std::function<void(EOClient*, int)> failureCallback)
 {
-    this->_failureCallback = failureCallback;
+    this->_failureCallbacks.push_back(failureCallback);
     return this;
 }
 
 AsyncOperation* AsyncOperation::OnComplete(std::function<void(void)> callback)
 {
-    this->_completeCallback = callback;
+    this->_completeCallbacks.push_back(callback);
     return this;
 }
 
@@ -44,15 +46,18 @@ void AsyncOperation::Execute(void* state)
             auto result = this->_operation(const_cast<void*>(tpState));
             if (result == this->_successCode)
             {
-                this->_successCallback(this->_client);
+                for (auto& cb : this->_successCallbacks)
+                    cb(this->_client);
             }
             else
             {
-                this->_failureCallback(this->_client);
+                for (auto& cb : this->_failureCallbacks)
+                    cb(this->_client, result);
             }
 
             this->_client->AsyncOpPending(false);
-            this->_completeCallback();
+            for (auto& cb : this->_completeCallbacks)
+                cb();
 
             // why `delete this`?
             //
@@ -74,9 +79,10 @@ void AsyncOperation::Execute(void* state)
         catch (std::exception&)
         {
             this->_client->AsyncOpPending(false);
-            this->_completeCallback();
-            delete this;
+            for (auto& cb : this->_completeCallbacks)
+                cb();
 
+            delete this;
             throw;
         }
     }, state);

@@ -16,17 +16,19 @@ public:
     AsyncOperation(EOClient* client, std::function<int(void*)> operation, int successCode = 0);
 
     AsyncOperation* OnSuccess(std::function<void(EOClient*)> successCallback);
-    AsyncOperation* OnFailure(std::function<void(EOClient*)> failureCallback);
+    AsyncOperation* OnFailure(std::function<void(EOClient*, int)> failureCallback);
     AsyncOperation* OnComplete(std::function<void(void)> callback);
 
     void Execute(void* state);
+
+    virtual ~AsyncOperation();
 
 private:
     EOClient* _client;
     std::function<int(void*)> _operation;
     int _successCode;
 
-    std::function<void(EOClient*)> _successCallback;
-    std::function<void(EOClient*)> _failureCallback;
-    std::function<void(void)> _completeCallback;
+    std::list<std::function<void(EOClient*)>> _successCallbacks;
+    std::list<std::function<void(EOClient*, int)>> _failureCallbacks;
+    std::list<std::function<void(void)>> _completeCallbacks;
 };

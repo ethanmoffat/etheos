@@ -30,10 +30,10 @@ public:
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
 
-    void CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
+    AsyncOperation* CreateAccountAsync(EOClient* client);
     AsyncOperation* SetPasswordAsync(EOClient* client);
-    void UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
-    void CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
+    AsyncOperation* UpdatePasswordVersionAsync(EOClient* client);
+    AsyncOperation* CheckLoginAsync(EOClient* client);
 
     bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
 
@@ -47,11 +47,4 @@ private:
 
     // Count of the number of concurrent login requests
     volatile std::atomic_int _processCount;
-
-    struct UpdateState
-    {
-        std::string username;
-        util::secure_string password;
-        HashFunc hashFunc;
-    };
 };

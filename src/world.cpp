@@ -1297,26 +1297,20 @@ void World::DeleteCharacter(std::string name)
 	this->db->Query("DELETE FROM `characters` WHERE name = '$'", name.c_str());
 }
 
-Player *World::PlayerFactory(std::string username, Database * database)
+Player *World::PlayerFactory(std::string username)
 {
-	return new Player(username, this, database);
+	auto database = this->DatabaseFactory();
+	return new Player(username, this, database.get());
 }
 
-void World::CheckCredential(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback)
+AsyncOperation* World::CheckCredential(EOClient* client)
 {
-	if (this->PlayerOnline(username))
-	{
-		failureCallback(LOGIN_LOGGEDIN);
-		return;
-	}
-
 	if (this->loginManager->LoginBusy())
 	{
-		failureCallback(LOGIN_BUSY);
-		return;
+		return new AsyncOperation(client, [](void*) { return LOGIN_BUSY; }, LOGIN_OK);
 	}
 
-	this->loginManager->CheckLoginAsync(username, std::move(password), successCallback, failureCallback);
+	return this->loginManager->CheckLoginAsync(client);
 }
 
 AsyncOperation* World::ChangePassword(EOClient* client)
@@ -1324,9 +1318,9 @@ AsyncOperation* World::ChangePassword(EOClient* client)
 	return this->loginManager->SetPasswordAsync(client);
 }
 
-void World::CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
+AsyncOperation* World::CreateAccount(EOClient * client)
 {
-	this->loginManager->CreateAccountAsync(std::move(accountInfo), successCallback, failureCallback);
+	return this->loginManager->CreateAccountAsync(client);
 }
 
 bool World::PlayerExists(std::string username)

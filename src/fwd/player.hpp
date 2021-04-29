@@ -9,6 +9,7 @@
 
 struct AccountCreateInfo;
 struct PasswordChangeInfo;
+struct AccountCredentials;
 
 class Player;
 

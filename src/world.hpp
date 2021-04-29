@@ -185,11 +185,11 @@ class World
 		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
 		void DeleteCharacter(std::string name);
 
-		Player *PlayerFactory(std::string username, Database * database = nullptr);
-		void CheckCredential(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback);
+		Player *PlayerFactory(std::string username);
+		AsyncOperation* CheckCredential(EOClient* client);
 		AsyncOperation* ChangePassword(EOClient* client);
 
-		void CreateAccount(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback);
+		AsyncOperation* CreateAccount(EOClient* client);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);

@@ -48,9 +48,9 @@ void LoginManager::SetPassword(const std::string& username, util::secure_string&
         username.c_str());
 }
 
-void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::function<void(void)> successCallback, std::function<void(void)> failureCallback)
+AsyncOperation* LoginManager::CreateAccountAsync(EOClient* client)
 {
-    auto createAccountThreadProc = [this, successCallback, failureCallback](const void * state)
+    auto createAccountThreadProc = [this](const void * state)
     {
         auto accountCreateInfo = reinterpret_cast<const AccountCreateInfo*>(state);
         auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
@@ -73,20 +73,10 @@ void LoginManager::CreateAccountAsync(AccountCreateInfo&& accountInfo, std::func
             int(std::time(0)),
             int(passwordVersion));
 
-        if (!db_res.Error())
-        {
-            successCallback();
-        }
-        else
-        {
-            failureCallback();
-        }
-
-        delete accountCreateInfo;
+        return !db_res.Error();
     };
 
-    auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));
-    util::ThreadPool::Queue(createAccountThreadProc, state);
+    return new AsyncOperation(client, createAccountThreadProc, true);
 }
 
 AsyncOperation* LoginManager::SetPasswordAsync(EOClient* client)
@@ -109,11 +99,11 @@ AsyncOperation* LoginManager::SetPasswordAsync(EOClient* client)
     return new AsyncOperation(client, setPasswordThreadProc, true);
 }
 
-void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+AsyncOperation* LoginManager::UpdatePasswordVersionAsync(EOClient* client)
 {
     auto updateThreadProc = [this](const void * state)
     {
-        auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
+        auto updateState = reinterpret_cast<const AccountCredentials*>(state);
         auto username = updateState->username;
         auto password = std::move(updateState->password);
         auto hashFunc = updateState->hashFunc;
@@ -129,20 +119,20 @@ void LoginManager::UpdatePasswordVersionAsync(const std::string& username, util:
                 hashFunc,
                 username.c_str());
         }
+
+        return 0;
     };
 
-    auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), hashFunc });
-    util::ThreadPool::Queue(updateThreadProc, state);
+    return new AsyncOperation(client, updateThreadProc);
 }
 
-void LoginManager::CheckLoginAsync(const std::string& username, util::secure_string&& password, std::function<void(Database*)> successCallback, std::function<void(LoginReply)> failureCallback)
+AsyncOperation* LoginManager::CheckLoginAsync(EOClient* client)
 {
-    auto loginThreadProc = [this, successCallback, failureCallback](const void * state)
+    auto loginThreadProc = [this, client](const void * state)
     {
-        auto updateState = reinterpret_cast<const LoginManager::UpdateState*>(state);
+        auto updateState = reinterpret_cast<const AccountCredentials*>(state);
         auto username = updateState->username;
         auto password = std::move(updateState->password);
-        delete updateState;
 
         auto database = this->CreateDbConnection();
         Database_Result res = database->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
@@ -156,33 +146,38 @@ void LoginManager::CheckLoginAsync(const std::string& username, util::secure_str
             if (dbPasswordVersion < currentPasswordVersion)
             {
                 // A copy is made of the password since the background thread needs to have separate ownership of it
-                //
+                // There is a potential race here:
+                // 1. User logs in
+                // 2. Password version starts update in background thread
+                // 3. User changes password while updating version in background
+                // 4. Password version completes update; overwrites changed password
                 util::secure_string passwordCopy(std::string(password.str()));
-                this->UpdatePasswordVersionAsync(updateState->username, std::move(passwordCopy), currentPasswordVersion);
+                auto state = reinterpret_cast<void*>(new AccountCredentials { username, std::move(password), currentPasswordVersion });
+                this->UpdatePasswordVersionAsync(client)
+                    ->OnComplete([state]() { delete state; })
+                    ->Execute(state);
             }
 
             password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
             if (this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
             {
-                successCallback(database.get());
+                return LOGIN_OK;
             }
             else
             {
-                failureCallback(LOGIN_WRONG_USERPASS);
+                return LOGIN_WRONG_USERPASS;
             }
         }
         else
         {
-            failureCallback(LOGIN_WRONG_USER);
+            return LOGIN_WRONG_USER;
         }
-
-        this->_processCount--;
     };
 
-    // use UpdateState in place of std::pair because it is easier to work with
-    auto state = reinterpret_cast<void*>(new UpdateState { username, std::move(password), HashFunc::NONE });
-    util::ThreadPool::Queue(loginThreadProc, state);
     this->_processCount++;
+
+    auto asyncOp = new AsyncOperation(client, loginThreadProc, LOGIN_OK);
+    return asyncOp->OnComplete([this]() { this->_processCount--; });
 }
 
 std::unique_ptr<Database> LoginManager::CreateDbConnection()

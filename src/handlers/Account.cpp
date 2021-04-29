@@ -115,40 +115,30 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	}
 	else
 	{
-		// Player is created on a background thread. This callback is called on a different thread assuming the operation is successful.
 		// Username is captured by value so the function can safely return without the memory being deallocated / stack corrupted.
 		std::string username(accountInfo.username);
-		auto onSuccess = [client, username]()
+
+		auto successCallback = [username](EOClient* c)
 		{
-			PacketBuilder succeededReply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-			succeededReply.AddShort(ACCOUNT_CREATED);
-			succeededReply.AddString("OK");
-
 			// The client may disconnect if the password generation takes too long
-			if (client->Connected())
+			if (c->Connected())
 			{
-				client->Send(succeededReply);
-			}
+				PacketBuilder succeededReply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+				succeededReply.AddShort(ACCOUNT_CREATED);
+				succeededReply.AddString("OK");
 
-			// allow client object to be cleaned up in Server::BuryTheDead()
-			client->AsyncOpPending(false);
+				c->Send(succeededReply);
+			}
 
 			Console::Out("New account: %s", username.c_str());
 		};
 
-		auto onFailure = [client]()
-		{
-			client->AsyncOpPending(false);
-			client->Close();
-		};
-
-		if (client->IsAsyncOpPending())
-		{
-			throw std::runtime_error("Client attempted to do something asynchronously but is already running an async operation");
-		}
-
-		client->AsyncOpPending(true);
-		client->server()->world->CreateAccount(std::move(accountInfo), onSuccess, onFailure);
+		auto state = reinterpret_cast<void*>(new AccountCreateInfo(std::move(accountInfo)));
+		client->server()->world->CreateAccount(client)
+			->OnSuccess(successCallback)
+			->OnFailure([](EOClient* c, int result) { c->Close(); })
+			->OnComplete([state]() { delete state; })
+			->Execute(state);
 	}
 }
 
@@ -189,31 +179,37 @@ void Account_Agree(Player *player, PacketReader &reader)
 		passwordChangeInfo.newpassword = std::move(seose_str_hash(passwordChangeInfo.newpassword.str(), player->world->config["SeoseCompatKey"]));
 	}
 
+	auto successCallback = [](EOClient* c)
+	{
+		// The client may disconnect if the password generation takes too long
+		if (!c->Connected())
+			return;
+
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGED);
+		reply.AddString("OK");
+
+		c->Send(reply);
+	};
+
+	auto failureCallback = [](EOClient* c, int result)
+	{
+		// The client may disconnect if the password generation takes too long
+		if (!c->Connected())
+			return;
+
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGE_FAILED);
+		reply.AddString("NO");
+
+		c->Send(reply);
+	};
+
 	auto state = reinterpret_cast<void*>(new PasswordChangeInfo(std::move(passwordChangeInfo)));
 	player->world->ChangePassword(player->client)
-	->OnSuccess([](EOClient* client)
-		{
-			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-			reply.AddShort(ACCOUNT_CHANGED);
-			reply.AddString("OK");
-
-			// The client may disconnect if the password generation takes too long
-			if (client->Connected())
-			{
-				client->Send(reply);
-			}
-		})->OnFailure([](EOClient* client)
-		{
-			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-			reply.AddShort(ACCOUNT_CHANGE_FAILED);
-			reply.AddString("NO");
-
-			// The client may disconnect if the password generation takes too long
-			if (client->Connected())
-			{
-				client->Send(reply);
-			}
-		})->OnComplete([state]() { delete state; })
+		->OnSuccess(successCallback)
+		->OnFailure(failureCallback)
+		->OnComplete([state]() { delete state; })
 		->Execute(state);
 }
 
