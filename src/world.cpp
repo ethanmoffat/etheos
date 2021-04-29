@@ -379,52 +379,13 @@ World::World(std::unique_ptr<Database>&& database, const Config &eoserv_config, 
 	this->Initialize();
 }
 
-World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config)
+World::World(const Config &eoserv_config, const Config &admin_config)
 	: i18n(eoserv_config.find("ServerLanguage")->second)
 	, admin_count(0)
 	, config(eoserv_config)
 	, admin_config(admin_config)
-	, db(new Database)
 {
-	Database::Engine engine;
-
-	std::string dbdesc;
-
-	if (util::lowercase(dbinfo[0]).compare("sqlite") == 0)
-	{
-		engine = Database::SQLite;
-		dbdesc = std::string("SQLite: ")
-		       + dbinfo[1];
-	}
-	else
-	{
-		std::string engineStr;
-		if (util::lowercase(dbinfo[0]).compare("sqlserver") == 0)
-		{
-			engine = Database::SqlServer;
-			engineStr = "SqlServer";
-		}
-		else
-		{
-			engine = Database::MySQL;
-			engineStr = "MySQL";
-		}
-
-		dbdesc = engineStr
-		       + ": "
-		       + dbinfo[2] + "@"
-		       + dbinfo[1];
-
-		if (dbinfo[5] != "0" &&
-		    ((dbinfo[5] != "3306" && engine == Database::MySQL) ||
-			 (dbinfo[5] != "1433" && engine == Database::SqlServer)))
-			dbdesc += ":" + dbinfo[5];
-
-		dbdesc += "/" + dbinfo[4];
-	}
-
-	Console::Out("Connecting to database (%s)...", dbdesc.c_str());
-	this->db->Connect(engine, dbinfo[1], util::to_int(dbinfo[5]), dbinfo[2], dbinfo[3], dbinfo[4]);
+	this->db = this->DatabaseFactory(true);
 	this->BeginDB();
 
 	this->Initialize();
@@ -699,6 +660,53 @@ int World::GeneratePlayerID()
 		}
 	}
 	return lowest_free_id;
+}
+
+std::unique_ptr<Database> World::DatabaseFactory(bool logConnection)
+{
+	auto dbType = util::lowercase(std::string(this->config["DBType"]));
+	auto dbHost = std::string(this->config["DBHost"]);
+	auto dbUser = std::string(this->config["DBUser"]);
+	auto dbPass = std::string(this->config["DBPass"]);
+	auto dbName = std::string(this->config["DBName"]);
+	auto dbPort = int(this->config["DBPort"]);
+
+	std::string dbdesc;
+	Database::Engine engine = Database::MySQL;
+	if (!dbType.compare("sqlite"))
+	{
+		engine = Database::SQLite;
+		dbdesc = std::string("SQLite: ") + dbHost;
+	}
+	else
+	{
+		if (!dbType.compare("sqlserver"))
+		{
+			engine = Database::SqlServer;
+			dbdesc = "SqlServer: ";
+		}
+		else if (!dbType.compare("mysql"))
+		{
+			engine = Database::MySQL;
+			dbdesc = "MySQL: ";
+		}
+
+		dbdesc += dbUser + "@" + dbHost;
+
+		if (dbPort != 0 &&
+			((dbPort != 3306 && engine == Database::MySQL) ||
+			(dbPort != 1433 && engine == Database::SqlServer)))
+		{
+			dbdesc += ":" + util::to_string(dbPort);
+		}
+
+		dbdesc += "/" + dbName;
+	}
+
+	if (logConnection)
+		Console::Out("Connecting to database (%s)...", dbdesc.c_str());
+
+	return std::move(std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
 }
 
 void World::Login(Character *character)

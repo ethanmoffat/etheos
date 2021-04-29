@@ -338,15 +338,7 @@ int eoserv_main(int argc, char *argv[])
 		Console::Out("Setting number of threadpool threads to %d", threadPoolSize);
 		util::ThreadPool::SetNumThreads(threadPoolSize);
 
-		std::array<std::string, 6> dbinfo;
-		dbinfo[0] = std::string(config["DBType"]);
-		dbinfo[1] = std::string(config["DBHost"]);
-		dbinfo[2] = std::string(config["DBUser"]);
-		dbinfo[3] = std::string(config["DBPass"]);
-		dbinfo[4] = std::string(config["DBName"]);
-		dbinfo[5] = std::string(config["DBPort"]);
-
-		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), dbinfo, config, aconfig);
+		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), config, aconfig);
 		server.Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
 		Console::Out("Listening on %s:%i (0/%i connections)", std::string(config["Host"]).c_str(), int(config["Port"]), int(config["MaxConnections"]));
 

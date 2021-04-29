@@ -125,7 +125,7 @@ class World
 
 		int admin_count;
 
-		World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config);
+		World(const Config &eoserv_config, const Config &admin_config);
 		World(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
 
 		void Initialize();
@@ -143,6 +143,8 @@ class World
 
 		int GenerateCharacterID();
 		int GeneratePlayerID();
+
+		std::unique_ptr<Database> DatabaseFactory(bool logConnection = false);
 
 		void Login(Character *);
 		void Logout(Character *);

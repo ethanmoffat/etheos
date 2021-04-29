@@ -31,7 +31,7 @@ class EOServer : public Server
 {
 	private:
 		std::unordered_map<IPAddress, double, std::hash<IPAddress>> connection_log;
-		void Initialize(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config);
+		void Initialize(const Config &eoserv_config, const Config &admin_config);
 		void Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
 		void InitializeShared();
 
@@ -43,9 +43,9 @@ class EOServer : public Server
 		double start;
 		SLN *sln;
 
-		EOServer(IPAddress addr, unsigned short port, std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)
+		EOServer(IPAddress addr, unsigned short port, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)
 		{
-			this->Initialize(dbinfo, eoserv_config, admin_config);
+			this->Initialize(eoserv_config, admin_config);
 		}
 
 		EOServer(IPAddress addr, unsigned short port, std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)

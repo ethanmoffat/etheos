@@ -138,9 +138,9 @@ void server_pump_queue(void *server_void)
 	}
 }
 
-void EOServer::Initialize(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config)
+void EOServer::Initialize(const Config &eoserv_config, const Config &admin_config)
 {
-	this->world = new World(dbinfo, eoserv_config, admin_config);
+	this->world = new World(eoserv_config, admin_config);
 	this->InitializeShared();
 }
 
