@@ -25,7 +25,7 @@
 class LoginManager
 {
 public:
-    LoginManager(Config &config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
+    LoginManager(const std::shared_ptr<DatabaseFactory>& databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
 
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
@@ -39,9 +39,7 @@ public:
     bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
 
 private:
-    // Factory function for creating a database connection on-demand in background threads
-    //   based on values in _config
-    std::unique_ptr<Database> CreateDbConnection();
+    std::shared_ptr<DatabaseFactory> _databaseFactory;
 
     Config& _config;
     std::unordered_map<HashFunc, std::shared_ptr<Hasher>> _passwordHashers;

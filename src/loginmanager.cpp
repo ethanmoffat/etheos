@@ -12,8 +12,9 @@
 #include "player.hpp"
 #include "world.hpp"
 
-LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
-    : _config(config)
+LoginManager::LoginManager(const std::shared_ptr<DatabaseFactory>& databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
+    : _databaseFactory(databaseFactory)
+    , _config(config)
     , _passwordHashers(passwordHashers)
     , _processCount(0)
 {
@@ -21,7 +22,7 @@ LoginManager::LoginManager(Config& config, const std::unordered_map<HashFunc, st
 
 bool LoginManager::CheckLogin(const std::string& username, util::secure_string&& password)
 {
-    auto res = this->CreateDbConnection()->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
+    auto res = this->_databaseFactory->CreateDatabase(this->_config)->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
     if (!res.empty())
     {
@@ -42,7 +43,7 @@ void LoginManager::SetPassword(const std::string& username, util::secure_string&
     password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
     password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
 
-    this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'",
+    this->_databaseFactory->CreateDatabase(this->_config)->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'",
         password.str().c_str(),
         int(passwordVersion),
         username.c_str());
@@ -58,7 +59,7 @@ AsyncOperation<AccountCreateInfo, bool>* LoginManager::CreateAccountAsync(EOClie
         password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), accountCreateInfo->username, std::move(password)));
         password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
 
-        auto db_res = this->CreateDbConnection()->Query(
+        auto db_res = this->_databaseFactory->CreateDatabase(this->_config)->Query(
             "INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`)"
             " VALUES ('$','$','$','$','$','$',#,'$',#,#)",
             accountCreateInfo->username.c_str(),
@@ -113,7 +114,7 @@ void LoginManager::UpdatePasswordVersionInBackground(AccountCredentials&& accoun
             password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
             password = std::move(this->_passwordHashers[hashFunc]->hash(std::move(password.str())));
 
-            this->CreateDbConnection()->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+            this->_databaseFactory->CreateDatabase(this->_config)->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
                 password.str().c_str(),
                 hashFunc,
                 username.c_str());
@@ -131,7 +132,7 @@ AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EO
         auto username = updateState->username;
         auto password = std::move(updateState->password);
 
-        auto database = this->CreateDbConnection();
+        auto database = this->_databaseFactory->CreateDatabase(this->_config);
         Database_Result res = database->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
 
         if (!res.empty())
@@ -173,31 +174,4 @@ AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EO
 
     auto asyncOp = new AsyncOperation<AccountCredentials, LoginReply>(client, loginThreadProc, LOGIN_OK);
     return asyncOp->OnComplete([this]() { this->_processCount--; });
-}
-
-std::unique_ptr<Database> LoginManager::CreateDbConnection()
-{
-    auto dbType = util::lowercase(std::string(this->_config["DBType"]));
-
-    Database::Engine engine = Database::MySQL;
-    if (!dbType.compare("sqlite"))
-    {
-        engine = Database::SQLite;
-    }
-    else if (!dbType.compare("sqlserver"))
-    {
-        engine = Database::SqlServer;
-    }
-    else if (!dbType.compare("mysql"))
-    {
-        engine = Database::MySQL;
-    }
-
-    auto dbHost = std::string(this->_config["DBHost"]);
-    auto dbUser = std::string(this->_config["DBUser"]);
-    auto dbPass = std::string(this->_config["DBPass"]);
-    auto dbName = std::string(this->_config["DBName"]);
-    auto dbPort = int(this->_config["DBPort"]);
-
-    return std::move(std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
 }

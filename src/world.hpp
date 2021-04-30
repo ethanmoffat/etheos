@@ -79,6 +79,7 @@ class World
 	private:
 		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
 		std::unique_ptr<LoginManager> loginManager;
+		std::shared_ptr<DatabaseFactory> databaseFactory;
 
 	protected:
 		int last_character_id;
@@ -89,7 +90,7 @@ class World
 		Timer timer;
 
 		EOServer *server;
-		std::unique_ptr<Database> db;
+		std::shared_ptr<Database> db;
 
 		GuildManager *guildmanager;
 
@@ -125,8 +126,7 @@ class World
 
 		int admin_count;
 
-		World(const Config &eoserv_config, const Config &admin_config);
-		World(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
+		World(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config);
 
 		void Initialize();
 
@@ -143,8 +143,6 @@ class World
 
 		int GenerateCharacterID();
 		int GeneratePlayerID();
-
-		std::unique_ptr<Database> DatabaseFactory(bool logConnection = false);
 
 		void Login(Character *);
 		void Logout(Character *);

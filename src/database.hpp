@@ -7,6 +7,7 @@
 #ifndef DATABASE_HPP_INCLUDED
 #define DATABASE_HPP_INCLUDED
 
+#include "fwd/config.hpp"
 #include "util/variant.hpp"
 
 #include <algorithm>
@@ -77,6 +78,12 @@ class Database_Result : public std::vector<std::unordered_map<std::string, util:
 		bool Error();
 
 	friend class Database;
+};
+
+class DatabaseFactory
+{
+public:
+	virtual std::shared_ptr<Database> CreateDatabase(Config& config, bool logConnection = false) const;
 };
 
 /**

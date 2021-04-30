@@ -138,20 +138,10 @@ void server_pump_queue(void *server_void)
 	}
 }
 
-void EOServer::Initialize(const Config &eoserv_config, const Config &admin_config)
+void EOServer::Initialize(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config)
 {
-	this->world = new World(eoserv_config, admin_config);
-	this->InitializeShared();
-}
+	this->world = new World(databaseFactory, eoserv_config, admin_config);
 
-void EOServer::Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config)
-{
-	this->world = new World(std::move(database), eoserv_config, admin_config);
-	this->InitializeShared();
-}
-
-void EOServer::InitializeShared()
-{
 	TimeEvent *event = new TimeEvent(server_ping_all, this, double(this->world->config["PingRate"]), Timer::FOREVER);
 	this->world->timer.Register(event);
 

@@ -338,7 +338,9 @@ int eoserv_main(int argc, char *argv[])
 		Console::Out("Setting number of threadpool threads to %d", threadPoolSize);
 		util::ThreadPool::SetNumThreads(threadPoolSize);
 
-		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), config, aconfig);
+		const auto databaseFactory = std::make_shared<DatabaseFactory>(DatabaseFactory());
+
+		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), databaseFactory, config, aconfig);
 		server.Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
 		Console::Out("Listening on %s:%i (0/%i connections)", std::string(config["Host"]).c_str(), int(config["Port"]), int(config["MaxConnections"]));
 

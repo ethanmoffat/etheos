@@ -11,4 +11,6 @@ class Database;
 
 class Database_Result;
 
+class DatabaseFactory;
+
 #endif // FWD_DATABASE_HPP_INCLUDED

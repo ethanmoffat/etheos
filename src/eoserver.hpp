@@ -31,9 +31,7 @@ class EOServer : public Server
 {
 	private:
 		std::unordered_map<IPAddress, double, std::hash<IPAddress>> connection_log;
-		void Initialize(const Config &eoserv_config, const Config &admin_config);
-		void Initialize(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config);
-		void InitializeShared();
+		void Initialize(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config);
 
 	protected:
 		virtual Client *ClientFactory(const Socket &);
@@ -43,14 +41,9 @@ class EOServer : public Server
 		double start;
 		SLN *sln;
 
-		EOServer(IPAddress addr, unsigned short port, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)
+		EOServer(IPAddress addr, unsigned short port, const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)
 		{
-			this->Initialize(eoserv_config, admin_config);
-		}
-
-		EOServer(IPAddress addr, unsigned short port, std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config) : Server(addr, port)
-		{
-			this->Initialize(std::move(database), eoserv_config, admin_config);
+			this->Initialize(databaseFactory, eoserv_config, admin_config);
 		}
 
 		void Tick();
