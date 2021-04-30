@@ -370,20 +370,20 @@ void World::UpdateConfig()
 }
 
 World::World(std::unique_ptr<Database>&& database, const Config &eoserv_config, const Config &admin_config)
-	: i18n(eoserv_config.find("ServerLanguage")->second)
-	, admin_count(0)
+	: db(std::move(database))
 	, config(eoserv_config)
 	, admin_config(admin_config)
-	, db(std::move(database))
+	, i18n(eoserv_config.find("ServerLanguage")->second)
+	, admin_count(0)
 {
 	this->Initialize();
 }
 
 World::World(const Config &eoserv_config, const Config &admin_config)
-	: i18n(eoserv_config.find("ServerLanguage")->second)
-	, admin_count(0)
-	, config(eoserv_config)
+	: config(eoserv_config)
 	, admin_config(admin_config)
+	, i18n(eoserv_config.find("ServerLanguage")->second)
+	, admin_count(0)
 {
 	this->db = this->DatabaseFactory(true);
 	this->BeginDB();

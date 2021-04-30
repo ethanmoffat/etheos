@@ -35,7 +35,7 @@ struct AccountCreateInfo
 	IPAddress remoteIp;
 
 	AccountCreateInfo()
-		: hdid(0), password("") { }
+		: password(""), hdid(0) { }
 };
 
 struct PasswordChangeInfo

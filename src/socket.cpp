@@ -223,6 +223,7 @@ struct Client::impl_
 
 Client::Client()
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(0)
 	, connected(false)
 	, connect_time(0)
@@ -232,11 +233,11 @@ Client::Client()
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
-	, async_op_pending(false)
 { }
 
 Client::Client(const IPAddress &addr, uint16_t port)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(0)
 	, connected(false)
 	, connect_time(0)
@@ -246,13 +247,13 @@ Client::Client(const IPAddress &addr, uint16_t port)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
-	, async_op_pending(false)
 {
 	this->Connect(addr, port);
 }
 
 Client::Client(Server *server)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(server)
 	, connected(false)
 	, connect_time(0)
@@ -262,11 +263,11 @@ Client::Client(Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
-	, async_op_pending(false)
 { }
 
 Client::Client(const Socket &sock, Server *server)
 	: impl(new impl_(sock.sock, sock.sin))
+	, async_op_pending(false)
 	, server(server)
 	, connected(true)
 	, connect_time(std::time(0))
@@ -276,7 +277,6 @@ Client::Client(const Socket &sock, Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
-	, async_op_pending(false)
 { }
 
 inline void assert_power_of_two(std::size_t size)

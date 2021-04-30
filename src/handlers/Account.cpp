@@ -135,7 +135,7 @@ void Account_Create(EOClient *client, PacketReader &reader)
 
 		client->server()->world->CreateAccount(client)
 			->OnSuccess(successCallback)
-			->OnFailure([](EOClient* c, int result) { c->Close(); })
+			->OnFailure([](EOClient* c, int) { c->Close(); })
 			->Execute(std::shared_ptr<AccountCreateInfo>(new AccountCreateInfo(std::move(accountInfo))));
 	}
 }
@@ -192,6 +192,8 @@ void Account_Agree(Player *player, PacketReader &reader)
 
 	auto failureCallback = [](EOClient* c, int result)
 	{
+		(void)result;
+
 		// The client may disconnect if the password generation takes too long
 		if (!c->Connected())
 			return;

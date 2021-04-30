@@ -55,8 +55,8 @@ private:
         : _client(client), _operation(nullptr), _successCode(successCode), _result(result) { }
 
     EOClient* _client;
-    TResult _successCode, _result;
     std::function<TResult(std::shared_ptr<TState>)> _operation;
+    TResult _successCode, _result;
 
     std::list<std::function<void(EOClient*)>> _successCallbacks;
     std::list<std::function<void(EOClient*, TResult)>> _failureCallbacks;
