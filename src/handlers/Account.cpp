@@ -136,7 +136,7 @@ void Account_Create(EOClient *client, PacketReader &reader)
 		client->server()->world->CreateAccount(client)
 			->OnSuccess(successCallback)
 			->OnFailure([](EOClient* c, int) { c->Close(); })
-			->Execute(std::shared_ptr<AccountCreateInfo>(new AccountCreateInfo(std::move(accountInfo))));
+			->Execute(std::make_shared<AccountCreateInfo>(std::move(accountInfo)));
 	}
 }
 
@@ -208,7 +208,7 @@ void Account_Agree(Player *player, PacketReader &reader)
 	player->world->ChangePassword(player->client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
-		->Execute(std::shared_ptr<PasswordChangeInfo>(new PasswordChangeInfo(std::move(passwordChangeInfo))));
+		->Execute(std::make_shared<PasswordChangeInfo>(std::move(passwordChangeInfo)));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)

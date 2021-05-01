@@ -32,8 +32,9 @@ public:
 
     AsyncOperation<AccountCreateInfo, bool>* CreateAccountAsync(EOClient* client);
     AsyncOperation<PasswordChangeInfo, bool>* SetPasswordAsync(EOClient* client);
-    AsyncOperation<AccountCredentials>* UpdatePasswordVersionAsync(EOClient* client);
     AsyncOperation<AccountCredentials, LoginReply>* CheckLoginAsync(EOClient* client);
+
+    void UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials);
 
     bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
 

@@ -97,13 +97,16 @@ AsyncOperation<PasswordChangeInfo, bool>* LoginManager::SetPasswordAsync(EOClien
     return new AsyncOperation<PasswordChangeInfo, bool>(client, setPasswordThreadProc, true);
 }
 
-AsyncOperation<AccountCredentials>* LoginManager::UpdatePasswordVersionAsync(EOClient* client)
+// This doesn't return AsyncOperation because it doesn't operate within the context of sending a client response
+void LoginManager::UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials)
 {
-    auto updateThreadProc = [this](std::shared_ptr<AccountCredentials> updateState)
+    auto updateThreadProc = [this](const void * state)
     {
+        auto updateState = static_cast<const AccountCredentials*>(state);
         auto username = updateState->username;
         auto password = std::move(updateState->password);
         auto hashFunc = updateState->hashFunc;
+        delete updateState;
 
         if (hashFunc != NONE)
         {
@@ -115,11 +118,10 @@ AsyncOperation<AccountCredentials>* LoginManager::UpdatePasswordVersionAsync(EOC
                 hashFunc,
                 username.c_str());
         }
-
-        return 0;
     };
 
-    return new AsyncOperation<AccountCredentials>(client, updateThreadProc);
+    auto state = static_cast<void*>(new AccountCredentials(std::move(accountCredentials)));
+    util::ThreadPool::Queue(updateThreadProc, state);
 }
 
 AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EOClient* client)
@@ -138,22 +140,22 @@ AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EO
             HashFunc currentPasswordVersion = static_cast<HashFunc>(this->_config["PasswordCurrentVersion"].GetInt());
             std::string dbPasswordHash = std::string(res[0]["password"]);
 
-            if (dbPasswordVersion < currentPasswordVersion)
+            // make a copy of the password for input to the salting function
+            // original password needs to be preserved for update of password version (if necessary)
+            util::secure_string passwordCopy(std::string(password.str()));
+            util::secure_string saltedPassword = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(passwordCopy)));
+            if (this->_passwordHashers[dbPasswordVersion]->check(saltedPassword.str(), dbPasswordHash))
             {
-                // A copy is made of the password since the background thread needs to have separate ownership of it
-                // There is a potential race here:
-                // 1. User logs in
-                // 2. Password version starts update in background thread
-                // 3. User changes password while updating version in background
-                // 4. Password version completes update; overwrites changed password
-                util::secure_string passwordCopy(std::string(password.str()));
-                this->UpdatePasswordVersionAsync(client)
-                    ->Execute(std::shared_ptr<AccountCredentials>(new AccountCredentials { username, std::move(password), currentPasswordVersion }));
-            }
+                if (dbPasswordVersion < currentPasswordVersion)
+                {
+                    // There is a potential race here:
+                    // 1. User logs in
+                    // 2. Password version starts update in background thread
+                    // 3. User changes password while updating version in background
+                    // 4. Password version completes update; overwrites changed password
+                    this->UpdatePasswordVersionInBackground(std::move(AccountCredentials { username, std::move(password), currentPasswordVersion }));
+                }
 
-            password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
-            if (this->_passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
-            {
                 return LOGIN_OK;
             }
             else
