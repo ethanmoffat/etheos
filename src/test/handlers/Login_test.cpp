@@ -50,8 +50,6 @@ private:
 
 GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
 {
-    // todo: re-enable after merge with test fixes
-    GTEST_SKIP();
     Console::SuppressOutput(true);
 
     Config config;
