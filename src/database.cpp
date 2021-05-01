@@ -187,9 +187,9 @@ Database::Database()
 
 Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
 	: impl(new impl_)
+	, connected(false)
+	, in_transaction(false)
 {
-	this->connected = false;
-
 	if (connectnow)
 	{
 		this->Connect(type, host, port, user, pass, db);

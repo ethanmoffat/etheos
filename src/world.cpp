@@ -706,7 +706,7 @@ std::unique_ptr<Database> World::DatabaseFactory(bool logConnection)
 	if (logConnection)
 		Console::Out("Connecting to database (%s)...", dbdesc.c_str());
 
-	return std::move(std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName)));
+	return std::unique_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
 }
 
 void World::Login(Character *character)
