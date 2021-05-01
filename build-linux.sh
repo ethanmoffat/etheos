@@ -125,7 +125,7 @@ function main() {
 
   if [[ "${opt_test}" == "true" ]]; then
     local test_dir="${install_dir}"/test
-    local test_runner="eoserv_test"
+    local test_runner="./eoserv_test"
 
     if [[ ! -f "${test_dir}/${test_runner}" ]]; then
       echo "Error: the test runner \"${test_dir}/${test_runner}\" does not exist."
