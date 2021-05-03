@@ -138,7 +138,7 @@ void server_pump_queue(void *server_void)
 	}
 }
 
-void EOServer::Initialize(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config)
+void EOServer::Initialize(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config)
 {
 	this->world = new World(databaseFactory, eoserv_config, admin_config);
 

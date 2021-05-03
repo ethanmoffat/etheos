@@ -126,7 +126,7 @@ class World
 
 		int admin_count;
 
-		World(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config);
+		World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config);
 
 		void Initialize();
 

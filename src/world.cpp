@@ -369,7 +369,7 @@ void World::UpdateConfig()
 	}
 }
 
-World::World(const std::shared_ptr<DatabaseFactory>& databaseFactory, const Config &eoserv_config, const Config &admin_config)
+World::World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config)
 	: i18n(eoserv_config.find("ServerLanguage")->second)
 	, databaseFactory(databaseFactory)
 	, admin_count(0)

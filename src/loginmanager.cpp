@@ -12,7 +12,7 @@
 #include "player.hpp"
 #include "world.hpp"
 
-LoginManager::LoginManager(const std::shared_ptr<DatabaseFactory>& databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
+LoginManager::LoginManager(std::shared_ptr<DatabaseFactory> databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
     : _databaseFactory(databaseFactory)
     , _config(config)
     , _passwordHashers(passwordHashers)

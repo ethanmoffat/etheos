@@ -25,7 +25,7 @@
 class LoginManager
 {
 public:
-    LoginManager(const std::shared_ptr<DatabaseFactory>& databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
+    LoginManager(std::shared_ptr<DatabaseFactory> databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers);
 
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
