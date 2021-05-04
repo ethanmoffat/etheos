@@ -370,11 +370,11 @@ void World::UpdateConfig()
 }
 
 World::World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config)
-	: i18n(eoserv_config.find("ServerLanguage")->second)
-	, databaseFactory(databaseFactory)
-	, admin_count(0)
+	: databaseFactory(databaseFactory)
 	, config(eoserv_config)
 	, admin_config(admin_config)
+	, i18n(eoserv_config.find("ServerLanguage")->second)
+	, admin_count(0)
 {
 	this->db = databaseFactory->CreateDatabase(this->config, true);
 	this->BeginDB();

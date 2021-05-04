@@ -8,6 +8,7 @@
 #define DATABASE_HPP_INCLUDED
 
 #include "fwd/config.hpp"
+#include "fwd/database.hpp"
 #include "util/variant.hpp"
 
 #include <algorithm>

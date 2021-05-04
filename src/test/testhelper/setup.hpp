@@ -6,6 +6,7 @@
 static void CreateConfigWithTestDefaults(Config& config, Config& admin_config)
 {
     eoserv_config_validate_config(config);
+    eoserv_config_validate_admin(admin_config);
 
     // these are needed for the test to run
     // test assumes relative to directory {install_dir}/test
