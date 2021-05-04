@@ -49,11 +49,105 @@ std::shared_ptr<DatabaseFactory> CreateMockDatabaseFactoryForLoginTests(std::sha
     return mockDatabaseFactory;
 }
 
+GTEST_TEST(LoginTests, BasicParameterTests)
+{
+    Console::SuppressOutput(true);
+
+    const size_t AccountMaxLength = 15;
+    const size_t PasswordMaxLength = 25;
+    const size_t AccountMinLength = 4;
+    const size_t PasswordMinLength = 8;
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+    config["AccountMaxLength"] = int(AccountMaxLength);
+    config["AccountMinLength"] = int(AccountMinLength);
+    config["PasswordMaxLength"] = int(PasswordMaxLength);
+    config["PasswordMinLength"] = int(PasswordMinLength);
+    config["MaxPlayers"] = 0; // ensure server busy if credentials are ok
+
+    auto mockDatabase = CreateMockDatabaseForLoginTests();
+    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, true);
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+
+    // Account max length - no response
+    {
+        MockClient client(&server);
+
+        EXPECT_CALL(client, Send(_)).Times(0);
+        EXPECT_CALL(client, Close(_)).Times(0);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString(std::string(AccountMaxLength + 1, 'a')).AddBreakString("test_pass").Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+
+    // Password max length - no response
+    {
+        MockClient client(&server);
+
+        EXPECT_CALL(client, Send(_)).Times(0);
+        EXPECT_CALL(client, Close(_)).Times(0);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString("test_user").AddBreakString(std::string(PasswordMaxLength + 1, 'a')).Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+
+    // Account min length - wrong user
+    {
+        MockClient client(&server);
+
+        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
+        expectedResponse.AddShort(LOGIN_WRONG_USER);
+        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        EXPECT_CALL(client, Close(false)).Times(0);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString(std::string(AccountMinLength - 1, 'a')).AddBreakString("test_pass").Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+
+    // Password min length - wrong userpass
+    {
+        MockClient client(&server);
+
+        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
+        expectedResponse.AddShort(LOGIN_WRONG_USERPASS);
+        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        EXPECT_CALL(client, Close(false)).Times(0);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString("test_user").AddBreakString(std::string(PasswordMinLength - 1, 'a')).Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+
+    // user/pass right length - server busy
+    {
+        MockClient client(&server);
+
+        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
+        expectedResponse.AddShort(LOGIN_BUSY);
+        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        EXPECT_CALL(client, Close(false)).Times(1);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+}
+
 GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
 {
     Console::SuppressOutput(true);
 
-    const int MaxConcurrentLogins = 2;
+    const int MaxConcurrentLogins = 5;
 
     Config config, admin_config;
     CreateConfigWithTestDefaults(config, admin_config);
@@ -95,7 +189,6 @@ GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
 
     Config config, admin_config;
     CreateConfigWithTestDefaults(config, admin_config);
-    config["LoginQueueSize"] = 10;
     config["MaxLoginAttempts"] = MaxLoginAttempts;
 
     auto mockDatabase = CreateMockDatabaseForLoginTests();
