@@ -4,6 +4,9 @@
  * See LICENSE.txt for more info.
  */
 
+#include <future>
+
+#include "../console.hpp"
 #include "threadpool.hpp"
 
 namespace util
@@ -42,7 +45,7 @@ namespace util
 
         for (size_t i = 0; i < numThreads; i++)
         {
-            auto newThread = std::thread([this]() { this->_workerProc(); });
+            auto newThread = std::thread([this, i]() { this->_workerProc(i); });
             this->_threads.push_back(std::move(newThread));
         }
     }
@@ -103,7 +106,7 @@ namespace util
 
         for (size_t i = this->_threads.size(); i < numWorkers; ++i)
         {
-            auto newThread = std::thread([this]() { this->_workerProc(); });
+            auto newThread = std::thread([this, i]() { this->_workerProc(i); });
             this->_threads.push_back(std::move(newThread));
         }
     }
@@ -122,11 +125,15 @@ namespace util
         }
     }
 
-    void ThreadPool::_workerProc()
+    void ThreadPool::_workerProc(size_t threadNum)
     {
         while (!this->_terminating)
         {
             this->_workReadySemaphore.Wait();
+
+#if DEBUG
+            Console::Dbg("Thread %d starting work", threadNum);
+#endif
 
             if (this->_terminating)
                 break;
@@ -139,7 +146,22 @@ namespace util
                 this->_work.pop();
             }
 
-            workPair->first(workPair->second);
+            try
+            {
+                workPair->first(workPair->second);
+            }
+            catch(const std::exception& e)
+            {
+                Console::Err("Exception on thread %d: %s", threadNum, e.what());
+            }
+
+#if DEBUG
+            Console::Dbg("Thread %d completed work", threadNum);
+#endif
         }
+
+#if DEBUG
+        Console::Dbg("Thread %d terminating", threadNum);
+#endif
     }
 }

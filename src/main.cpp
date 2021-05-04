@@ -338,15 +338,9 @@ int eoserv_main(int argc, char *argv[])
 		Console::Out("Setting number of threadpool threads to %d", threadPoolSize);
 		util::ThreadPool::SetNumThreads(threadPoolSize);
 
-		std::array<std::string, 6> dbinfo;
-		dbinfo[0] = std::string(config["DBType"]);
-		dbinfo[1] = std::string(config["DBHost"]);
-		dbinfo[2] = std::string(config["DBUser"]);
-		dbinfo[3] = std::string(config["DBPass"]);
-		dbinfo[4] = std::string(config["DBName"]);
-		dbinfo[5] = std::string(config["DBPort"]);
+		const auto databaseFactory = std::make_shared<DatabaseFactory>(DatabaseFactory());
 
-		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), dbinfo, config, aconfig);
+		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), databaseFactory, config, aconfig);
 		server.Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
 		Console::Out("Listening on %s:%i (0/%i connections)", std::string(config["Host"]).c_str(), int(config["Port"]), int(config["MaxConnections"]));
 
@@ -359,13 +353,13 @@ int eoserv_main(int argc, char *argv[])
 
 			try
 			{
-				Database_Result acc_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `accounts`");
-				Database_Result character_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `characters`");
-				Database_Result admin_character_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
-				Database_Result guild_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `guilds`");
-				Database_Result ban_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans`");
-				Database_Result ban_active_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
-				Database_Result ban_perm_count = server.world->db.Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
+				Database_Result acc_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `accounts`");
+				Database_Result character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters`");
+				Database_Result admin_character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
+				Database_Result guild_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `guilds`");
+				Database_Result ban_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans`");
+				Database_Result ban_active_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
+				Database_Result ban_perm_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
 
 				Console::Out("Database info:");
 				Console::Out("  Accounts:   %i", int(acc_count.front()["count"]));
@@ -402,7 +396,7 @@ int eoserv_main(int argc, char *argv[])
 				try
 				{
 					server.world->CommitDB();
-					server.world->db.ExecuteFile(install_script);
+					server.world->db->ExecuteFile(install_script);
 					server.world->BeginDB();
 				}
 				catch (Database_Exception& e)

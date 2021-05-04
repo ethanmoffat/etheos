@@ -11,6 +11,7 @@
 
 #include "database.hpp"
 
+#include "config.hpp"
 #include "console.hpp"
 #include "util.hpp"
 #include "util/variant.hpp"
@@ -139,6 +140,53 @@ bool Database_Result::Error()
 	return this->error;
 }
 
+std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool logConnection) const
+{
+	auto dbType = util::lowercase(std::string(config["DBType"]));
+	auto dbHost = std::string(config["DBHost"]);
+	auto dbUser = std::string(config["DBUser"]);
+	auto dbPass = std::string(config["DBPass"]);
+	auto dbName = std::string(config["DBName"]);
+	auto dbPort = int(config["DBPort"]);
+
+	std::string dbdesc;
+	Database::Engine engine = Database::MySQL;
+	if (!dbType.compare("sqlite"))
+	{
+		engine = Database::SQLite;
+		dbdesc = std::string("SQLite: ") + dbHost;
+	}
+	else
+	{
+		if (!dbType.compare("sqlserver"))
+		{
+			engine = Database::SqlServer;
+			dbdesc = "SqlServer: ";
+		}
+		else if (!dbType.compare("mysql"))
+		{
+			engine = Database::MySQL;
+			dbdesc = "MySQL: ";
+		}
+
+		dbdesc += dbUser + "@" + dbHost;
+
+		if (dbPort != 0 &&
+			((dbPort != 3306 && engine == Database::MySQL) ||
+			(dbPort != 1433 && engine == Database::SqlServer)))
+		{
+			dbdesc += ":" + util::to_string(dbPort);
+		}
+
+		dbdesc += "/" + dbName;
+	}
+
+	if (logConnection)
+		Console::Out("Connecting to database (%s)...", dbdesc.c_str());
+
+	return std::shared_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
+}
+
 Database::Bulk_Query_Context::Bulk_Query_Context(Database& db)
 	: db(db)
 	, pending(false)
@@ -187,9 +235,9 @@ Database::Database()
 
 Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
 	: impl(new impl_)
+	, connected(false)
+	, in_transaction(false)
 {
-	this->connected = false;
-
 	if (connectnow)
 	{
 		this->Connect(type, host, port, user, pass, db);

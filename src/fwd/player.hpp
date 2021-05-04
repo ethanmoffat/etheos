@@ -7,6 +7,10 @@
 #ifndef FWD_PLAYER_HPP_INCLUDED
 #define FWD_PLAYER_HPP_INCLUDED
 
+struct AccountCreateInfo;
+struct PasswordChangeInfo;
+struct AccountCredentials;
+
 class Player;
 
 enum CharacterReply : short

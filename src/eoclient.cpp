@@ -72,7 +72,6 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 		std::string act = PacketProcessor::GetActionName(action);
 		if (ignoreFamilies.find(fam) == std::string::npos)
 		{
-			// TODO: log to console/file based on configuration setting
 			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | RECV Family: %-15s | Action: %-15s | SIZE=%d",
 				timeinfo->tm_mon + 1,
 				timeinfo->tm_mday,
@@ -287,6 +286,7 @@ void EOClient::Execute(const std::string &data)
 	if (reader.Family() == PACKET_INTERNAL)
 	{
 		Console::Wrn("Closing client connection sending a reserved packet ID: %s", static_cast<std::string>(this->GetRemoteAddr()).c_str());
+		this->AsyncOpPending(false);
 		this->Close();
 		return;
 	}
@@ -311,6 +311,7 @@ void EOClient::Execute(const std::string &data)
 			if (client_seq != server_seq)
 			{
 				Console::Wrn("Closing client connection sending invalid sequence: %s, Got %i, expected %i.", static_cast<std::string>(this->GetRemoteAddr()).c_str(), client_seq, server_seq);
+				this->AsyncOpPending(false);
 				this->Close();
 				return;
 			}
@@ -396,6 +397,8 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 
 void EOClient::Send(const PacketBuilder &builder)
 {
+	std::lock_guard<std::mutex> lock(send_mutex);
+
 	auto fam = PacketFamily(PacketProcessor::EPID(builder.GetID())[1]);
 	auto act = PacketAction(PacketProcessor::EPID(builder.GetID())[0]);
 	this->LogPacket(fam, act, builder.Length());

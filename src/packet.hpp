@@ -141,6 +141,7 @@ class PacketBuilder
 		std::string Get() const;
 
 		operator std::string() const;
+		bool operator==(const PacketBuilder& rhs) const;
 
 		~PacketBuilder();
 };

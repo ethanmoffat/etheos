@@ -39,6 +39,8 @@ void Wrn(const char* f, ...);
 void Err(const char* f, ...);
 void Dbg(const char* f, ...);
 
+void SuppressOutput(bool suppress);
+
 }
 
 #endif // CONSOLE_HPP_INCLUDED

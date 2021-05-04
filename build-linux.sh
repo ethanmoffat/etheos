@@ -124,13 +124,18 @@ function main() {
   popd > /dev/null
 
   if [[ "${opt_test}" == "true" ]]; then
-    local test_runner="${install_dir}"/test/eoserv_test
-    if [[ ! -f "${test_runner}" ]]; then
-      echo "Error: the test runner \"${test_runner}\" does not exist."
+    local test_dir="${install_dir}"/test
+    local test_runner="./eoserv_test"
+
+    if [[ ! -f "${test_dir}/${test_runner}" ]]; then
+      echo "Error: the test runner \"${test_dir}/${test_runner}\" does not exist."
       echo "Notice: you must build and install to run tests."
       return 1
     fi
+
+    pushd "${test_dir}"
     "${test_runner}"
+    popd > /dev/null
   fi
 
   return 0

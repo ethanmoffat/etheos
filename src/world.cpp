@@ -276,7 +276,7 @@ void world_timed_save(void *world_void)
 	{
 		(void)e;
 		Console::Wrn("Database commit failed - no data was saved!");
-		world->db.Rollback();
+		world->db->Rollback();
 	}
 
 	world->BeginDB();
@@ -354,7 +354,7 @@ void World::UpdateConfig()
 		this->instrument_ids.push_back(int(util::tdparse(instrument_list[i])));
 	}
 
-	if (this->db.Pending() && !this->config["TimedSave"])
+	if (this->db->Pending() && !this->config["TimedSave"])
 	{
 		try
 		{
@@ -364,14 +364,25 @@ void World::UpdateConfig()
 		{
 			(void)e;
 			Console::Wrn("Database commit failed - no data was saved!");
-			this->db.Rollback();
+			this->db->Rollback();
 		}
 	}
 }
 
-World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config)
-	: i18n(eoserv_config.find("ServerLanguage")->second)
+World::World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config)
+	: databaseFactory(databaseFactory)
+	, config(eoserv_config)
+	, admin_config(admin_config)
+	, i18n(eoserv_config.find("ServerLanguage")->second)
 	, admin_count(0)
+{
+	this->db = databaseFactory->CreateDatabase(this->config, true);
+	this->BeginDB();
+
+	this->Initialize();
+}
+
+void World::Initialize()
 {
 	if (int(this->timer.resolution * 1000.0) > 1)
 	{
@@ -382,53 +393,9 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 		Console::Out("Timers set at < 1 ms resolution");
 	}
 
-	this->config = eoserv_config;
-	this->admin_config = admin_config;
-
-	Database::Engine engine;
-
-	std::string dbdesc;
-
-	if (util::lowercase(dbinfo[0]).compare("sqlite") == 0)
-	{
-		engine = Database::SQLite;
-		dbdesc = std::string("SQLite: ")
-		       + dbinfo[1];
-	}
-	else
-	{
-		std::string engineStr;
-		if (util::lowercase(dbinfo[0]).compare("sqlserver") == 0)
-		{
-			engine = Database::SqlServer;
-			engineStr = "SqlServer";
-		}
-		else
-		{
-			engine = Database::MySQL;
-			engineStr = "MySQL";
-		}
-
-		dbdesc = engineStr
-		       + ": "
-		       + dbinfo[2] + "@"
-		       + dbinfo[1];
-
-		if (dbinfo[5] != "0" &&
-		    ((dbinfo[5] != "3306" && engine == Database::MySQL) ||
-			 (dbinfo[5] != "1433" && engine == Database::SqlServer)))
-			dbdesc += ":" + dbinfo[5];
-
-		dbdesc += "/" + dbinfo[4];
-	}
-
-	Console::Out("Connecting to database (%s)...", dbdesc.c_str());
-	this->db.Connect(engine, dbinfo[1], util::to_int(dbinfo[5]), dbinfo[2], dbinfo[3], dbinfo[4]);
-	this->BeginDB();
-
 	this->passwordHashers[SHA256].reset(new Sha256Hasher());
 	this->passwordHashers[BCRYPT].reset(new BcryptHasher(int(this->config["BcryptWorkload"])));
-	this->passwordHashUpdater.reset(new PasswordHashUpdater(this->config, this->passwordHashers));
+	this->loginManager.reset(new LoginManager(databaseFactory, this->config, this->passwordHashers));
 
 	try
 	{
@@ -568,13 +535,13 @@ World::World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, con
 void World::BeginDB()
 {
 	if (this->config["TimedSave"])
-		this->db.BeginTransaction();
+		this->db->BeginTransaction();
 }
 
 void World::CommitDB()
 {
-	if (this->db.Pending())
-		this->db.Commit();
+	if (this->db->Pending())
+		this->db->Commit();
 }
 
 void World::UpdateAdminCount(int admin_count)
@@ -862,7 +829,7 @@ void World::AdminReport(Character *from, std::string reportee, std::string messa
 		{
 			try
 			{
-				this->db.Query("INSERT INTO `reports` (`reporter`, `reported`, `reason`, `time`, `chat_log`) VALUES ('$', '$', '$', #, '$')",
+				this->db->Query("INSERT INTO `reports` (`reporter`, `reported`, `reason`, `time`, `chat_log`) VALUES ('$', '$', '$', #, '$')",
 					from->SourceName().c_str(),
 					reportee.c_str(),
 					message.c_str(),
@@ -1243,7 +1210,7 @@ Home *World::GetHome(std::string id)
 
 bool World::CharacterExists(std::string name)
 {
-	Database_Result res = this->db.Query("SELECT 1 FROM `characters` WHERE `name` = '$'", name.c_str());
+	Database_Result res = this->db->Query("SELECT 1 FROM `characters` WHERE `name` = '$'", name.c_str());
 	return !res.empty();
 }
 
@@ -1261,7 +1228,7 @@ Character *World::CreateCharacter(Player *player, std::string name, Gender gende
 		startmapval = buffer;
 	}
 
-	this->db.Query("INSERT INTO `characters` (`name`, `account`, `gender`, `hairstyle`, `haircolor`, `race`, `inventory`, `bank`, `paperdoll`, `spells`, `quest`, `vars`@) VALUES ('$','$',#,#,#,#,'$','','$','$','',''@)",
+	this->db->Query("INSERT INTO `characters` (`name`, `account`, `gender`, `hairstyle`, `haircolor`, `race`, `inventory`, `bank`, `paperdoll`, `spells`, `quest`, `vars`@) VALUES ('$','$',#,#,#,#,'$','','$','$','',''@)",
 		startmapinfo.c_str(), name.c_str(), player->username.c_str(), gender, hairstyle, haircolor, race,
 		static_cast<std::string>(this->config["StartItems"]).c_str(), static_cast<std::string>(gender?this->config["StartEquipMale"]:this->config["StartEquipFemale"]).c_str(),
 		static_cast<std::string>(this->config["StartSpells"]).c_str(), startmapval.c_str());
@@ -1271,85 +1238,38 @@ Character *World::CreateCharacter(Player *player, std::string name, Gender gende
 
 void World::DeleteCharacter(std::string name)
 {
-	this->db.Query("DELETE FROM `characters` WHERE name = '$'", name.c_str());
+	this->db->Query("DELETE FROM `characters` WHERE name = '$'", name.c_str());
 }
 
-Player *World::Login(const std::string& username, util::secure_string&& password)
+Player *World::PlayerFactory(std::string username)
 {
-	if (LoginCheck(username, std::move(password)) == LOGIN_WRONG_USERPASS)
-		return 0;
-
-	return new Player(username, this);
+	auto database = this->databaseFactory->CreateDatabase(this->config);
+	return new Player(username, this, database.get());
 }
 
-Player *World::Login(std::string username)
+AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient* client)
 {
-	return new Player(username, this);
+	if (this->loginManager->LoginBusy())
+	{
+		return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
+	}
+
+	return this->loginManager->CheckLoginAsync(client);
 }
 
-LoginReply World::LoginCheck(const std::string& username, util::secure_string&& password)
+AsyncOperation<PasswordChangeInfo, bool>* World::ChangePassword(EOClient* client)
 {
-	Database_Result res = this->db.Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
-
-	if (res.empty())
-	{
-		return LOGIN_WRONG_USERPASS;
-	}
-
-	HashFunc dbPasswordVersion = static_cast<HashFunc>(res[0]["password_version"].GetInt());
-	HashFunc currentPasswordVersion = static_cast<HashFunc>(this->config["PasswordCurrentVersion"].GetInt());
-	std::string dbPasswordHash = std::string(res[0]["password"]);
-
-	if (dbPasswordVersion < currentPasswordVersion)
-	{
-		// A copy is made of the password since the background thread needs to have separate ownership of it
-		//
-		util::secure_string passwordCopy(std::string(password.str()));
-		this->passwordHashUpdater->QueueUpdatePassword(username, std::move(passwordCopy), currentPasswordVersion);
-	}
-
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	if (!this->passwordHashers[dbPasswordVersion]->check(password.str(), dbPasswordHash))
-	{
-		return LOGIN_WRONG_USERPASS;
-	}
-
-	if (this->PlayerOnline(username))
-	{
-		return LOGIN_LOGGEDIN;
-	}
-	else
-	{
-		return LOGIN_OK;
-	}
+	return this->loginManager->SetPasswordAsync(client);
 }
 
-void World::ChangePassword(const std::string& username, util::secure_string&& password)
+AsyncOperation<AccountCreateInfo, bool>* World::CreateAccount(EOClient * client)
 {
-	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
-
-	this->db.Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE username = '$'", password.str().c_str(), int(passwordVersion), username.c_str());
-}
-
-bool World::CreatePlayer(const std::string& username, util::secure_string&& password,
-	const std::string& fullname, const std::string& location, const std::string& email,
-	const std::string& computer, int hdid, const std::string& ip)
-{
-	auto passwordVersion = static_cast<HashFunc>(int(this->config["PasswordCurrentVersion"]));
-	password = std::move(Hasher::SaltPassword(std::string(this->config["PasswordSalt"]), username, std::move(password)));
-	password = std::move(this->passwordHashers[passwordVersion]->hash(password.str()));
-
-	Database_Result res = this->db.Query("INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`) VALUES ('$','$','$','$','$','$',#,'$',#,#)",
-		username.c_str(), password.str().c_str(), fullname.c_str(), location.c_str(), email.c_str(), computer.c_str(), hdid, ip.c_str(), int(std::time(0)), int(passwordVersion));
-
-	return !res.Error();
+	return this->loginManager->CreateAccountAsync(client);
 }
 
 bool World::PlayerExists(std::string username)
 {
-	Database_Result res = this->db.Query("SELECT 1 FROM `accounts` WHERE `username` = '$'", username.c_str());
+	Database_Result res = this->db->Query("SELECT 1 FROM `accounts` WHERE `username` = '$'", username.c_str());
 	return !res.empty();
 }
 
@@ -1423,7 +1343,7 @@ void World::Ban(Command_Source *from, Character *victim, int duration, bool anno
 
 	std::string query("INSERT INTO bans (username, ip, hdid, expires, setter) VALUES ");
 
-	query += "('" + db.Escape(victim->player->username) + "', ";
+	query += "('" + db->Escape(victim->player->username) + "', ";
 	query += util::to_string(static_cast<int>(victim->player->client->GetRemoteAddr())) + ", ";
 	query += util::to_string(victim->player->client->hdid) + ", ";
 
@@ -1436,11 +1356,11 @@ void World::Ban(Command_Source *from, Character *victim, int duration, bool anno
 		query += util::to_string(int(std::time(0) + duration));
 	}
 
-	query += ", '" + db.Escape(from_str) + "')";
+	query += ", '" + db->Escape(from_str) + "')";
 
 	try
 	{
-		this->db.Query(query.c_str());
+		this->db->Query(query.c_str());
 	}
 	catch (Database_Exception& e)
 	{
@@ -1471,7 +1391,7 @@ int World::CheckBan(const std::string *username, const IPAddress *address, const
 	if (username)
 	{
 		query += "username = '";
-		query += db.Escape(*username);
+		query += db->Escape(*username);
 		query += "' OR ";
 	}
 
@@ -1489,7 +1409,7 @@ int World::CheckBan(const std::string *username, const IPAddress *address, const
 		query += " OR ";
 	}
 
-	Database_Result res = db.Query((query.substr(0, query.length()-4) + ") AND (expires > # OR expires = 0)").c_str(), int(std::time(0)));
+	Database_Result res = db->Query((query.substr(0, query.length()-4) + ") AND (expires > # OR expires = 0)").c_str(), int(std::time(0)));
 
 	return static_cast<int>(res[0]["expires"]);
 }
@@ -1567,6 +1487,6 @@ World::~World()
 
 	if (this->config["TimedSave"])
 	{
-		this->db.Commit();
+		this->db->Commit();
 	}
 }

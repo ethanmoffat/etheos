@@ -15,7 +15,8 @@
                 "src"
             ],
             "defines": [
-                "DATABASE_SQLSERVER"
+                "DATABASE_SQLSERVER",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
@@ -39,7 +40,8 @@
             ],
             "defines": [
                 "DATABASE_SQLSERVER",
-                "DATABASE_MYSQL"
+                "DATABASE_MYSQL",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
@@ -110,7 +112,8 @@
             ],
             "defines": [
                 "DATABASE_SQLSERVER",
-                "DEBUG"
+                "DEBUG",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
@@ -135,7 +138,8 @@
             "defines": [
                 "DATABASE_SQLSERVER",
                 "DATABASE_MYSQL",
-                "DEBUG"
+                "DEBUG",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",

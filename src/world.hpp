@@ -24,11 +24,12 @@
 #include "i18n.hpp"
 #include "hash.hpp"
 #include "map.hpp"
-#include "hashupdater.hpp"
+#include "loginmanager.hpp"
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"
 #include "util/secure_string.hpp"
+#include "util/async.hpp"
 
 #include <array>
 #include <list>
@@ -77,7 +78,8 @@ class World
 {
 	private:
 		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
-		std::unique_ptr<PasswordHashUpdater> passwordHashUpdater;
+		std::unique_ptr<LoginManager> loginManager;
+		std::shared_ptr<DatabaseFactory> databaseFactory;
 
 	protected:
 		int last_character_id;
@@ -88,7 +90,7 @@ class World
 		Timer timer;
 
 		EOServer *server;
-		Database db;
+		std::shared_ptr<Database> db;
 
 		GuildManager *guildmanager;
 
@@ -124,7 +126,9 @@ class World
 
 		int admin_count;
 
-		World(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config);
+		World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config);
+
+		void Initialize();
 
 		void BeginDB();
 		void CommitDB();
@@ -179,14 +183,11 @@ class World
 		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
 		void DeleteCharacter(std::string name);
 
-		Player *Login(const std::string& username, util::secure_string&& password);
-		Player *Login(std::string username);
-		LoginReply LoginCheck(const std::string& username, util::secure_string&& password);
-		void ChangePassword(const std::string& username, util::secure_string&& password);
+		Player *PlayerFactory(std::string username);
+		AsyncOperation<AccountCredentials, LoginReply>* CheckCredential(EOClient* client);
+		AsyncOperation<PasswordChangeInfo, bool>* ChangePassword(EOClient* client);
 
-		bool CreatePlayer(const std::string& username, util::secure_string&& password,
-			const std::string& fullname,const std::string& location, const std::string& email,
-			const std::string& computer, int hdid, const std::string& ip);
+		AsyncOperation<AccountCreateInfo, bool>* CreateAccount(EOClient* client);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);

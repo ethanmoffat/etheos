@@ -65,83 +65,100 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	reader.GetShort(); // Account creation "session ID"
 	reader.GetByte(); // ?
 
-	std::string username = reader.GetBreakString();
-	util::secure_string password(std::move(reader.GetBreakString()));
-	std::string fullname = reader.GetBreakString();
-	std::string location = reader.GetBreakString();
-	std::string email = reader.GetBreakString();
-	std::string computer = reader.GetBreakString();
+	AccountCreateInfo accountInfo;
 
-	if (username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"]))
-	 || username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
-	 || password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"]))
-	 || password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"]))
-	 || fullname.length() > std::size_t(int(client->server()->world->config["RealNameMaxLength"]))
-	 || location.length() > std::size_t(int(client->server()->world->config["LocationMaxLength"]))
-	 || email.length() > std::size_t(int(client->server()->world->config["EmailMaxLength"]))
-	 || computer.length() > std::size_t(int(client->server()->world->config["ComputerNameLength"])))
-	{
-		return;
-	}
+	accountInfo.username = util::lowercase(reader.GetBreakString());
+	accountInfo.password = std::move(reader.GetBreakString());
+	accountInfo.fullname = reader.GetBreakString();
+	accountInfo.location = reader.GetBreakString();
+	accountInfo.email = reader.GetBreakString();
+	accountInfo.computer = reader.GetBreakString();
+	accountInfo.remoteIp = client->GetRemoteAddr();
 
-	int hdid;
 	try
 	{
-		hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
+		accountInfo.hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
 	}
 	catch (std::invalid_argument&)
 	{
 		return;
 	}
 
-	username = util::lowercase(username);
+	if (accountInfo.username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"]))
+	 || accountInfo.username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
+	 || accountInfo.password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"]))
+	 || accountInfo.password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"]))
+	 || accountInfo.fullname.length() > std::size_t(int(client->server()->world->config["RealNameMaxLength"]))
+	 || accountInfo.location.length() > std::size_t(int(client->server()->world->config["LocationMaxLength"]))
+	 || accountInfo.email.length() > std::size_t(int(client->server()->world->config["EmailMaxLength"]))
+	 || accountInfo.computer.length() > std::size_t(int(client->server()->world->config["ComputerNameLength"])))
+	{
+		return;
+	}
 
 	if (client->server()->world->config["SeoseCompat"])
-		password = std::move(seose_str_hash(password.str(), client->server()->world->config["SeoseCompatKey"]));
+		accountInfo.password = std::move(seose_str_hash(accountInfo.password.str(), client->server()->world->config["SeoseCompatKey"]));
 
 	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
 
-	if (!Player::ValidName(username))
+	if (!Player::ValidName(accountInfo.username))
 	{
 		reply.AddShort(ACCOUNT_NOT_APPROVED);
 		reply.AddString("NO");
+		client->Send(reply);
 	}
-	else if (client->server()->world->PlayerExists(username))
+	else if (client->server()->world->PlayerExists(accountInfo.username))
 	{
 		reply.AddShort(ACCOUNT_EXISTS);
 		reply.AddString("NO");
+		client->Send(reply);
 	}
 	else
 	{
-		username = util::lowercase(username);
+		// Username is captured by value so the function can safely return without the memory being deallocated / stack corrupted.
+		std::string username(accountInfo.username);
 
-		client->server()->world->CreatePlayer(username, std::move(password), fullname, location, email, computer, hdid, static_cast<std::string>(client->GetRemoteAddr()));
-		reply.AddShort(ACCOUNT_CREATED);
-		reply.AddString("OK");
-		Console::Out("New account: %s", username.c_str());
+		auto successCallback = [username](EOClient* c)
+		{
+			// The client may disconnect if the password generation takes too long
+			if (c->Connected())
+			{
+				PacketBuilder succeededReply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+				succeededReply.AddShort(ACCOUNT_CREATED);
+				succeededReply.AddString("OK");
+
+				c->Send(succeededReply);
+			}
+
+			Console::Out("New account: %s", username.c_str());
+		};
+
+		client->server()->world->CreateAccount(client)
+			->OnSuccess(successCallback)
+			->OnFailure([](EOClient* c, int) { c->Close(); })
+			->Execute(std::make_shared<AccountCreateInfo>(std::move(accountInfo)));
 	}
-
-	client->Send(reply);
 }
 
 // Change password
 void Account_Agree(Player *player, PacketReader &reader)
 {
-	std::string username = reader.GetBreakString();
-	util::secure_string oldpassword(std::move(reader.GetBreakString()));
-	util::secure_string newpassword(std::move(reader.GetBreakString()));
+	PasswordChangeInfo passwordChangeInfo;;
+	passwordChangeInfo.username = reader.GetBreakString();
+	passwordChangeInfo.oldpassword = std::move(reader.GetBreakString());
+	passwordChangeInfo.newpassword = std::move(reader.GetBreakString());
 
-	if (username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
-	 || username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
-	 || oldpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
-	 || oldpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"]))
-	 || newpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
-	 || newpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"])))
+	if (passwordChangeInfo.username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
+	 || passwordChangeInfo.username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
+	 || passwordChangeInfo.oldpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
+	 || passwordChangeInfo.oldpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"]))
+	 || passwordChangeInfo.newpassword.str().length() < std::size_t(int(player->world->config["PasswordMinLength"]))
+	 || passwordChangeInfo.newpassword.str().length() > std::size_t(int(player->world->config["PasswordMaxLength"])))
 	{
 		return;
 	}
 
-	if (!Player::ValidName(username))
+	if (!Player::ValidName(passwordChangeInfo.username))
 	{
 		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
 		reply.AddShort(ACCOUNT_NOT_APPROVED);
@@ -149,37 +166,49 @@ void Account_Agree(Player *player, PacketReader &reader)
 		player->Send(reply);
 		return;
 	}
-	else if (!player->world->PlayerExists(username))
+	else if (!player->world->PlayerExists(passwordChangeInfo.username))
 	{
 		return;
 	}
 
 	if (player->world->config["SeoseCompat"])
-		oldpassword = std::move(seose_str_hash(oldpassword.str(), player->world->config["SeoseCompatKey"]));
-
-	if (player->world->config["SeoseCompat"])
-		newpassword = std::move(seose_str_hash(newpassword.str(), player->world->config["SeoseCompatKey"]));
-
 	{
-		std::unique_ptr<Player> changepass(player->world->Login(username, std::move(oldpassword)));
-
-		if (!changepass)
-		{
-			PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-			reply.AddShort(ACCOUNT_CHANGE_FAILED);
-			reply.AddString("NO");
-			player->Send(reply);
-			return;
-		}
-
-		changepass->ChangePass(std::move(newpassword));
+		passwordChangeInfo.oldpassword = std::move(seose_str_hash(passwordChangeInfo.oldpassword.str(), player->world->config["SeoseCompatKey"]));
+		passwordChangeInfo.newpassword = std::move(seose_str_hash(passwordChangeInfo.newpassword.str(), player->world->config["SeoseCompatKey"]));
 	}
 
-	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-	reply.AddShort(ACCOUNT_CHANGED);
-	reply.AddString("OK");
+	auto successCallback = [](EOClient* c)
+	{
+		// The client may disconnect if the password generation takes too long
+		if (!c->Connected())
+			return;
 
-	player->Send(reply);
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGED);
+		reply.AddString("OK");
+
+		c->Send(reply);
+	};
+
+	auto failureCallback = [](EOClient* c, int result)
+	{
+		(void)result;
+
+		// The client may disconnect if the password generation takes too long
+		if (!c->Connected())
+			return;
+
+		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
+		reply.AddShort(ACCOUNT_CHANGE_FAILED);
+		reply.AddString("NO");
+
+		c->Send(reply);
+	};
+
+	player->world->ChangePassword(player->client)
+		->OnSuccess(successCallback)
+		->OnFailure(failureCallback)
+		->Execute(std::make_shared<PasswordChangeInfo>(std::move(passwordChangeInfo)));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)

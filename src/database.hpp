@@ -7,6 +7,8 @@
 #ifndef DATABASE_HPP_INCLUDED
 #define DATABASE_HPP_INCLUDED
 
+#include "fwd/config.hpp"
+#include "fwd/database.hpp"
 #include "util/variant.hpp"
 
 #include <algorithm>
@@ -79,6 +81,12 @@ class Database_Result : public std::vector<std::unordered_map<std::string, util:
 	friend class Database;
 };
 
+class DatabaseFactory
+{
+public:
+	virtual std::shared_ptr<Database> CreateDatabase(Config& config, bool logConnection = false) const;
+};
+
 /**
  * Maintains and interfaces with a connection to a database
  */
@@ -141,31 +149,31 @@ class Database
 		 * Opens a connection to a database
 		 * @throw Database_OpenFailed
 		 */
-		void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db);
+		virtual void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db);
 
 		/**
 		 * Disconnects from the database
 		 */
-		void Close();
+		virtual void Close();
 
 		/**
 		 * Executes a raw query and returns it's result. Reconnects to the database if required
 		 * @throw Database_QueryFailed
 		 * @throw Database_OpenFailed
 		 */
-		Database_Result RawQuery(const char* query, bool tx_control = false, bool prepared = false);
+		virtual Database_Result RawQuery(const char* query, bool tx_control = false, bool prepared = false);
 
 		/**
 		 * Executes a formatted query and returns it's result. Reconnects to the database if required
 		 * @throw Database_QueryFailed
 		 * @throw Database_OpenFailed
 		 */
-		Database_Result Query(const char *format, ...);
+		virtual Database_Result Query(const char *format, ...);
 
 		/**
 		 * Escapes a piece of text (including Query replacement tokens)
 		 */
-		std::string Escape(const std::string&);
+		virtual std::string Escape(const std::string&);
 
 		/**
 		 * Executes a set of queries, rolling back the result of any previous queries if one fails.
@@ -192,17 +200,17 @@ class Database
 		 * @throw Database_QueryFailed
 		 * @throw Database_OpenFailed
 		 */
-		void ExecuteFile(const std::string& filename);
+		virtual void ExecuteFile(const std::string& filename);
 
-		bool Pending() const;
-		bool BeginTransaction();
-		void Commit();
-		void Rollback();
+		virtual bool Pending() const;
+		virtual bool BeginTransaction();
+		virtual void Commit();
+		virtual void Rollback();
 
 		/**
 		 * Closes the database connection if one is active
 		 */
-		~Database();
+		virtual ~Database();
 
 		/**
 		 * Object used to collect information from an external callback

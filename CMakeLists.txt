@@ -179,7 +179,8 @@ add_executable(eoserv ${eoserv_MAIN_FILES})
 add_executable(eoserv_test ${TestFiles})
 
 target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(eoserv_test gtest_main eoserv_lib)
+target_include_directories(eoserv_test PUBLIC ${CMAKE_BINARY_DIR}/googletest-src/googlemock/include)
+target_link_libraries(eoserv_test gtest_main gmock eoserv_lib)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)
 	add_dependencies(eoserv_test eoserv-pch)

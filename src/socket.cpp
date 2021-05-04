@@ -223,6 +223,7 @@ struct Client::impl_
 
 Client::Client()
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(0)
 	, connected(false)
 	, connect_time(0)
@@ -236,6 +237,7 @@ Client::Client()
 
 Client::Client(const IPAddress &addr, uint16_t port)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(0)
 	, connected(false)
 	, connect_time(0)
@@ -251,6 +253,7 @@ Client::Client(const IPAddress &addr, uint16_t port)
 
 Client::Client(Server *server)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
+	, async_op_pending(false)
 	, server(server)
 	, connected(false)
 	, connect_time(0)
@@ -264,6 +267,7 @@ Client::Client(Server *server)
 
 Client::Client(const Socket &sock, Server *server)
 	: impl(new impl_(sock.sock, sock.sin))
+	, async_op_pending(false)
 	, server(server)
 	, connected(true)
 	, connect_time(std::time(0))
@@ -884,7 +888,7 @@ void Server::BuryTheDead()
 	{
 		Client *client = *it;
 
-		if (!client->Connected() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
+		if (!client->Connected() && !client->IsAsyncOpPending() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
 		{
 #ifdef WIN32
 			closesocket(client->impl->sock);

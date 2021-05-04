@@ -38,6 +38,7 @@ void server_ping_all(void *server_void)
 
 		if (client->needpong)
 		{
+			client->AsyncOpPending(false);
 			client->Close();
 		}
 		else
@@ -72,6 +73,7 @@ void server_pump_queue(void *server_void)
 		if (size > std::size_t(int(server->world->config["PacketQueueMax"])))
 		{
 			Console::Wrn("Client was disconnected for filling up the action queue: %s", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+			client->AsyncOpPending(false);
 			client->Close();
 			continue;
 		}
@@ -92,35 +94,41 @@ void server_pump_queue(void *server_void)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 				Console::Err("%s: %s", e.what(), e.error());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 			catch (Database_Exception& e)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 				Console::Err("%s: %s", e.what(), e.error());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 			catch (std::runtime_error& e)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 				Console::Err("Runtime Error: %s", e.what());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 			catch (std::logic_error& e)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 				Console::Err("Logic Error: %s", e.what());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 			catch (std::exception& e)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 				Console::Err("Uncaught Exception: %s", e.what());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 			catch (...)
 			{
 				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+				client->AsyncOpPending(false);
 				client->Close();
 			}
 #endif // DEBUG_EXCEPTIONS
@@ -130,9 +138,9 @@ void server_pump_queue(void *server_void)
 	}
 }
 
-void EOServer::Initialize(std::array<std::string, 6> dbinfo, const Config &eoserv_config, const Config &admin_config)
+void EOServer::Initialize(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config)
 {
-	this->world = new World(dbinfo, eoserv_config, admin_config);
+	this->world = new World(databaseFactory, eoserv_config, admin_config);
 
 	TimeEvent *event = new TimeEvent(server_ping_all, this, double(this->world->config["PingRate"]), Timer::FOREVER);
 	this->world->timer.Register(event);
@@ -209,10 +217,15 @@ void EOServer::Tick()
 			Console::Wrn("Connection from %s was rejected (too many connections from this address)", std::string(remote_addr).c_str());
 			newclient->Close(true);
 		}
+		else if (this->clients.size() >= this->maxconn)
+		{
+			Console::Wrn("Connection from %s was rejected (too many connections to server)", std::string(remote_addr).c_str());
+			newclient->Close(true);
+		}
 		else
 		{
 			connection_log[remote_addr] = Timer::GetTime();
-			Console::Out("New connection from %s (%i/%i connections)", std::string(newclient->GetRemoteAddr()).c_str(), this->Connections(), this->MaxConnections());
+			Console::Out("New connection from %s (%i/%i connections)", std::string(remote_addr).c_str(), this->Connections(), this->MaxConnections());
 		}
 	}
 
@@ -248,6 +261,7 @@ EOServer::~EOServer()
 	// All clients must be fully closed before the world ends
 	UTIL_FOREACH(this->clients, client)
 	{
+		client->AsyncOpPending(false);
 		client->Close();
 	}
 

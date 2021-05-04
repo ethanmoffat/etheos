@@ -21,6 +21,8 @@ namespace Console
 
 bool Styled[2] = {true, true};
 
+static bool OutputSuppressed = false;
+
 #ifdef WIN32
 
 static HANDLE Handles[2];
@@ -88,16 +90,20 @@ do { \
 
 void Out(const char* f, ...)
 {
+	if (OutputSuppressed) return;
 	CONSOLE_GENERIC_OUT("   ", STREAM_OUT, COLOR_GREY, true);
 }
 
 void Wrn(const char* f, ...)
 {
+	if (OutputSuppressed) return;
 	CONSOLE_GENERIC_OUT("WRN", STREAM_OUT, COLOR_YELLOW, true);
 }
 
 void Err(const char* f, ...)
 {
+	if (OutputSuppressed) return;
+
 	if (!Styled[STREAM_ERR])
 	{
 		CONSOLE_GENERIC_OUT("ERR", STREAM_OUT, COLOR_RED, true);
@@ -108,7 +114,13 @@ void Err(const char* f, ...)
 
 void Dbg(const char* f, ...)
 {
+	if (OutputSuppressed) return;
 	CONSOLE_GENERIC_OUT("DBG", STREAM_OUT, COLOR_GREY, false);
+}
+
+void SuppressOutput(bool suppress)
+{
+	OutputSuppressed = suppress;
 }
 
 }

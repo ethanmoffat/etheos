@@ -42,12 +42,13 @@ namespace util
 
     private:
         typedef std::pair<const WorkFunc, const void*> WorkFuncWithState;
-        void _workerProc();
 
     protected:
         void queueInternal(const WorkFunc workerFunction, const void * state);
         void setNumThreadsInternal(size_t numWorkers);
         void shutdownInternal();
+
+        void _workerProc(size_t threadNum);
 
         volatile bool _terminating;
 

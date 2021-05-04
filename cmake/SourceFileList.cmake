@@ -87,10 +87,10 @@ set(eoserv_ALL_SOURCE_FILES
 	src/handlers/handlers.hpp
 	src/hash.cpp
 	src/hash.hpp
-	src/hashupdater.cpp
-	src/hashupdater.hpp
 	src/i18n.cpp
 	src/i18n.hpp
+	src/loginmanager.cpp
+	src/loginmanager.hpp
 	src/map.cpp
 	src/map.hpp
 	src/nanohttp.cpp
@@ -119,6 +119,7 @@ set(eoserv_ALL_SOURCE_FILES
 	src/timer.hpp
 	src/util.cpp
 	src/util.hpp
+	src/util/async.hpp
 	src/util/rpn.cpp
 	src/util/rpn.hpp
 	src/util/secure_string.hpp
@@ -274,6 +275,7 @@ set(ExtraFiles
 
 set(TestFiles
 	src/test/config_test.cpp
+	src/test/handlers/Login_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp
 )

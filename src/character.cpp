@@ -371,10 +371,10 @@ Character::Character(std::string name, World *world)
 		this->bot = bot_it != bot_characters.end();
 	}
 
-	Database_Result res = this->world->db.Query("SELECT `name`, `title`, `home`, `fiance`, `partner`, `admin`, `class`, `gender`, `race`, `hairstyle`, `haircolor`,"
-	"`map`, `x`, `y`, `direction`, `level`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, "
-	"`karma`, `sitting`, `hidden`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`, `vars`, "
-	"`nointeract` FROM `characters` WHERE `name` = '$'", name.c_str());
+	Database_Result res = this->world->db->Query("SELECT `name`, `title`, `home`, `fiance`, `partner`, `admin`, `class`, `gender`, `race`, `hairstyle`, `haircolor`,"
+		"`map`, `x`, `y`, `direction`, `level`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, "
+		"`karma`, `sitting`, `hidden`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`, `vars`, "
+		"`nointeract` FROM `characters` WHERE `name` = '$'", name.c_str());
 	std::unordered_map<std::string, util::variant> row = res.front();
 
 	this->login_time = static_cast<int>(std::time(0));
@@ -2126,7 +2126,7 @@ void Character::Save()
 #ifdef DEBUG
 	Console::Dbg("Saving character '%s' (session lasted %i minutes)", this->real_name.c_str(), int(std::time(0) - this->login_time) / 60);
 #endif // DEBUG
-	this->world->db.Query("UPDATE `characters` SET `title` = '$', `home` = '$', `fiance` = '$', `partner` = '$', `admin` = #, `class` = #, `gender` = #, `race` = #, "
+	this->world->db->Query("UPDATE `characters` SET `title` = '$', `home` = '$', `fiance` = '$', `partner` = '$', `admin` = #, `class` = #, `gender` = #, `race` = #, "
 		"`hairstyle` = #, `haircolor` = #, `map` = #, `x` = #, `y` = #, `direction` = #, `level` = #, `exp` = #, `hp` = #, `tp` = #, "
 		"`str` = #, `int` = #, `wis` = #, `agi` = #, `con` = #, `cha` = #, `statpoints` = #, `skillpoints` = #, `karma` = #, `sitting` = #, `hidden` = #, "
 		"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "

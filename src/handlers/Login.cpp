@@ -10,6 +10,7 @@
 #include "../eoclient.hpp"
 #include "../eodata.hpp"
 #include "../eoserver.hpp"
+#include "../hash.hpp"
 #include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
@@ -87,59 +88,78 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		return;
 	}
 
-	LoginReply login_reply = client->server()->world->LoginCheck(username, std::move(password));
-
-	if (login_reply != LOGIN_OK)
+	auto successCallback = [username](EOClient* c)
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(login_reply);
-		client->Send(reply);
+		c->player = c->server()->world->PlayerFactory(username);
 
-		int max_login_attempts = int(client->server()->world->config["MaxLoginAttempts"]);
+		// The client may disconnect if the password generation takes too long
+		if (!c->Connected())
+			return;
 
-		if (max_login_attempts != 0 && ++client->login_attempts >= max_login_attempts)
+		if (!c->player)
 		{
-			client->Close();
+			// Someone deleted the account between checking it and logging in
+			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
+			reply.AddShort(LOGIN_WRONG_USER);
+			c->Send(reply);
 		}
+		else
+		{
+			c->player->id = c->id;
+			c->player->client = c;
+			c->state = EOClient::LoggedIn;
 
-		return;
-	}
+			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + c->player->characters.size() * 34);
+			reply.AddShort(LOGIN_OK);
+			reply.AddChar(static_cast<unsigned char>(c->player->characters.size()));
+			reply.AddByte(2);
+			reply.AddByte(255);
 
-	client->player = client->server()->world->Login(username);
+			UTIL_FOREACH(c->player->characters, character)
+			{
+				reply.AddBreakString(character->SourceName());
+				reply.AddInt(character->id);
+				reply.AddChar(character->level);
+				reply.AddChar(character->gender);
+				reply.AddChar(character->hairstyle);
+				reply.AddChar(character->haircolor);
+				reply.AddChar(character->race);
+				reply.AddChar(character->admin);
+				character->AddPaperdollData(reply, "BAHSW");
 
-	if (!client->player)
+				reply.AddByte(255);
+			}
+
+			c->Send(reply);
+		}
+	};
+
+	auto failureCallback = [](EOClient* c, int failureReason)
 	{
-		// Someone deleted the account between checking it and logging in
 		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USER);
-		client->Send(reply);
+		reply.AddShort(failureReason);
+		c->Send(reply);
+
+		int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
+
+		if (max_login_attempts != 0 && ++c->login_attempts >= max_login_attempts)
+		{
+			c->Close();
+		}
+	};
+
+	// if the player is already logged in, do the max_login_attempts logic above instead of just d/cing the client
+	// this check used to be in World::CheckCredentials, but needs access to username so I'm just putting it here
+	if (client->server()->world->PlayerOnline(username))
+	{
+		failureCallback(client, LOGIN_LOGGEDIN);
 		return;
 	}
 
-	client->player->id = client->id;
-	client->player->client = client;
-	client->state = EOClient::LoggedIn;
-
-	PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + client->player->characters.size() * 34);
-	reply.AddShort(LOGIN_OK);
-	reply.AddChar(static_cast<unsigned char>(client->player->characters.size()));
-	reply.AddByte(2);
-	reply.AddByte(255);
-	UTIL_FOREACH(client->player->characters, character)
-	{
-		reply.AddBreakString(character->SourceName());
-		reply.AddInt(character->id);
-		reply.AddChar(character->level);
-		reply.AddChar(character->gender);
-		reply.AddChar(character->hairstyle);
-		reply.AddChar(character->haircolor);
-		reply.AddChar(character->race);
-		reply.AddChar(character->admin);
-		character->AddPaperdollData(reply, "BAHSW");
-
-		reply.AddByte(255);
-	}
-	client->Send(reply);
+	client->server()->world->CheckCredential(client)
+		->OnSuccess(successCallback)
+		->OnFailure(failureCallback)
+		->Execute(std::shared_ptr<AccountCredentials>(new AccountCredentials { username, std::move(password), HashFunc::NONE }));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOGIN)

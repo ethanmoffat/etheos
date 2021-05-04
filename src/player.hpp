@@ -10,14 +10,56 @@
 #include "fwd/player.hpp"
 
 #include "fwd/character.hpp"
+#include "fwd/database.hpp"
 #include "fwd/eoclient.hpp"
 #include "fwd/packet.hpp"
 #include "fwd/world.hpp"
 
 #include "util/secure_string.hpp"
 
+#include "hash.hpp"
+#include "socket.hpp"
+
 #include <string>
 #include <vector>
+
+struct AccountCreateInfo
+{
+	std::string username;
+	util::secure_string password;
+	std::string fullname;
+	std::string location;
+	std::string email;
+	std::string computer;
+	int hdid;
+	IPAddress remoteIp;
+
+	AccountCreateInfo()
+		: password(""), hdid(0) { }
+};
+
+struct PasswordChangeInfo
+{
+	std::string username;
+	util::secure_string oldpassword;
+	util::secure_string newpassword;
+
+	PasswordChangeInfo()
+		: oldpassword(""), newpassword("") { }
+};
+
+struct AccountCredentials
+{
+	std::string username;
+	util::secure_string password;
+	HashFunc hashFunc;
+
+	AccountCredentials()
+		: username(""), password(""), hashFunc(NONE) { }
+
+	AccountCredentials(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
+		: username(username), password(password), hashFunc(hashFunc) { }
+};
 
 /**
  * Object representing a player, but not a character
@@ -32,14 +74,13 @@ class Player
 
 		std::string dutylast;
 
-		Player(std::string username, World *);
+		Player(std::string username, World *, Database * = nullptr);
 
 		std::vector<Character *> characters;
 		Character *character;
 
 		static bool ValidName(std::string username);
 		bool AddCharacter(std::string name, Gender gender, int hairstyle, int haircolor, Skin race);
-		void ChangePass(util::secure_string&& password);
 
 		AdminLevel Admin() const;
 
