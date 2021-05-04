@@ -143,6 +143,61 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     }
 }
 
+GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
+{
+    Console::SuppressOutput(true);
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+
+    auto mockDatabase = CreateMockDatabaseForLoginTests();
+    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, true);
+
+    Database_Result banCheckResult;
+    std::unordered_map<std::string, util::variant> banCheckColumns;
+    banCheckColumns["expires"] = util::variant(5);
+    banCheckResult.push_back(banCheckColumns);
+
+    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
+                RawQuery(HasSubstr("FROM bans"), _, _))
+        .WillRepeatedly(Return(banCheckResult));
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+
+    // test INIT ban reply
+    {
+        server.world->config["InitLoginBan"] = true;
+        MockClient client(&server);
+
+        PacketBuilder expectedResponse(PACKET_F_INIT, PACKET_A_INIT, 2);
+        expectedResponse.AddByte(INIT_BANNED);
+        expectedResponse.AddByte(INIT_BAN_PERM);
+        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        EXPECT_CALL(client, Close(false)).Times(1);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+
+    // test ACCOUNT_BANNED login reply
+    {
+        server.world->config["InitLoginBan"] = false;
+        MockClient client(&server);
+
+        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
+        expectedResponse.AddShort(LOGIN_ACCOUNT_BANNED);
+        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        EXPECT_CALL(client, Close(false)).Times(1);
+
+        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
+        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
+        r.GetShort();
+        Handlers::Login_Request(&client, r);
+    }
+}
+
 GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
 {
     Console::SuppressOutput(true);
