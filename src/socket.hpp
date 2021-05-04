@@ -262,7 +262,7 @@ class Client
 
 		bool Select(double timeout);
 
-		bool Connected() const;
+		virtual bool Connected() const;
 		IPAddress GetRemoteAddr() const;
 
 		void AsyncOpPending(bool asyncOpPending) { this->async_op_pending = asyncOpPending; }

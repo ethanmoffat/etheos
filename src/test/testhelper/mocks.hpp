@@ -35,6 +35,7 @@ public:
     MockClient(EOServer * server) : EOClient(server) { }
     MOCK_METHOD(void, Send, (const PacketBuilder &packet), (override));
     MOCK_METHOD(void, Close, (bool force), (override));
+    MOCK_METHOD(bool, Connected, (), (const override));
 };
 
 class MockDatabaseFactory : public DatabaseFactory
