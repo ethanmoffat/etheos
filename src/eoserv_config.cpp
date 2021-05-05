@@ -272,6 +272,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "IgnorePacketFamilies", "*");
 	eoserv_config_default(config, "InitLoginBan"       , true);
 	eoserv_config_default(config, "ThreadPoolThreads"  , 0);
+	eoserv_config_default(config, "AutoCreateDatabase" , false);
 }
 
 void eoserv_config_validate_admin(Config& config)

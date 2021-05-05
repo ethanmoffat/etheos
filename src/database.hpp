@@ -29,10 +29,12 @@ class Database_Exception : public std::exception
 {
 	protected:
 		const char *err;
+		const int errorCode;
 	public:
-		Database_Exception(const char *e) : err(e) {};
+		Database_Exception(const char *e, int errorCode = -1) : err(e), errorCode(errorCode) {};
 		const char *error() const noexcept { return err; };
 		virtual const char *what() const noexcept { return "Database_Exception"; }
+		const int getErrorCode() const noexcept { return errorCode; }
 };
 
 /**
@@ -40,7 +42,7 @@ class Database_Exception : public std::exception
  */
 class Database_OpenFailed : public Database_Exception
 {
-	public: Database_OpenFailed(const char *e) : Database_Exception(e) {}
+	public: Database_OpenFailed(const char *e, int errorCode = -1) : Database_Exception(e, errorCode) {}
 	const char *what() const noexcept { return "Database_OpenFailed"; }
 };
 
@@ -143,13 +145,13 @@ class Database
 		 * @param connectnow Whether to connect now or on a query request
 		 * @throw Database_OpenFailed
 		 */
-		Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db, bool connectnow = true);
+		Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db = "", bool connectnow = true);
 
 		/**
 		 * Opens a connection to a database
 		 * @throw Database_OpenFailed
 		 */
-		virtual void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db);
+		virtual void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db = "");
 
 		/**
 		 * Disconnects from the database
