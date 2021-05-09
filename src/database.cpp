@@ -194,7 +194,7 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 
 	try
 	{
-		return std::shared_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
+		return std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName);
 	}
 	catch (Database_OpenFailed& ex)
 	{
