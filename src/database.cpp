@@ -63,34 +63,40 @@ struct Database::impl_
 
 
 #ifdef DATABASE_SQLSERVER
-void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...))
+void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...), SQLINTEGER * errorCode = nullptr)
 {
-    SQLSMALLINT iRec = 0;
-    SQLINTEGER iError;
-    SQLCHAR messageBuff[1000];
-    SQLCHAR stateBuff[SQL_SQLSTATE_SIZE+1];
+	SQLSMALLINT iRec = 0;
+	SQLINTEGER iError;
+	SQLCHAR messageBuff[1000];
+	SQLCHAR stateBuff[SQL_SQLSTATE_SIZE+1];
 
-    if (code == SQL_INVALID_HANDLE)
-    {
-        fwprintf(stderr, L"Invalid handle!\n");
-        return;
-    }
+	if (code == SQL_INVALID_HANDLE)
+	{
+		fwprintf(stderr, L"Invalid handle!\n");
+		return;
+	}
 
-    while (SQLGetDiagRec(handleType,
-                         handle,
-                         ++iRec,
-                         stateBuff,
-                         &iError,
-                         messageBuff,
-                         (SQLSMALLINT)1000,
-                         (SQLSMALLINT*)NULL) == SQL_SUCCESS)
-    {
-        // Hide data truncated..
-        if (strncmp((const char *)stateBuff, "01004", 5))
-        {
-            consoleFunc("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
-        }
-    }
+	while (SQLGetDiagRec(handleType,
+							handle,
+							++iRec,
+							stateBuff,
+							&iError,
+							messageBuff,
+							(SQLSMALLINT)1000,
+							(SQLSMALLINT*)NULL) == SQL_SUCCESS)
+	{
+		// Hide data truncated..
+		if (!strncmp((const char *)stateBuff, "01004", 5))
+			continue;
+
+		consoleFunc("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
+
+		if (errorCode != nullptr)
+		{
+			// take last error code in the list of errors
+			*errorCode = iError;
+		}
+	}
 }
 #endif
 
@@ -150,26 +156,28 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 	auto dbPort = int(config["DBPort"]);
 
 	std::string dbdesc;
+	std::string engineStr;
 	Database::Engine engine = Database::MySQL;
 	if (!dbType.compare("sqlite"))
 	{
 		engine = Database::SQLite;
-		dbdesc = std::string("SQLite: ") + dbHost;
+		engineStr = "SQLite";
+		dbdesc = engineStr + ": " + dbHost;
 	}
 	else
 	{
 		if (!dbType.compare("sqlserver"))
 		{
 			engine = Database::SqlServer;
-			dbdesc = "SqlServer: ";
+			engineStr = "SqlServer";
 		}
 		else if (!dbType.compare("mysql"))
 		{
 			engine = Database::MySQL;
-			dbdesc = "MySQL: ";
+			engineStr = "MySQL";
 		}
 
-		dbdesc += dbUser + "@" + dbHost;
+		dbdesc = engineStr + ": " + dbUser + "@" + dbHost;
 
 		if (dbPort != 0 &&
 			((dbPort != 3306 && engine == Database::MySQL) ||
@@ -183,6 +191,25 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 
 	if (logConnection)
 		Console::Out("Connecting to database (%s)...", dbdesc.c_str());
+
+	try
+	{
+		return std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName);
+	}
+	catch (Database_OpenFailed& ex)
+	{
+		if (!static_cast<bool>(config["AutoCreateDatabase"]) || engine == Database::SQLite ||
+			(engine == Database::MySQL && ex.getErrorCode() != 1049) || // https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/error-handling.html#error_er_bad_db_error
+			(engine == Database::SqlServer && ex.getErrorCode() != 4060)) // https://docs.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors?view=sql-server-ver15 (search for 4060)
+			throw;
+
+		Console::Wrn("Database '%s' does not exist. Attempting to create for engine '%s'", dbName.c_str(), engineStr.c_str());
+
+		Database createDbConn(engine, dbHost, dbPort, dbUser, dbPass);
+		createDbConn.RawQuery(std::string(std::string("CREATE DATABASE ") + dbName).c_str());
+		createDbConn.RawQuery(std::string(std::string("USE ") + dbName).c_str());
+		createDbConn.Close();
+	}
 
 	return std::shared_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
 }
@@ -305,13 +332,12 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			}
 #endif
 
-			this->connected = true;
-
-			if (mysql_select_db(this->impl->mysql_handle, db.c_str()) != 0)
+			if (!db.empty() && mysql_select_db(this->impl->mysql_handle, db.c_str()) != 0)
 			{
-				this->Close();
-				throw Database_OpenFailed(mysql_error(this->impl->mysql_handle));
+				throw Database_OpenFailed(mysql_error(this->impl->mysql_handle), mysql_errno(this->impl->mysql_handle));
 			}
+
+			this->connected = true;
 
 			break;
 #endif // DATABASE_MYSQL
@@ -378,13 +404,25 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 #else
 			auto driver_str = "ODBC Driver 17 for SQL Server";
 #endif
-			sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
-				driver_str,
-				this->host.c_str(),
-				this->port,
-				this->db.c_str(),
-				this->user.c_str(),
-				this->pass.c_str());
+			if (db.empty())
+			{
+				sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};UID={%s};PWD={%s}",
+					driver_str,
+					this->host.c_str(),
+					this->port,
+					this->user.c_str(),
+					this->pass.c_str());
+			}
+			else
+			{
+				sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+					driver_str,
+					this->host.c_str(),
+					this->port,
+					this->db.c_str(),
+					this->user.c_str(),
+					this->pass.c_str());
+			}
 
 			char sqlRetConnStr[1024] = { 0 };
 			ret = SQLDriverConnect(this->impl->hConn, NULL,
@@ -397,10 +435,11 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 
 			if (!SQLSERVER_SUCCEEDED(ret))
 			{
+				SQLINTEGER errorCode;
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err);
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err, &errorCode);
 				this->connected = false;
-				throw Database_OpenFailed("Unable to connect to target server");
+				throw Database_OpenFailed("Unable to connect to target server", static_cast<int>(errorCode));
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_STMT, this->impl->hConn, &this->impl->hstmt);
