@@ -36,9 +36,13 @@ if (-not (Test-Path $DownloadDir)) {
     New-Item $DownloadDir -ItemType Directory | Out-Null
 }
 
+# Ensure TLS 1.2 is used, older versions of powershell use TLS 1.0 as the default
+#
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # Use chocolatey to install dependencies
 #
-if (-not (Get-Command choco)) {
+if (-not (Get-Command choco 2>&1 > $null)) {
     Set-ExecutionPolicy Bypass -Scope Process -Force
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 }

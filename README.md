@@ -9,7 +9,23 @@
 
 ## Getting Started on Windows
 
-Visual Studio 2017 is required for the compiler toolchain in order to build on Windows. Windows 10 SDK is required for the ODBC (SQL server) driver libraries (can be installed as part of Visual Studio).
+Visual Studio 2017 is required for the compiler toolchain in order to build on Windows. You will need to select the "Desktop Development with C++" workload when installing. Windows 10 SDK is required for the ODBC (SQL server) driver libraries (can be installed as part of Visual Studio).
+
+### Getting the source
+
+> ⚠️ You *must* use git to clone the repository. Downloading the zip and trying to build the source from there on Windows is not supported due to the fact that there is an ICO file that is stored in git-lfs, which is an invalid format when downloaded via the zip file.
+
+You may download git for Windows from: [https://git-scm.com/downloads](https://git-scm.com/downloads). Most users will want to use the installation defaults. If you don't know what a setting means during installation, do not change it.
+
+The following commands must be run on a new system
+1. `git lfs install`
+
+    a. This command only needs to be run *once* per machine.
+
+2. `git clone https://github.com/ethanmoffat/etheos.git`
+3. `cd etheos`
+
+The build and dependency install scripts may now be run from the `etheos` directory.
 
 ### Dependencies
 
@@ -18,6 +34,7 @@ The dependencies for building ETHEOS on Windows are:
 - CMake (>= 2.6)
 - SQLite
 - MariaDB
+- git (for getting bcrypt/googletest components)
 
 #### Automatic Dependency Installation
 
@@ -48,6 +65,7 @@ The dependencies for building ETHEOS on Linux are:
 - CMake (>= 2.6)
 - SQLite
 - MariaDB
+- git (for getting bcrypt/googletest components)
 - OCDB (SQL server) [optional]
 
 #### Automatic Dependency Installation
