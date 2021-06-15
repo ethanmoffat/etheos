@@ -34,6 +34,7 @@ The dependencies for building ETHEOS on Windows are:
 - CMake (>= 2.6)
 - SQLite
 - MariaDB
+- git (for getting bcrypt/googletest components)
 
 #### Automatic Dependency Installation
 
@@ -64,6 +65,7 @@ The dependencies for building ETHEOS on Linux are:
 - CMake (>= 2.6)
 - SQLite
 - MariaDB
+- git (for getting bcrypt/googletest components)
 - OCDB (SQL server) [optional]
 
 #### Automatic Dependency Installation
