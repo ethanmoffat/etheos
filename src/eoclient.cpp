@@ -58,7 +58,7 @@ void EOClient::Initialize()
 	this->login_attempts = 0;
 }
 
-void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
+void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz, const char * const actionStr)
 {
 	std::string ignoreFamilies = static_cast<std::string>(this->server()->world->config["IgnorePacketFamilies"]);
 
@@ -72,7 +72,7 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 		std::string act = PacketProcessor::GetActionName(action);
 		if (ignoreFamilies.find(fam) == std::string::npos)
 		{
-			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | RECV Family: %-15s | Action: %-15s | SIZE=%d",
+			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | %4s Family: %-15s | Action: %-15s | SIZE=%d",
 				timeinfo->tm_mon + 1,
 				timeinfo->tm_mday,
 				timeinfo->tm_year + 1900,
@@ -80,6 +80,7 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz)
 				timeinfo->tm_min,
 				timeinfo->tm_sec,
 				player ? player->character ? player->character->real_name.c_str() : "no char" : "no char",
+				actionStr,
 				fam.c_str(),
 				act.c_str(),
 				sz);
@@ -281,7 +282,7 @@ void EOClient::Execute(const std::string &data)
 
 	PacketReader reader(processor.Decode(data));
 
-	this->LogPacket(reader.Family(), reader.Action(), reader.Length());
+	this->LogPacket(reader.Family(), reader.Action(), reader.Length(), "RECV");
 
 	if (reader.Family() == PACKET_INTERNAL)
 	{
@@ -390,6 +391,8 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 
 	builder.AddSize(this->upload_size);
 
+	LogPacket(PACKET_F_INIT, PACKET_A_INIT, builder.Length(), "UPLD");
+
 	Client::Send(builder);
 
 	return true;
@@ -401,7 +404,7 @@ void EOClient::Send(const PacketBuilder &builder)
 
 	auto fam = PacketFamily(PacketProcessor::EPID(builder.GetID())[1]);
 	auto act = PacketAction(PacketProcessor::EPID(builder.GetID())[0]);
-	this->LogPacket(fam, act, builder.Length());
+	this->LogPacket(fam, act, builder.Length(), "SEND");
 
 	std::string data = this->processor.Encode(builder);
 
