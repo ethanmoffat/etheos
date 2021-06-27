@@ -9,5 +9,6 @@
 #include "../src/guild.cpp"
 #include "../src/quest.cpp"
 #include "../src/commands/commands.cpp"
+#include "../src/player_commands/player_commands.cpp"
 #include "../src/handlers/handlers.cpp"
 #include "../src/extra/seose_compat.cpp"

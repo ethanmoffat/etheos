@@ -132,6 +132,15 @@ void Talk_Report(Character *character, PacketReader &reader)
 
 		character->world->Command(command, arguments, character);
 	}
+	else if (message[0] == '#')
+	{
+		std::string command;
+		std::vector<std::string> arguments = util::explode(' ', message);
+		command = arguments.front().substr(1);
+		arguments.erase(arguments.begin());
+
+		character->world->PlayerCommand(command, arguments, character);
+	}
 	else
 	{
 		character->map->Msg(character, message, false);

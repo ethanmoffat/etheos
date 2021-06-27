@@ -107,6 +107,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/platform.h
 	src/player.cpp
 	src/player.hpp
+	src/player_commands/player_commands.cpp
+	src/player_commands/player_commands.hpp
 	src/quest.cpp
 	src/quest.hpp
 	src/sha256.c

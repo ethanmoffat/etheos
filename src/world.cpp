@@ -25,6 +25,7 @@
 #include "quest.hpp"
 #include "timer.hpp"
 #include "commands/commands.hpp"
+#include "player_commands/player_commands.hpp"
 #include "handlers/handlers.hpp"
 
 #include "console.hpp"
@@ -913,6 +914,19 @@ void World::Command(std::string command, const std::vector<std::string>& argumen
 	}
 
 	Commands::Handle(util::lowercase(command), arguments, from);
+}
+
+void World::PlayerCommand(std::string command, const std::vector<std::string>& arguments, Command_Source* from)
+{
+	std::unique_ptr<System_Command_Source> system_source;
+
+	if (!from)
+	{
+		system_source.reset(new System_Command_Source(this));
+		from = system_source.get();
+	}
+
+	PlayerCommands::Handle(util::lowercase(command), arguments, from);
 }
 
 void World::LoadHome()
