@@ -1,6 +1,8 @@
 
 # Download and unpack bcrypt at configure time
-configure_file(${CMAKE_SOURCE_DIR}/cmake/bcryptproj.cmake bcrypt-download/CMakeLists.txt)
+if (NOT ${EOSERV_OFFLINE})
+  configure_file(${CMAKE_SOURCE_DIR}/cmake/bcryptproj.cmake bcrypt-download/CMakeLists.txt)
+endif()
 
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
   RESULT_VARIABLE result

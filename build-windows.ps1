@@ -2,6 +2,7 @@ param (
     [switch]$Clean,
     [switch]$Debug,
     [switch]$Test,
+    [switch]$Offline,
     $BuildDir = "build"
 )
 
@@ -56,7 +57,11 @@ if ($Debug) {
     $buildMode = "Release"
 }
 
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -G "Visual Studio 15 2017" ..
+if ($Offline) {
+    $OfflineFlag="-DEOSERV_OFFLINE=ON"
+}
+
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF $OfflineFlag -G "Visual Studio 15 2017" ..
 $tmpResult=$?
 if (-not $tmpResult)
 {

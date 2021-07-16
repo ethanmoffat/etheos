@@ -1,6 +1,9 @@
 
 # Download and unpack googletest at configure time
-configure_file(${CMAKE_SOURCE_DIR}/cmake/gtestproj.cmake googletest-download/CMakeLists.txt)
+if (NOT ${EOSERV_OFFLINE})
+  configure_file(${CMAKE_SOURCE_DIR}/cmake/gtestproj.cmake googletest-download/CMakeLists.txt)
+endif()
+
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
   RESULT_VARIABLE result
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
