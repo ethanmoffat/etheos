@@ -84,8 +84,9 @@ if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsIns
 }
 
 # For building on Windows, force precompiled headers off
+# TODO: make dbengines configurable with script parameters
 #
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 -G $generator ..
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_WANT_MYSQL=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 -G $generator ..
 cmake --build . --config $buildMode --target INSTALL --
 $tmpResult=$?
 if (-not $tmpResult)

@@ -17,7 +17,7 @@ stages:
     - script: sudo ./install-deps.sh
       displayName: 'Install build dependencies'
       workingDirectory: 'scripts'
-    - script: ./build-linux.sh -c -i
+    - script: ./build-linux.sh -c --sqlserver ON --mariadb ON
       displayName: 'Build'
     - script: ./build-linux.sh -t
       displayName: 'Test'
@@ -43,12 +43,12 @@ stages:
       displayName: 'Build'
       inputs:
         filePath: './build-windows.ps1'
-        arguments: '-Clean -x64' # x64 required on build machines for MySQL library compatibility
+        arguments: '-Clean'
     - task: PowerShell@2
       displayName: 'Test'
       inputs:
         filePath: './build-windows.ps1'
-        arguments: '-Test -x64'
+        arguments: '-Test'
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
