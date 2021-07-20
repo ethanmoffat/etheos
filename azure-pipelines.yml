@@ -1,4 +1,4 @@
-name: 0.7.0.$(rev:rrrr)
+name: 0.7.1.$(rev:rrrr)
 
 trigger:
 - master
@@ -8,7 +8,7 @@ stages:
   displayName: 'Build + Test'
   jobs:
   - job:
-    displayName: 'Build - Ubuntu'
+    displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server)'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -17,10 +17,11 @@ stages:
     - script: sudo ./install-deps.sh
       displayName: 'Install build dependencies'
       workingDirectory: 'scripts'
-    - script: ./build-linux.sh -c --sqlserver ON --mariadb ON
+    - script: ./build-linux.sh -c --sqlserver ON --mariadb ON --sqlite ON
       displayName: 'Build'
-    - script: ./build-linux.sh -t
+    - script: ./eoserv_test
       displayName: 'Test'
+      workingDirectory: $(Build.SourcesDirectory)/install/test
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
@@ -28,7 +29,7 @@ stages:
         publishLocation: 'Container'
 
   - job:
-    displayName: 'Build - Windows'
+    displayName: 'Build - Release - Windows (MariaDB + SQL Server)'
     pool:
       vmImage: 'windows-latest'
     steps:
@@ -42,13 +43,13 @@ stages:
     - task: PowerShell@2
       displayName: 'Build'
       inputs:
-        filePath: './build-windows.ps1'
+        filePath: '.\build-windows.ps1'
         arguments: '-Clean'
     - task: PowerShell@2
       displayName: 'Test'
       inputs:
-        filePath: './build-windows.ps1'
-        arguments: '-Test'
+        filePath: '.\eoserv_test.exe'
+        workingDirectory: $(Build.SourcesDirectory)\install\test
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
