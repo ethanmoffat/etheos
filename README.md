@@ -1,5 +1,7 @@
 # ETHEOS
 
+[![Build status](https://ethanmoffat.visualstudio.com/EndlessClient/_apis/build/status/ethanmoffat.etheos?branchName=master)](https://ethanmoffat.visualstudio.com/EndlessClient/_build/latest?definitionId=12&branchName=master)
+
 ## Table of Contents
 
 - [Getting Started on Windows](#getting-started-on-windows)
@@ -34,6 +36,7 @@ The dependencies for building ETHEOS on Windows are:
 - CMake (>= 2.6)
 - SQLite
 - MariaDB
+- vswhere
 - git (for getting bcrypt/googletest components)
 
 #### Automatic Dependency Installation

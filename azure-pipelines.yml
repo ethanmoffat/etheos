@@ -1,0 +1,55 @@
+name: 0.7.1.$(rev:rrrr)
+
+trigger:
+- master
+
+stages:
+- stage: build_test
+  displayName: 'Build + Test'
+  jobs:
+  - job:
+    displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server)'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      lfs: true
+    - script: sudo ./install-deps.sh
+      displayName: 'Install build dependencies'
+      workingDirectory: 'scripts'
+    - script: ./build-linux.sh -c --sqlserver ON --mariadb ON --sqlite ON
+      displayName: 'Build'
+    - script: ./eoserv_test
+      displayName: 'Test'
+      workingDirectory: $(Build.SourcesDirectory)/install/test
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'install'
+        ArtifactName: 'linux'
+        publishLocation: 'Container'
+
+  - job:
+    displayName: 'Build - Release - Windows (MariaDB + SQL Server)'
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: self
+      lfs: true
+    - task: PowerShell@2
+      displayName: 'Install build dependencies'
+      inputs:
+        filePath: '.\scripts\install-deps.ps1'
+        arguments: '-SkipCMake' # CMake is installed on the windows-latest image
+    - task: PowerShell@2
+      displayName: 'Build'
+      inputs:
+        filePath: '.\build-windows.ps1'
+        arguments: '-Clean'
+    - script: .\eoserv_test.exe
+      displayName: 'Test'
+      workingDirectory: $(Build.SourcesDirectory)\install\test
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'install'
+        ArtifactName: 'windows'
+        publishLocation: 'Container'

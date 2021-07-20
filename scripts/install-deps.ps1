@@ -66,11 +66,12 @@ if (-not $SkipMariaDB) {
 
     # Update the path with the new directory
     # This is a fixed default value of the MSI that is downloaded
+    #
     $InstallDir="C:\Program Files (x86)\MariaDB\MariaDB Connector C\lib"
     $PATHRegKey = 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment'
     $Old_Path=(Get-ItemProperty -Path $PATHRegKey -Name Path).Path
     if ($Old_Path.IndexOf($InstallDir, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
-        Set-ItemProperty -Path $PATHRegKey -Name PATH -Value ("$Old_Path;$InstallDir")
+        Set-ItemProperty -Path $PATHRegKey -Name PATH -Value ("$InstallDir;$Old_Path")
     }
 
     refreshenv
@@ -91,6 +92,7 @@ if (-not $SkipSQLite) {
     $LocalSqliteDir = Resolve-Path $LocalSqliteDir
 
     # This is a guaranteed download location due to OSS Chocolatey restrictions
+    #
     $ChocoSqliteInstallDir = "C:\ProgramData\chocolatey\lib\sqlite\tools"
     foreach ($item in ((Get-ChildItem -Force -Recurse $ChocoSqliteInstallDir | Where-Object {$_.Name -like '*.dll'}))) {
         Copy-Item -Force $item.FullName (Join-Path $LocalSqliteDir "bin")
@@ -99,6 +101,7 @@ if (-not $SkipSQLite) {
     $DownloadedFile = (Join-Path $DownloadDir "sqlite3.zip")
     try {
         # This throws for some reason but still downloads the file?
+        #
         (New-Object System.Net.WebClient).DownloadFile($Sqlite3URL, $DownloadedFile)
         $zip = [IO.Compression.ZipFile]::OpenRead($DownloadedFile)
 
@@ -124,4 +127,14 @@ if (-not $SkipSQLite) {
 
 if ((Test-Path $DownloadDir)) {
     Remove-Item $DownloadDir -Recurse -Force
+}
+
+if (-not (Get-Command vswhere)) {
+    Write-Output "Installing vswhere..."
+    choco install -y vswhere | Out-Null
+
+    refreshenv
+    if (-not (Get-Command vswhere)) {
+        Write-Warning "Could not detect vswhere after install. Shell may need to be restarted."
+    }
 }
