@@ -34,7 +34,7 @@ class Database_Exception : public std::exception
 		Database_Exception(const char *e, int errorCode = -1) : err(e), errorCode(errorCode) {};
 		const char *error() const noexcept { return err; };
 		virtual const char *what() const noexcept { return "Database_Exception"; }
-		const int getErrorCode() const noexcept { return errorCode; }
+		int getErrorCode() const noexcept { return errorCode; }
 };
 
 /**
