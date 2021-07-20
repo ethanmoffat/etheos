@@ -11,10 +11,10 @@ static void CreateConfigWithTestDefaults(Config& config, Config& admin_config)
     // these are needed for the test to run
     // test assumes relative to directory {install_dir}/test
     config["ServerLanguage"] = "../lang/en.ini";
-    config["EIF"] = "../data/pub/dat001.eif";
-    config["ENF"] = "../data/pub/dtn001.enf";
-    config["ESF"] = "../data/pub/dsl001.esf";
-    config["ECF"] = "../data/pub/dat001.ecf";
+    config["EIF"] = "../data/pub/empty.eif";
+    config["ENF"] = "../data/pub/empty.enf";
+    config["ESF"] = "../data/pub/empty.esf";
+    config["ECF"] = "../data/pub/empty.ecf";
 
     //turn off SLN
     config["SLN"] = "false";

@@ -22,6 +22,7 @@
 
 find_path(MARIADB_INCLUDE_DIR
 	NAMES mysql.h
+	PATHS "C:/Program Files (x86)/MariaDB/MariaDB Connector C/include"
 	PATH_SUFFIXES
 		mariadb
 		mysql
@@ -29,6 +30,7 @@ find_path(MARIADB_INCLUDE_DIR
 
 find_library(MARIADB_LIBRARY
 	NAMES mariadbclient mariadb mysqlclient mysql
+	PATHS "C:/Program Files (x86)/MariaDB/MariaDB Connector C/lib"
 )
 
 include(FindPackageHandleStandardArgs)
