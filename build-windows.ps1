@@ -48,7 +48,7 @@ if (-not (Test-Path $BuildDir)) {
 
 Set-Location $BuildDir
 
-if ($MariaDB) {
+if ($MariaDB -eq "ON") {
     EnsureMariaDB
 }
 
