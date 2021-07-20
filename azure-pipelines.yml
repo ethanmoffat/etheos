@@ -18,7 +18,7 @@ stages:
   displayName: 'Build + Test'
   jobs:
   - job:
-    displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server)'
+    displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server + Sqlite)'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -39,7 +39,7 @@ stages:
         publishLocation: 'Container'
 
   - job:
-    displayName: 'Build - Release - Windows (MariaDB + SQL Server)'
+    displayName: 'Build - Release - Windows (MariaDB + SQL Server + Sqlite)'
     pool:
       vmImage: 'windows-latest'
     steps:
@@ -54,7 +54,7 @@ stages:
       displayName: 'Build'
       inputs:
         filePath: '.\build-windows.ps1'
-        arguments: '-Clean'
+        arguments: '-Clean -SqlServer ON -MariaDB ON -Sqlite ON'
     - script: .\eoserv_test.exe
       displayName: 'Test'
       workingDirectory: $(Build.SourcesDirectory)\install\test
