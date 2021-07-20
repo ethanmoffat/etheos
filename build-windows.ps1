@@ -3,6 +3,9 @@ param (
     [switch]$Debug,
     [switch]$Test,
     [switch]$Offline,
+    [string]$SqlServer="ON",
+    [string]$MariaDB="OFF",
+    [string]$Sqlite="OFF",
     $BuildDir = "build"
 )
 
@@ -45,7 +48,9 @@ if (-not (Test-Path $BuildDir)) {
 
 Set-Location $BuildDir
 
-EnsureMariaDB
+if ($MariaDB -eq "ON") {
+    EnsureMariaDB
+}
 
 if ($Debug) {
     $buildMode = "Debug"
@@ -88,10 +93,15 @@ if ($Offline) {
     $OfflineFlag="-DEOSERV_OFFLINE=ON"
 }
 
+$SqlServerFlag="-DEOSERV_WANT_SQLSERVER=$($SqlServer)"
+$MariaDBFlag="-DEOSERV_WANT_MYSQL=$($MariaDB)"
+$SqliteFlag="-DEOSERV_WANT_SQLITE=$($Sqlite)"
+
 # For building on Windows, force precompiled headers off
-# TODO: make db engines configurable with script parameters
 #
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_WANT_MYSQL=ON -DEOSERV_WANT_SQLITE=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 $OfflineFlag -G $generator ..
+$PrecompiledHeadersFlag = "-DEOSERV_USE_PRECOMPILED_HEADERS=OFF"
+
+cmake $SqlServerFlag $MariaDBFlag $SqliteFlag $PrecompiledHeadersFlag -DCMAKE_GENERATOR_PLATFORM=Win32 $OfflineFlag -G $generator ..
 $tmpResult=$?
 if (-not $tmpResult)
 {
