@@ -1,5 +1,7 @@
 # ETHEOS
 
+[![Build status](https://ethanmoffat.visualstudio.com/EndlessClient/_apis/build/status/ethanmoffat.etheos?branchName=master)](https://ethanmoffat.visualstudio.com/EndlessClient/_build/latest?definitionId=12&branchName=master)
+
 ## Table of Contents
 
 - [Getting Started on Windows](#getting-started-on-windows)
