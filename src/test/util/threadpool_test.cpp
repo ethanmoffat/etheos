@@ -85,20 +85,23 @@ GTEST_TEST(ThreadPoolTests, QueueManyDoesAllWork)
     std::vector<bool> results;
     results.resize(numThreads, false);
 
+    Semaphore workDone(0, numThreads);
+
     ASSERT_EQ(numThreads, results.size());
 
-    auto workFunc = [&results](const void * state)
+    auto workFunc = [&results, &workDone](const void * state)
     {
         auto ndx = reinterpret_cast<const size_t*>(state);
-        SLEEP_MS(50);
         results[*ndx] = true;
+        workDone.Release();
         delete ndx;
     };
 
     for (size_t i = 0; i < numThreads; ++i)
         ThreadPool::Queue(workFunc, new size_t(i));
 
-    SLEEP_MS(500);
+    while (workDone.Count() < workDone.MaxCount())
+        SLEEP_MS(500);
 
     for (size_t i = 0; i < numThreads; ++i)
     {

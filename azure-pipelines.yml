@@ -1,7 +1,17 @@
 name: 0.7.1.$(rev:rrrr)
 
 trigger:
-- master
+  branches:
+    include:
+    - master
+
+schedules:
+- cron: 0 0 * * 0 # 0 - hour | 0 - minute | * - any day | * - any month | 0 - sunday
+  displayName: 'Scheduled Build'
+  branches:
+    include:
+      - master
+  always: true
 
 stages:
 - stage: build_test

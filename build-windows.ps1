@@ -2,6 +2,7 @@ param (
     [switch]$Clean,
     [switch]$Debug,
     [switch]$Test,
+    [switch]$Offline,
     $BuildDir = "build"
 )
 
@@ -83,10 +84,22 @@ if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsIns
     [System.Environment]::SetEnvironmentVariable("PATH", "$vsInstallPath;$env:PATH", [System.EnvironmentVariableTarget]::Process)
 }
 
+if ($Offline) {
+    $OfflineFlag="-DEOSERV_OFFLINE=ON"
+}
+
 # For building on Windows, force precompiled headers off
 # TODO: make db engines configurable with script parameters
 #
-cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_WANT_MYSQL=ON -DEOSERV_WANT_SQLITE=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 -G $generator ..
+cmake -DEOSERV_WANT_SQLSERVER=ON -DEOSERV_WANT_MYSQL=ON -DEOSERV_WANT_SQLITE=ON -DEOSERV_USE_PRECOMPILED_HEADERS=OFF -DCMAKE_GENERATOR_PLATFORM=Win32 $OfflineFlag -G $generator ..
+$tmpResult=$?
+if (-not $tmpResult)
+{
+    Set-Location $PSScriptRoot
+    Write-Error "Error during cmake generation!"
+    exit $tmpResult
+}
+
 cmake --build . --config $buildMode --target INSTALL --
 $tmpResult=$?
 if (-not $tmpResult)

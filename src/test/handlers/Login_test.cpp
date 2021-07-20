@@ -407,6 +407,6 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
         r.GetShort(); // skip first two bytes (Family/Action - packet id, normally consumed from the reader when selecting the handler)
         Handlers::Login_Request(client.get(), r);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     }
 }

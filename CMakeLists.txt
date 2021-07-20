@@ -26,6 +26,8 @@ option(EOSERV_NO_DATA "Disables copying of data files in to build directory" OFF
 
 option(EOSERV_DEBUG_QUERIES "Enables printing of database queries to debug output" OFF)
 
+option(EOSERV_OFFLINE "Enables build when working offline (no internet connection)" OFF)
+
 # --------------
 #  Source files
 # --------------
