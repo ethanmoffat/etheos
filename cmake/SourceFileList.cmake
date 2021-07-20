@@ -239,12 +239,12 @@ set(DataFiles
 	data/speech.ini
 )
 
-# No default set of pub files is available yet.
+# These empty pub files are required for some tests
 set(PubFiles
-#	data/pub/dat001.eif
-#	data/pub/dtn001.enf
-#	data/pub/dsl001.esf
-#	data/pub/dat001.ecf
+	data/pub/empty.eif
+	data/pub/empty.enf
+	data/pub/empty.esf
+	data/pub/empty.ecf
 )
 
 # No default set of map files is available yet.
