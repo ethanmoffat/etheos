@@ -25,7 +25,7 @@ stages:
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
-        ArtifactName: 'drop'
+        ArtifactName: 'linux'
         publishLocation: 'Container'
 
   - job:
@@ -53,5 +53,5 @@ stages:
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
-        ArtifactName: 'drop'
+        ArtifactName: 'windows'
         publishLocation: 'Container'
