@@ -45,11 +45,9 @@ stages:
       inputs:
         filePath: '.\build-windows.ps1'
         arguments: '-Clean'
-    - task: PowerShell@2
+    - script: .\eoserv_test.exe
       displayName: 'Test'
-      inputs:
-        filePath: '.\eoserv_test.exe'
-        workingDirectory: $(Build.SourcesDirectory)\install\test
+      workingDirectory: $(Build.SourcesDirectory)\install\test
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'install'
