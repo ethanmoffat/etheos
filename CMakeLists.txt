@@ -180,7 +180,7 @@ add_library(eoserv_lib STATIC ${eoserv_SOURCE_FILES})
 add_executable(eoserv ${eoserv_MAIN_FILES})
 add_executable(eoserv_test ${TestFiles})
 
-target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/json)
 target_include_directories(eoserv_test PUBLIC ${CMAKE_BINARY_DIR}/googletest-src/googlemock/include)
 target_link_libraries(eoserv_test gtest_main gmock eoserv_lib)
 
@@ -242,6 +242,8 @@ include(DownloadBcrypt)
 target_include_directories(eoserv PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
+
+target_include_directories(eoserv PUBLIC ${CMAKE_SOURCE_DIR}/json)
 
 target_link_libraries(eoserv eoserv_lib)
 target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})

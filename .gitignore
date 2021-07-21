@@ -7,6 +7,7 @@ build/
 install/
 scripts/download/
 sqlite/
+json/
 
 gtest-download/*
 !gtest-download/CMakeLists.txt.in

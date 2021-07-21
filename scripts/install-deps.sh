@@ -134,3 +134,12 @@ if [ "$SKIPCMAKE" == "false" ]; then
     ./cmake-3.16.0-Linux-x86_64.sh --skip-license --prefix=/usr
     rm cmake-3.16.0-Linux-x86_64.sh
 fi
+
+echo "Installing json library dependency"
+
+if [ ! -d ../json ]; then
+    mkdir ../json
+fi
+JSON_VERSION=3.9.1
+wget -q "https://raw.githubusercontent.com/nlohmann/json/v$JSON_VERSION/single_include/nlohmann/json.hpp"
+mv json.hpp ../json

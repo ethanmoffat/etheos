@@ -12,6 +12,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -36,6 +37,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -62,6 +64,7 @@
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
                 "sqlite/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -86,6 +89,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -109,6 +113,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -133,6 +138,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -156,6 +162,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -181,6 +188,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -208,6 +216,7 @@
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
                 "sqlite/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -233,6 +242,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -257,6 +267,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -282,6 +293,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
