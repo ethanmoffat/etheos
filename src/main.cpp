@@ -37,6 +37,9 @@ extern volatile std::sig_atomic_t eoserv_sig_abort;
 volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
+std::unique_ptr<EOServer> server;
+void DumpWorld(std::unique_ptr<EOServer>& server);
+
 #ifdef SIGHUP
 static void eoserv_rehash(int signal)
 {
@@ -67,6 +70,9 @@ static void eoserv_crash(int signal)
 	}
 
 	Console::Err("EOSERV is dying! %s", extype);
+
+	// todo: doing this from a crash signal handler is potentially pretty dangerous
+	DumpWorld(server);
 
 #ifdef DEBUG
 	std::signal(signal, SIG_DFL);
@@ -340,8 +346,8 @@ int eoserv_main(int argc, char *argv[])
 
 		const auto databaseFactory = std::make_shared<DatabaseFactory>(DatabaseFactory());
 
-		EOServer server(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), databaseFactory, config, aconfig);
-		server.Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
+		server = std::make_unique<EOServer>(static_cast<std::string>(config["Host"]), static_cast<int>(config["Port"]), databaseFactory, config, aconfig);
+		server->Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
 		Console::Out("Listening on %s:%i (0/%i connections)", std::string(config["Host"]).c_str(), int(config["Port"]), int(config["MaxConnections"]));
 
 		bool tables_exist = false;
@@ -353,13 +359,13 @@ int eoserv_main(int argc, char *argv[])
 
 			try
 			{
-				Database_Result acc_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `accounts`");
-				Database_Result character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters`");
-				Database_Result admin_character_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
-				Database_Result guild_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `guilds`");
-				Database_Result ban_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans`");
-				Database_Result ban_active_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
-				Database_Result ban_perm_count = server.world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
+				Database_Result acc_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `accounts`");
+				Database_Result character_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `characters`");
+				Database_Result admin_character_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `admin` > 0");
+				Database_Result guild_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `guilds`");
+				Database_Result ban_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans`");
+				Database_Result ban_active_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
+				Database_Result ban_perm_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
 
 				Console::Out("Database info:");
 				Console::Out("  Accounts:   %i", int(acc_count.front()["count"]));
@@ -367,7 +373,7 @@ int eoserv_main(int argc, char *argv[])
 				Console::Out("  Guilds:     %i", int(guild_count.front()["count"]));
 				Console::Out("  Bans:       %i (%i expired, %i permanent)", int(ban_count.front()["count"]), int(ban_active_count.front()["count"]), int(ban_perm_count.front()["count"]));
 
-				server.world->UpdateAdminCount(int(admin_character_count.front()["count"]));
+				server->world->UpdateAdminCount(int(admin_character_count.front()["count"]));
 
 				tables_exist = true;
 			}
@@ -395,9 +401,7 @@ int eoserv_main(int argc, char *argv[])
 
 				try
 				{
-					server.world->CommitDB();
-					server.world->db->ExecuteFile(install_script);
-					server.world->BeginDB();
+					server->world->db->ExecuteFile(install_script);
 				}
 				catch (Database_Exception& e)
 				{
@@ -408,11 +412,14 @@ int eoserv_main(int argc, char *argv[])
 			}
 		}
 
+		server->world->RestoreFromDump(server->world->config["WorldDumpFile"]);
+
 		while (eoserv_running)
 		{
 			if (eoserv_sig_abort)
 			{
 				Console::Out("Exiting EOSERV");
+				DumpWorld(server);
 				eoserv_sig_abort = false;
 				break;
 			}
@@ -425,7 +432,7 @@ int eoserv_main(int argc, char *argv[])
 				std::string old_logout = config["LogOut"];
 
 				eoserv_sig_rehash = false;
-				server.world->Rehash();
+				server->world->Rehash();
 
 				// Does not support changing from file logging back to '-'
 				{
@@ -482,45 +489,61 @@ int eoserv_main(int argc, char *argv[])
 				Console::Out("Config reloaded");
 			}
 
-			server.Tick();
+			server->Tick();
 		}
 #ifndef DEBUG_EXCEPTIONS
 	}
 	catch (Socket_Exception &e)
 	{
+		DumpWorld(server);
 		Console::Err("%s: %s", e.what(), e.error());
 		return 1;
 	}
 	catch (Database_Exception &e)
 	{
+		DumpWorld(server);
 		Console::Err("%s: %s", e.what(), e.error());
 		return 1;
 	}
 	catch (std::runtime_error &e)
 	{
+		DumpWorld(server);
 		Console::Err("Runtime Error: %s", e.what());
 		return 1;
 	}
 	catch (std::logic_error &e)
 	{
+		DumpWorld(server);
 		Console::Err("Logic Error: %s", e.what());
 		return 1;
 	}
 	catch (std::exception &e)
 	{
+		DumpWorld(server);
 		Console::Err("Uncaught Exception: %s", e.what());
 		return 1;
 	}
 	catch (...)
 	{
+		DumpWorld(server);
 		Console::Err("Uncaught Exception");
 		return 1;
 	}
 #endif // DEBUG_EXCEPTIONS
+
+	DumpWorld(server);
 
 #ifdef WIN32
 	::SetEvent(eoserv_close_event);
 #endif // WIN32
 
 	return 0;
+}
+
+void DumpWorld(std::unique_ptr<EOServer>& server)
+{
+	if (!server || !server->world)
+		return;
+
+	server->world->DumpToFile(server->world->config["WorldDumpFile"]);
 }

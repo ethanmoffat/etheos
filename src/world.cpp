@@ -45,6 +45,8 @@
 #include <utility>
 #include <vector>
 
+#include "json.hpp"
+
 void world_spawn_npcs(void *world_void)
 {
 	World *world(static_cast<World *>(world_void));
@@ -261,6 +263,8 @@ void world_timed_save(void *world_void)
 	if (!world->config["TimedSave"])
 		return;
 
+	world->db->BeginTransaction();
+
 	UTIL_FOREACH(world->characters, character)
 	{
 		character->Save();
@@ -270,7 +274,7 @@ void world_timed_save(void *world_void)
 
 	try
 	{
-		world->CommitDB();
+		world->db->Commit();
 	}
 	catch (Database_Exception& e)
 	{
@@ -278,8 +282,6 @@ void world_timed_save(void *world_void)
 		Console::Wrn("Database commit failed - no data was saved!");
 		world->db->Rollback();
 	}
-
-	world->BeginDB();
 }
 
 void world_spikes(void *world_void)
@@ -358,7 +360,7 @@ void World::UpdateConfig()
 	{
 		try
 		{
-			this->CommitDB();
+			this->db->Commit();
 		}
 		catch (Database_Exception& e)
 		{
@@ -377,8 +379,6 @@ World::World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eos
 	, admin_count(0)
 {
 	this->db = databaseFactory->CreateDatabase(this->config, true);
-	this->BeginDB();
-
 	this->Initialize();
 }
 
@@ -532,16 +532,284 @@ void World::Initialize()
 	this->guildmanager = new GuildManager(this);
 }
 
-void World::BeginDB()
+void World::DumpToFile(const std::string& fileName)
 {
-	if (this->config["TimedSave"])
-		this->db->BeginTransaction();
+	// todo: merge if dump file already exists
+
+	nlohmann::json dump;
+
+	dump["characters"] = nlohmann::json::array();
+	UTIL_FOREACH_CREF(this->characters, c)
+	{
+		auto nextC = nlohmann::json::object();
+
+		nextC["name"] = c->real_name;
+		nextC["account"] = c->player->username;
+		nextC["class"] = c->clas;
+		nextC["gender"] = c->gender;
+		nextC["race"] = c->race;
+		nextC["hairstyle"] = c->hairstyle;
+		nextC["haircolor"] = c->haircolor;
+		nextC["map"] = c->mapid;
+		nextC["x"] = c->x;
+		nextC["y"] = c->y;
+		nextC["direction"] = c->direction;
+		nextC["level"] = c->level;
+		nextC["exp"] = c->exp;
+		nextC["hp"] = c->hp;
+		nextC["tp"] = c->tp;
+		nextC["str"] = c->str;
+		nextC["intl"] = c->intl;
+		nextC["wis"] = c->wis;
+		nextC["agi"] = c->agi;
+		nextC["con"] = c->con;
+		nextC["cha"] = c->cha;
+		nextC["statpoints"] = c->statpoints;
+		nextC["skillpoints"] = c->skillpoints;
+		nextC["karma"] = c->karma;
+		nextC["sitting"] = c->sitting;
+		nextC["hidden"] = c->hidden;
+		nextC["nointeract"] = c->nointeract;
+		nextC["bankmax"] = c->bankmax;
+		nextC["goldbank"] = c->goldbank;
+		nextC["usage"] = c->usage;
+		nextC["inventory"] = ItemSerialize(c->inventory);
+		nextC["bank"] = ItemSerialize(c->bank);
+		nextC["paperdoll"] = DollSerialize(c->paperdoll);
+		nextC["spells"] = SpellSerialize(c->spells);
+		nextC["guild"] = c->guild ? c->guild->tag : "";
+		nextC["guildrank"] = c->guild_rank;
+		nextC["guildrank_str"] = c->guild_rank_string;
+		nextC["quest"] = c->quest_string.empty()
+			? QuestSerialize(c->quests, c->quests_inactive)
+			: c->quest_string;
+
+		dump["characters"].push_back(nextC);
+	}
+
+	dump["mapState"] = nlohmann::json::object();
+
+	nlohmann::json items = nlohmann::json::array();
+	UTIL_FOREACH_CREF(this->maps, map)
+	{
+		UTIL_FOREACH_CREF(map->items, item)
+		{
+			items.push_back(
+			{
+				{ "mapId", map->id },
+				{ "x", item->x },
+				{ "y", item->y },
+				{ "itemId", item->id },
+				{ "amount", item->amount },
+				{ "uid", item->uid },
+				{ "owner", item->owner },
+				{ "unprotect", item->unprotecttime }
+			});
+		}
+	}
+	dump["mapState"]["items"] = items;
+
+	// todo: dump npcs/chests too
+	dump["mapState"]["chests"] = nlohmann::json::array();
+	dump["mapState"]["npcs"] = nlohmann::json::array();
+
+	dump["guilds"] = nlohmann::json::array();
+
+	UTIL_FOREACH_CREF(this->guildmanager->cache, guildPair)
+	{
+		std::shared_ptr<Guild> guild(guildPair.second);
+		if (guild)
+		{
+			dump["guilds"].push_back(
+			{
+				{ "tag", guild->tag },
+				{ "name", guild->name },
+				{ "description", guild->description },
+				{ "ranks", RankSerialize(guild->ranks) },
+				{ "bank", guild->bank }
+			});
+		}
+	}
+
+	std::ofstream file(fileName);
+	if (file.bad()) {
+		Console::Err("Error opening output file stream for world dump");
+		return;
+	}
+
+	file << dump.dump(2) << std::endl;
+	file.close();
 }
 
-void World::CommitDB()
+void World::RestoreFromDump(const std::string& fileName)
 {
-	if (this->db->Pending())
-		this->db->Commit();
+	std::ifstream file(fileName);
+	if (!file.is_open())
+	{
+		Console::Dbg("Unable to open input file stream for world restore.");
+		return;
+	}
+
+	nlohmann::json dump;
+	file >> dump;
+	file.close();
+
+	bool in_tran = this->db->BeginTransaction();
+	if (!in_tran)
+	{
+		Console::Wrn("Transaction open failed when restoring database");
+	}
+
+	try
+	{
+		std::list<nlohmann::json::iterator> restoredChars;
+		for (auto c_iter = dump["characters"].begin(); c_iter != dump["characters"].end(); ++c_iter)
+		{
+			auto c = *c_iter;
+			auto charName = c["name"].get<std::string>();
+
+			auto exists = this->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `name` = '$'", charName.c_str());
+			if (exists.Error())
+			{
+				Console::Wrn("Error checking existence of character %s during restore. Skipping restore.", charName.c_str());
+				continue;
+			}
+
+			Database_Result dbRes;
+			if (exists.empty() || exists.front()["count"].GetInt() != 1)
+			{
+				dbRes = this->db->Query("INSERT INTO `characters` (`name`, `account`, `class`, `gender`, `race`, "
+					"`hairstyle`, `haircolor`, `map`, `x`, `y`, `direction`, `level`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, `karma`, `sitting`, `hidden`, "
+					"`nointeract`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`) "
+					"VALUES ('$', '$', #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, '$', '$', '$', '$', '$', #, '$', '$')",
+					charName.c_str(), c["account"].get<std::string>().c_str(),
+					c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
+					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
+					c["level"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
+					c["str"].get<int>(), c["intl"].get<int>(), c["wis"].get<int>(), c["agi"].get<int>(), c["con"].get<int>(), c["cha"].get<int>(),
+					c["statpoints"].get<int>(), c["skillpoints"].get<int>(), c["karma"].get<int>(), c["sitting"].get<int>(), c["hidden"].get<int>(),
+					c["nointeract"].get<int>(), c["bankmax"].get<int>(), c["goldbank"].get<int>(), c["usage"].get<int>(),
+					c["inventory"].get<std::string>().c_str(), c["bank"].get<std::string>().c_str(), c["paperdoll"].get<std::string>().c_str(),
+					c["spells"].get<std::string>().c_str(), c["guild"].get<std::string>().c_str(),
+					c["guildrank"].get<int>(), c["guildrank_str"].get<std::string>().c_str(), c["quest"].get<std::string>().c_str());
+			}
+			else
+			{
+				dbRes = this->db->Query("UPDATE `characters` SET `class` = #, `gender` = #, `race` = #, "
+					"`hairstyle` = #, `haircolor` = #, `map` = #, `x` = #, `y` = #, `direction` = #, `level` = #, `exp` = #, `hp` = #, `tp` = #, "
+					"`str` = #, `int` = #, `wis` = #, `agi` = #, `con` = #, `cha` = #, `statpoints` = #, `skillpoints` = #, `karma` = #, `sitting` = #, `hidden` = #, "
+					"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "
+					"`spells` = '$', `guild` = '$', `guild_rank` = #, `guild_rank_string` = '$', `quest` = '$' "
+					"WHERE `name` = '$'",
+					c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
+					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
+					c["level"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
+					c["str"].get<int>(), c["intl"].get<int>(), c["wis"].get<int>(), c["agi"].get<int>(), c["con"].get<int>(), c["cha"].get<int>(),
+					c["statpoints"].get<int>(), c["skillpoints"].get<int>(), c["karma"].get<int>(), c["sitting"].get<int>(), c["hidden"].get<int>(),
+					c["nointeract"].get<int>(), c["bankmax"].get<int>(), c["goldbank"].get<int>(), c["usage"].get<int>(),
+					c["inventory"].get<std::string>().c_str(), c["bank"].get<std::string>().c_str(), c["paperdoll"].get<std::string>().c_str(),
+					c["spells"].get<std::string>().c_str(), c["guild"].get<std::string>().c_str(),
+					c["guildrank"].get<int>(), c["guildrank_str"].get<std::string>().c_str(), c["quest"].get<std::string>().c_str(),
+					charName.c_str());
+			}
+
+			if (!dbRes.Error())
+			{
+				Console::Dbg("Restored character: %s", charName.c_str());
+				restoredChars.push_back(c_iter);
+			}
+		}
+
+		std::list<nlohmann::json::iterator> restoredGuilds;
+		for (auto g_iter = dump["guilds"].begin(); g_iter != dump["guilds"].end(); ++g_iter)
+		{
+			auto g = *g_iter;
+			auto guildTag = g["tag"].get<std::string>();
+			auto guildName = g["name"].get<std::string>();
+
+			auto exists = this->db->Query("SELECT COUNT(1) AS `count` FROM `guilds` WHERE `tag` = '$'", guildTag.c_str());
+			if (exists.Error())
+			{
+				Console::Wrn("Error checking existence of guild %s during restore. Skipping restore.", guildTag.c_str());
+				continue;
+			}
+
+			Database_Result dbRes;
+			if (exists.empty() || exists.front()["count"].GetInt() != 1)
+			{
+				dbRes = this->db->Query("INSERT INTO `guilds` (`tag`, `name`, `description`, `ranks`, `bank`) VALUES ('$', '$', '$', '$', '$')",
+					guildTag.c_str(),
+					guildName.c_str(),
+					g["description"].get<std::string>().c_str(),
+					g["ranks"].get<std::string>().c_str(),
+					g["bank"].get<std::string>().c_str());
+			}
+			else
+			{
+				dbRes = this->db->Query("UPDATE `guilds` SET `description` = '$', `ranks` = '$', `bank` = # WHERE tag = '$'",
+					g["description"].get<std::string>().c_str(),
+					g["ranks"].get<std::string>().c_str(),
+					g["bank"].get<std::string>().c_str(),
+					guildTag.c_str());
+			}
+
+			if (!dbRes.Error())
+			{
+				Console::Dbg("Restored guild: %s (%s)", guildName.c_str(), guildTag.c_str());
+				restoredGuilds.push_back(g_iter);
+				// cache the guild that was just restored
+				(void)this->guildmanager->GetGuild(guildTag);
+			}
+		}
+
+		if (in_tran)
+			this->db->Commit();
+
+		UTIL_FOREACH(restoredChars, c)
+			dump["characters"].erase(c);
+
+		UTIL_FOREACH(restoredGuilds, g)
+			dump["guilds"].erase(g);
+	}
+	catch (Database_Exception& dbe)
+	{
+		Console::Err("Database operation failed during restore. %s: %s", dbe.what(), dbe.error());
+		this->db->Rollback();
+	}
+
+	UTIL_FOREACH_CREF(dump["mapState"]["items"], i)
+	{
+		auto map = std::find_if(this->maps.begin(), this->maps.end(), [&i] (Map* m) { return m->id == i["mapId"]; });
+		if (map == this->maps.end())
+			continue;
+
+		(*map)->items.push_back(
+			std::make_shared<Map_Item>(
+				i["uid"].get<short>(),
+				i["itemId"].get<short>(),
+				i["amount"].get<int>(),
+				i["x"].get<unsigned char>(),
+				i["y"].get<unsigned char>(),
+				0, 0));
+
+		Console::Dbg("Restored item:     %dx%d", i["itemId"].get<short>(), i["amount"].get<short>());
+	}
+
+	if (dump["characters"].empty() && dump["guilds"].empty())
+	{
+		std::remove(fileName.c_str());
+	}
+	else
+	{
+		std::ofstream rewrite(fileName);
+		if (!rewrite.is_open())
+		{
+			throw std::runtime_error("Unable to update the world dump file after partially restoring world state");
+		}
+
+		rewrite << dump.dump(2) << std::endl;
+		rewrite.close();
+	}
 }
 
 void World::UpdateAdminCount(int admin_count)

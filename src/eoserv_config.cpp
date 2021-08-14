@@ -273,6 +273,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "InitLoginBan"       , true);
 	eoserv_config_default(config, "ThreadPoolThreads"  , 0);
 	eoserv_config_default(config, "AutoCreateDatabase" , false);
+	eoserv_config_default(config, "WorldDumpFile"      , "./world.bak.json");
 }
 
 void eoserv_config_validate_admin(Config& config)
