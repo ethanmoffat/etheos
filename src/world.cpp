@@ -534,13 +534,30 @@ void World::Initialize()
 
 void World::DumpToFile(const std::string& fileName)
 {
-	// todo: merge if dump file already exists
-
 	nlohmann::json dump;
 
-	dump["characters"] = nlohmann::json::array();
+	std::ifstream existing(fileName);
+	if (existing.is_open())
+	{
+		// right now merge means "overwrite file backup with live data if there are duplicates"
+		// eventually this could become more advanced but it probably isn't necessary
+		dump << existing;
+		existing.close();
+	}
+
+	if (dump.find("characters") == dump.end())
+		dump["characters"] = nlohmann::json::array();
+
 	UTIL_FOREACH_CREF(this->characters, c)
 	{
+		auto existing = std::find_if(dump["characters"].begin(), dump["characters"].end(),
+			[&c](nlohmann::json check)
+			{
+				return check.find("name") != check.end() && check["name"].get<std::string>() == c->real_name;
+			});
+		if (existing != dump["characters"].end())
+			dump.erase(existing);
+
 		auto nextC = nlohmann::json::object();
 
 		nextC["name"] = c->real_name;
@@ -587,13 +604,26 @@ void World::DumpToFile(const std::string& fileName)
 		dump["characters"].push_back(nextC);
 	}
 
-	dump["mapState"] = nlohmann::json::object();
+	if (dump.find("mapState") == dump.end())
+		dump["mapState"] = nlohmann::json::object();
 
-	nlohmann::json items = nlohmann::json::array();
+	if (dump["mapState"].find("items") == dump["mapState"].end())
+		dump["mapState"]["items"] = nlohmann::json::array();
+
+	auto items = dump["mapState"]["items"];
+
 	UTIL_FOREACH_CREF(this->maps, map)
 	{
 		UTIL_FOREACH_CREF(map->items, item)
 		{
+			auto existing = std::find_if(items.begin(), items.end(),
+				[&item](nlohmann::json check)
+				{
+					return check.find("uid") != check.end() && check["uid"].get<int>() == item->uid;
+				});
+			if (existing != items.end())
+				dump.erase(existing);
+
 			items.push_back(
 			{
 				{ "mapId", map->id },
@@ -607,19 +637,27 @@ void World::DumpToFile(const std::string& fileName)
 			});
 		}
 	}
-	dump["mapState"]["items"] = items;
 
 	// todo: dump npcs/chests too
 	dump["mapState"]["chests"] = nlohmann::json::array();
 	dump["mapState"]["npcs"] = nlohmann::json::array();
 
-	dump["guilds"] = nlohmann::json::array();
+	if (dump.find("guilds") == dump.end())
+		dump["guilds"] = nlohmann::json::array();
 
 	UTIL_FOREACH_CREF(this->guildmanager->cache, guildPair)
 	{
 		std::shared_ptr<Guild> guild(guildPair.second);
 		if (guild)
 		{
+			auto existing = std::find_if(dump["guilds"].begin(), dump["guilds"].end(),
+				[&guild](nlohmann::json check)
+				{
+					return check.find("tag") != check.end() && check["tag"].get<std::string>() == guild->tag;
+				});
+			if (existing != dump["guilds"].end())
+				dump.erase(existing);
+
 			dump["guilds"].push_back(
 			{
 				{ "tag", guild->tag },
@@ -668,7 +706,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			auto c = *c_iter;
 			auto charName = c["name"].get<std::string>();
 
-			auto exists = this->db->Query("SELECT COUNT(1) AS `count` FROM `characters` WHERE `name` = '$'", charName.c_str());
+			auto exists = this->db->Query("SELECT COUNT(1) AS `count`, `usage` FROM `characters` WHERE `name` = '$'", charName.c_str());
 			if (exists.Error())
 			{
 				Console::Wrn("Error checking existence of character %s during restore. Skipping restore.", charName.c_str());
@@ -693,7 +731,8 @@ void World::RestoreFromDump(const std::string& fileName)
 					c["spells"].get<std::string>().c_str(), c["guild"].get<std::string>().c_str(),
 					c["guildrank"].get<int>(), c["guildrank_str"].get<std::string>().c_str(), c["quest"].get<std::string>().c_str());
 			}
-			else
+			// if the database entry is older than the character data in the dump, update the database with the dump's character data
+			else if (exists.front()["usage"].GetInt() < c["usage"].get<int>())
 			{
 				dbRes = this->db->Query("UPDATE `characters` SET `class` = #, `gender` = #, `race` = #, "
 					"`hairstyle` = #, `haircolor` = #, `map` = #, `x` = #, `y` = #, `direction` = #, `level` = #, `exp` = #, `hp` = #, `tp` = #, "
