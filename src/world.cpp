@@ -556,7 +556,7 @@ void World::DumpToFile(const std::string& fileName)
 				return check.find("name") != check.end() && check["name"].get<std::string>() == c->real_name;
 			});
 		if (existing != dump["characters"].end())
-			dump.erase(existing);
+			dump["characters"].erase(existing);
 
 		auto nextC = nlohmann::json::object();
 
@@ -608,9 +608,8 @@ void World::DumpToFile(const std::string& fileName)
 	if (dump.find("mapState") == dump.end())
 		dump["mapState"] = nlohmann::json::object();
 
-	if (dump["mapState"].find("items") == dump["mapState"].end())
-		dump["mapState"]["items"] = nlohmann::json::array();
-
+	// overwrite all existing map item / chest spawns. prevents possibility of item dupes.
+	dump["mapState"]["items"] = nlohmann::json::array();
 	dump["mapState"]["chests"] = nlohmann::json::array();
 
 	auto& items = dump["mapState"]["items"];
@@ -620,14 +619,6 @@ void World::DumpToFile(const std::string& fileName)
 	{
 		UTIL_FOREACH_CREF(map->items, item)
 		{
-			auto existing = std::find_if(items.begin(), items.end(),
-				[&item](nlohmann::json check)
-				{
-					return check.find("uid") != check.end() && check["uid"].get<int>() == item->uid;
-				});
-			if (existing != items.end())
-				dump.erase(existing);
-
 			items.push_back(
 			{
 				{ "mapId", map->id },
@@ -672,7 +663,7 @@ void World::DumpToFile(const std::string& fileName)
 					return check.find("tag") != check.end() && check["tag"].get<std::string>() == guild->tag;
 				});
 			if (existing != dump["guilds"].end())
-				dump.erase(existing);
+				dump["guilds"].erase(existing);
 
 			dump["guilds"].push_back(
 			{
