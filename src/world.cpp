@@ -541,7 +541,7 @@ void World::DumpToFile(const std::string& fileName)
 	{
 		// right now merge means "overwrite file backup with live data if there are duplicates"
 		// eventually this could become more advanced but it probably isn't necessary
-		dump << existing;
+		existing >> dump;
 		existing.close();
 	}
 
