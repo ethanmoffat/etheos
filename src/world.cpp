@@ -611,7 +611,10 @@ void World::DumpToFile(const std::string& fileName)
 	if (dump["mapState"].find("items") == dump["mapState"].end())
 		dump["mapState"]["items"] = nlohmann::json::array();
 
-	auto items = dump["mapState"]["items"];
+	dump["mapState"]["chests"] = nlohmann::json::array();
+
+	auto& items = dump["mapState"]["items"];
+	auto& chests = dump["mapState"]["chests"];
 
 	UTIL_FOREACH_CREF(this->maps, map)
 	{
@@ -637,11 +640,23 @@ void World::DumpToFile(const std::string& fileName)
 				{ "unprotect", item->unprotecttime }
 			});
 		}
-	}
 
-	// todo: dump npcs/chests too
-	dump["mapState"]["chests"] = nlohmann::json::array();
-	dump["mapState"]["npcs"] = nlohmann::json::array();
+		UTIL_FOREACH_CREF(map->chests, chest)
+		{
+			UTIL_FOREACH_CREF(chest->items, chestItem)
+			{
+				chests.push_back(
+				{
+					{ "mapId", map->id },
+					{ "x", chest->x },
+					{ "y", chest->y },
+					{ "itemId", chestItem.id },
+					{ "amount", chestItem.amount },
+					{ "slot", chestItem.slot }
+				});
+			}
+		}
+	}
 
 	if (dump.find("guilds") == dump.end())
 		dump["guilds"] = nlohmann::json::array();
@@ -832,7 +847,26 @@ void World::RestoreFromDump(const std::string& fileName)
 				i["y"].get<unsigned char>(),
 				0, 0));
 
-		Console::Dbg("Restored item:     %dx%d", i["itemId"].get<short>(), i["amount"].get<short>());
+		Console::Dbg("Restored item:     %dx%d", i["itemId"].get<int>(), i["amount"].get<int>());
+	}
+
+	UTIL_FOREACH_CREF(dump["mapState"]["chests"], chest)
+	{
+		auto map = std::find_if(this->maps.begin(), this->maps.end(), [&chest] (Map* m) { return m->id == chest["mapId"].get<int>(); });
+		if (map == this->maps.end())
+			continue;
+
+		auto mapChest = std::find_if((*map)->chests.begin(), (*map)->chests.end(),
+			[&chest] (std::shared_ptr<Map_Chest> check)
+			{
+				return check->x == chest["x"].get<int>() && check->y == chest["y"].get<int>();
+			});
+		if (mapChest == (*map)->chests.end())
+			continue;
+
+		(*mapChest)->AddItem(chest["itemId"].get<int>(), chest["amount"].get<int>(), chest["slot"].get<int>());
+
+		Console::Dbg("Restored chest:    %dx%d", chest["itemId"].get<int>(), chest["amount"].get<int>());
 	}
 
 	if (dump["characters"].empty() && dump["guilds"].empty())
