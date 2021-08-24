@@ -810,7 +810,7 @@ void World::RestoreFromDump(const std::string& fileName)
 
 			if (!dbRes.Error())
 			{
-				Console::Dbg("Restored guild: %s (%s)", guildName.c_str(), guildTag.c_str());
+				Console::Dbg("Restored guild:     %s (%s)", guildName.c_str(), guildTag.c_str());
 				restoredGuilds.push_back(g_iter);
 				// cache the guild that was just restored
 				(void)this->guildmanager->GetGuild(guildTag);
@@ -834,7 +834,7 @@ void World::RestoreFromDump(const std::string& fileName)
 
 	UTIL_FOREACH_CREF(dump["mapState"]["items"], i)
 	{
-		auto map = std::find_if(this->maps.begin(), this->maps.end(), [&i] (Map* m) { return m->id == i["mapId"]; });
+		auto map = std::find_if(this->maps.begin(), this->maps.end(), [&i] (Map* m) { return m->id == i["mapId"].get<int>(); });
 		if (map == this->maps.end())
 			continue;
 
