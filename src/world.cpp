@@ -722,7 +722,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			auto c = *c_iter;
 			auto charName = c["name"].get<std::string>();
 
-			auto exists = this->db->Query("SELECT COUNT(1) AS `count`, `usage` FROM `characters` WHERE `name` = '$'", charName.c_str());
+			auto exists = this->db->Query("SELECT `usage` FROM `characters` WHERE `name` = '$'", charName.c_str());
 			if (exists.Error())
 			{
 				Console::Wrn("Error checking existence of character %s during restore. Skipping restore.", charName.c_str());
@@ -730,7 +730,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			}
 
 			Database_Result dbRes;
-			if (exists.empty() || exists.front()["count"].GetInt() != 1)
+			if (exists.empty())
 			{
 				dbRes = this->db->Query("INSERT INTO `characters` (`name`, `account`, `class`, `gender`, `race`, "
 					"`hairstyle`, `haircolor`, `map`, `x`, `y`, `direction`, `level`, `admin`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, `karma`, `sitting`, `hidden`, "
