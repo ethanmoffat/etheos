@@ -75,6 +75,26 @@ protected:
         inFile.close();
         return dump;
     }
+
+    void AssertCharacterProperties(const nlohmann::json& dump, const std::string& name, const std::string& guild_rank_str, const std::string& title = "")
+    {
+        ASSERT_NE(dump.find("characters"), dump.end());
+        ASSERT_GE(dump["characters"].size(), static_cast<size_t>(1));
+
+        auto character = std::find_if(dump["characters"].begin(), dump["characters"].end(),
+            [&name](nlohmann::json check)
+            {
+                return check.find("name") != check.end() && check["name"] == name;
+            });
+        ASSERT_NE(character, dump["characters"].end());
+
+        ASSERT_EQ((*character)["account"], name);
+        ASSERT_EQ((*character)["name"], name);
+        ASSERT_EQ((*character)["guildrank_str"], guild_rank_str);
+
+        if (!title.empty())
+            ASSERT_EQ((*character)["title"], title);
+    }
 };
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresCharacters)
@@ -89,23 +109,20 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresCharacters)
     za_warudo->DumpToFile(dumpFileName);
 
     auto dump = LoadDump();
-    ASSERT_NE(dump.find("characters"), dump.end());
-    ASSERT_EQ(dump["characters"].size(), 1);
-    ASSERT_EQ(dump["characters"].front()["account"], ExpectedName);
-    ASSERT_EQ(dump["characters"].front()["name"], ExpectedName);
-    ASSERT_EQ(dump["characters"].front()["guildrank_str"], ExpectedGuildRank);
+    AssertCharacterProperties(dump, ExpectedName, ExpectedGuildRank);
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
 {
-    const std::string ExistingName = "Jonathan Jostar";
-    const std::string ExistingGuildRank = "Gentleman";
-    const std::string ExistingTitle = "Hamon Master";
+    const std::string ExistingName = "Jonathan Jostar", ExistingName2 = "Robert E. O. Speedwagon";
+    const std::string ExistingGuildRank = "Gentleman", ExistingGuildRank2 = "Thug";
+    const std::string ExistingTitle = "Hamon Master", ExistingTitle2 = "Hype man";
     const std::string OverwriteGuildRank = "Star Platinum";
 
     nlohmann::json dump;
     dump["characters"] = nlohmann::json::array();
-    dump["characters"].push_back(nlohmann::json::object({{"name", ExistingName}, {"guildrank_str", ExistingGuildRank}, {"title", ExistingTitle}}));
+    dump["characters"].push_back(nlohmann::json::object({{"account", ExistingName}, {"name", ExistingName}, {"guildrank_str", ExistingGuildRank}, {"title", ExistingTitle}}));
+    dump["characters"].push_back(nlohmann::json::object({{"account", ExistingName2}, {"name", ExistingName2}, {"guildrank_str", ExistingGuildRank2}, {"title", ExistingTitle2}}));
     std::ofstream existing(dumpFileName);
     existing << dump;
     existing.close();
@@ -118,12 +135,8 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
     za_warudo->DumpToFile(dumpFileName);
 
     dump = LoadDump();
-    ASSERT_NE(dump.find("characters"), dump.end());
-    ASSERT_EQ(dump["characters"].size(), 1);
-    ASSERT_EQ(dump["characters"].front()["account"], ExistingName);
-    ASSERT_EQ(dump["characters"].front()["name"], ExistingName);
-    ASSERT_EQ(dump["characters"].front()["guildrank_str"], OverwriteGuildRank);
-    ASSERT_EQ(dump["characters"].front()["title"], ExistingTitle);
+    AssertCharacterProperties(dump, ExistingName, OverwriteGuildRank, ExistingTitle);
+    AssertCharacterProperties(dump, ExistingName2, ExistingGuildRank2, ExistingTitle2);
 }
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
