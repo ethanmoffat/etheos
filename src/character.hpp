@@ -280,6 +280,7 @@ class Character : public Command_Source
 		std::set<Character_QuestState> quests_inactive;
 		std::string quest_string;
 
+		Character(World *);
 		Character(std::string name, World *);
 
 		bool IsHideInvisible() const { return hidden & HideInvisible; }

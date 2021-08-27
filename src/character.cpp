@@ -353,6 +353,18 @@ template <typename T> static T GetRow(std::unordered_map<std::string, util::vari
 	return row[col];
 }
 
+Character::Character(World * world)
+	: world(world)
+	, online(false)
+	, display_str(this->world->config["UseAdjustedStats"] ? adj_str : str)
+	, display_intl(this->world->config["UseAdjustedStats"] ? adj_intl : intl)
+	, display_wis(this->world->config["UseAdjustedStats"] ? adj_wis : wis)
+	, display_agi(this->world->config["UseAdjustedStats"] ? adj_agi : agi)
+	, display_con(this->world->config["UseAdjustedStats"] ? adj_con : con)
+	, display_cha(this->world->config["UseAdjustedStats"] ? adj_cha : cha)
+{
+}
+
 Character::Character(std::string name, World *world)
 	: muted_until(0)
 	, bot(false)

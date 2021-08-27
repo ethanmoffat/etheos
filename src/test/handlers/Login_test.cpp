@@ -8,47 +8,6 @@
 
 static constexpr unsigned short TestServerPort = 38078;
 
-std::shared_ptr<Database> CreateMockDatabaseForLoginTests()
-{
-    std::shared_ptr<Database> mockDatabase(new MockDatabase);
-
-    // set up responses to database queries
-    Database_Result banCheckResult;
-    std::unordered_map<std::string, util::variant> banCheckColumns;
-    banCheckColumns["expires"] = util::variant(-1);
-    banCheckResult.push_back(banCheckColumns);
-
-    // no bans by default
-    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(HasSubstr("FROM bans"), _, _))
-        .WillRepeatedly(Return(banCheckResult));
-
-    // no accounts by default
-    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(HasSubstr("FROM `accounts`"), _, _))
-        .WillRepeatedly(Return(Database_Result()));
-
-    // Suppress gmock "uninteresting method call" warnings in output
-    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()), Pending()).WillRepeatedly(Return(false));
-    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()), Escape(_)).WillRepeatedly(Return(""));
-    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()), Commit()).WillRepeatedly(Return());
-
-    return mockDatabase;
-}
-
-std::shared_ptr<DatabaseFactory> CreateMockDatabaseFactoryForLoginTests(std::shared_ptr<Database> database, bool delayInCreate = false)
-{
-    std::shared_ptr<DatabaseFactory> mockDatabaseFactory(new MockDatabaseFactory);
-    EXPECT_CALL(*dynamic_cast<MockDatabaseFactory*>(mockDatabaseFactory.get()), CreateDatabase(_, _))
-        .WillRepeatedly(Invoke([database, delayInCreate](Unused, Unused)
-            {
-                if (delayInCreate)
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                return database;
-            }));
-    return mockDatabaseFactory;
-}
-
 GTEST_TEST(LoginTests, BasicParameterTests)
 {
     Console::SuppressOutput(true);
@@ -66,8 +25,8 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     config["PasswordMinLength"] = int(PasswordMinLength);
     config["MaxPlayers"] = 0; // ensure server busy if credentials are ok
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, true);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, true);
 
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
 
@@ -150,8 +109,8 @@ GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
     Config config, admin_config;
     CreateConfigWithTestDefaults(config, admin_config);
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, true);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, true);
 
     Database_Result banCheckResult;
     std::unordered_map<std::string, util::variant> banCheckColumns;
@@ -208,8 +167,8 @@ GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
     CreateConfigWithTestDefaults(config, admin_config);
     config["LoginQueueSize"] = MaxConcurrentLogins;
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, true);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, true);
 
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
 
@@ -246,8 +205,8 @@ GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
     CreateConfigWithTestDefaults(config, admin_config);
     config["MaxLoginAttempts"] = MaxLoginAttempts;
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, false);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, false);
 
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
     MockClient client(&server);
@@ -281,8 +240,8 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
     CreateConfigWithTestDefaults(config, admin_config);
     config["PasswordCurrentVersion"] = int(HashFunc::BCRYPT);
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, false);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, false);
 
     Database_Result oldVersionResult;
     std::unordered_map<std::string, util::variant> oldVersionColumns;
@@ -340,8 +299,8 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
     auto saltedNewPassword = Hasher::SaltPassword(std::string(config["PasswordSalt"]), ExpectedUsername, std::move(passwordCopy2)).str();
     auto expectedNewPassword = bcrypt.hash(saltedNewPassword);
 
-    auto mockDatabase = CreateMockDatabaseForLoginTests();
-    auto mockDatabaseFactory = CreateMockDatabaseFactoryForLoginTests(mockDatabase, false);
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, false);
 
     Database_Result oldVersionResult;
     std::unordered_map<std::string, util::variant> oldVersionColumns;
