@@ -145,15 +145,28 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresGuilds)
 {
+}
 
+GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingGuild_Overwrites)
+{
+}
+
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
+{
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
 {
+}
 
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
+{
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapChests)
 {
+}
 
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapChests)
+{
 }
