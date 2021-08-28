@@ -116,6 +116,26 @@ protected:
         ASSERT_EQ(item["amount"].get<int>(), mapItem->amount);
         ASSERT_EQ(item["uid"].get<int>(), mapItem->uid);
     }
+
+    void AssertChestItemProperties(const nlohmann::json& dump, int mapId, Map_Chest_Item* chestItem)
+    {
+        ASSERT_NE(dump.find("mapState"), dump.end());
+        ASSERT_NE(dump["mapState"].find("chests"), dump["mapState"].end());
+        ASSERT_GE(dump["mapState"]["chests"].size(), static_cast<size_t>(1));
+
+        auto& chests = dump["mapState"]["chests"];
+        auto chestIter = std::find_if(chests.begin(), chests.end(),
+            [&](nlohmann::json check)
+            {
+                return check["mapId"].get<int>() == mapId && check["slot"].get<int>() == chestItem->slot;
+            });
+
+        ASSERT_NE(chestIter, chests.end());
+
+        auto chest = *chestIter;
+        ASSERT_EQ(chest["itemId"].get<int>(), chestItem->id);
+        ASSERT_EQ(chest["amount"].get<int>(), chestItem->amount);
+    }
 };
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresCharacters)
@@ -178,7 +198,7 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
 {
-    srand(time(0));
+    srand(static_cast<unsigned>(time(0)));
 
     std::list<std::pair<Map_Item*, Map*>> items;
     for (const auto& map : za_warudo->maps)
@@ -198,6 +218,23 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapChests)
 {
+    srand(static_cast<unsigned>(time(0)));
+
+    std::list<std::pair<Map_Chest_Item*, Map*>> chests;
+    for (const auto& map : za_warudo->maps)
+    {
+        auto chest = std::make_shared<Map_Chest>();
+        chest->chestslots = 1;
+        chest->maxchest = 10001;
+        map->chests.push_back(chest);
+        map->chests.front()->AddItem(rand() % 480, rand() % 10000);
+        chests.push_back(std::make_pair(&map->chests.front()->items.front(), map));
+    }
+    za_warudo->DumpToFile(dumpFileName);
+
+    auto dump = LoadDump();
+    for (const auto item : chests)
+        AssertChestItemProperties(dump, item.second->id, item.first);
 }
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapChests)
