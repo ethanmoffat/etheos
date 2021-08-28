@@ -95,6 +95,27 @@ protected:
         if (!title.empty())
             ASSERT_EQ((*character)["title"], title);
     }
+
+    void AssertMapItemProperties(const nlohmann::json& dump, int mapId, const Map_Item* mapItem)
+    {
+        ASSERT_NE(dump.find("mapState"), dump.end());
+        ASSERT_NE(dump["mapState"].find("items"), dump["mapState"].end());
+        ASSERT_GE(dump["mapState"]["items"].size(), static_cast<size_t>(1));
+
+        auto& items = dump["mapState"]["items"];
+        auto itemIter = std::find_if(items.begin(), items.end(),
+            [&](nlohmann::json check)
+            {
+                return check["mapId"].get<int>() == mapId && check["x"].get<int>() == mapItem->x && check["y"].get<int>() == mapItem->y;
+            });
+
+        ASSERT_NE(itemIter, items.end());
+
+        auto item = *itemIter;
+        ASSERT_EQ(item["itemId"].get<int>(), mapItem->id);
+        ASSERT_EQ(item["amount"].get<int>(), mapItem->amount);
+        ASSERT_EQ(item["uid"].get<int>(), mapItem->uid);
+    }
 };
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresCharacters)
@@ -157,6 +178,18 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
 {
+    srand(time(0));
+
+    std::list<std::pair<Map_Item*, Map*>> items;
+    for (const auto& map : za_warudo->maps)
+    {
+        items.push_back(std::make_pair(map->AddItem(1, 9999, 2, 2).get(), map));
+    }
+    za_warudo->DumpToFile(dumpFileName);
+
+    auto dump = LoadDump();
+    for (const auto item : items)
+        AssertMapItemProperties(dump, item.second->id, item.first);
 }
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
