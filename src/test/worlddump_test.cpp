@@ -183,7 +183,7 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
     std::list<std::pair<Map_Item*, Map*>> items;
     for (const auto& map : za_warudo->maps)
     {
-        items.push_back(std::make_pair(map->AddItem(1, 9999, 2, 2).get(), map));
+        items.push_back(std::make_pair(map->AddItem(rand() % 480, rand() % 10000, rand() % 25, rand() % 25).get(), map));
     }
     za_warudo->DumpToFile(dumpFileName);
 
