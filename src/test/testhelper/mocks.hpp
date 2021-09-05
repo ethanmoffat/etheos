@@ -6,12 +6,19 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <cstdarg>
+#include <numeric>
 
 using namespace ::testing;
 
 class MockDatabase : public Database
 {
 public:
+    MockDatabase(Database::Engine type)
+    {
+        this->engine = type;
+    }
+
     MOCK_METHOD(void, Connect, (Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db), (override));
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(Database_Result, RawQuery, (const char* query, bool tx_control, bool prepared), (override));
@@ -25,7 +32,19 @@ public:
 
     virtual Database_Result Query(const char *format, ...) override
     {
-        return this->RawQuery(format, false, false);
+        std::va_list ap;
+        va_start(ap, format);
+        auto queryState = this->ParseQueryArgs(format, ap);
+        va_end(ap);
+
+        // append all the query parameters so we can verify inputs on the mock
+        auto fullQuery = std::accumulate(queryState.second.begin(), queryState.second.end(), queryState.first,
+            [](std::string a, std::string b)
+            {
+                return std::move(a) + ", " + std::move(b);
+            });
+
+        return this->RawQuery(fullQuery.c_str(), false, false);
     }
 };
 

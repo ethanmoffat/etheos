@@ -251,12 +251,12 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
 
     // return password result to login manager for any given username
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("SELECT `password`, `password_version` FROM `accounts`"), _, _))
+                RawQuery(StartsWith("SELECT password, password_version FROM accounts"), _, _))
         .WillOnce(Return(oldVersionResult));
 
     // Expect no call to update the password
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("UPDATE `accounts` SET `password` = "), _, _))
+                RawQuery(StartsWith("UPDATE accounts SET password = "), _, _))
         .Times(0);
 
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
@@ -318,28 +318,28 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
 
     // return password result to login manager for any given username
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("SELECT `password`, `password_version` FROM `accounts`"), _, _))
+                RawQuery(StartsWith("SELECT password, password_version FROM accounts"), _, _))
         .WillOnce(Return(oldVersionResult))
         .WillOnce(Return(newVersionResult));
 
     // return some result to the Player constructor
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("SELECT `username`, `password` FROM `accounts`"), _, _))
+                RawQuery(StartsWith("SELECT username, password FROM accounts"), _, _))
         .WillRepeatedly(Return(oldVersionResult));
 
     // ensure no characters (characters not needed for test)
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(HasSubstr("FROM `characters`"), _, _))
+                RawQuery(HasSubstr("FROM characters"), _, _))
         .WillRepeatedly(Return(Database_Result()));
 
     // Expect single call to update the password
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("UPDATE `accounts` SET `password` = "), _, _))
+                RawQuery(StartsWith("UPDATE accounts SET password = "), _, _))
         .Times(1);
 
     // expect two of these (happens on client disconnect)
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(StartsWith("UPDATE `accounts` SET `lastused` = "), _, _))
+                RawQuery(StartsWith("UPDATE accounts SET lastused = "), _, _))
         .Times(2);
 
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);

@@ -24,7 +24,8 @@ static void CreateConfigWithTestDefaults(Config& config, Config& admin_config)
 
 static std::shared_ptr<Database> CreateMockDatabase()
 {
-    std::shared_ptr<Database> mockDatabase(new MockDatabase);
+    // force SQL server for database mocking stuff
+    std::shared_ptr<Database> mockDatabase(new MockDatabase(Database::Engine::SqlServer));
 
     // set up responses to database queries
     Database_Result banCheckResult;
@@ -39,7 +40,7 @@ static std::shared_ptr<Database> CreateMockDatabase()
 
     // no accounts by default
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
-                RawQuery(HasSubstr("FROM `accounts`"), _, _))
+                RawQuery(HasSubstr("FROM accounts"), _, _))
         .WillRepeatedly(Return(Database_Result()));
 
     // Suppress gmock "uninteresting method call" warnings in output
