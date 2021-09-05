@@ -727,8 +727,8 @@ void World::RestoreFromDump(const std::string& fileName)
 				dbRes = this->db->Query("INSERT INTO `characters` (`name`, `title`, `account`, `class`, `gender`, `race`, "
 					"`hairstyle`, `haircolor`, `map`, `x`, `y`, `direction`, `level`, `admin`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, `karma`, `sitting`, `hidden`, "
 					"`nointeract`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`) "
-					"VALUES ('$', '$', #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, '$', '$', '$', '$', '$', #, '$', '$')",
-					charName.c_str(), c["title"].get<std::string>(), c["account"].get<std::string>().c_str(),
+					"VALUES ('$', '$', '$', #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, '$', '$', '$', '$', '$', #, '$', '$')",
+					charName.c_str(), c["title"].get<std::string>().c_str(), c["account"].get<std::string>().c_str(),
 					c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
 					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
 					c["level"].get<int>(), c["admin"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
@@ -748,7 +748,7 @@ void World::RestoreFromDump(const std::string& fileName)
 					"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "
 					"`spells` = '$', `guild` = '$', `guild_rank` = #, `guild_rank_string` = '$', `quest` = '$' "
 					"WHERE `name` = '$'",
-					c["title"].get<std::string>(), c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
+					c["title"].get<std::string>().c_str(), c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
 					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
 					c["level"].get<int>(), c["admin"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
 					c["str"].get<int>(), c["intl"].get<int>(), c["wis"].get<int>(), c["agi"].get<int>(), c["con"].get<int>(), c["cha"].get<int>(),

@@ -83,6 +83,72 @@ protected:
         return guild;
     }
 
+    nlohmann::json DumpCharacter(nlohmann::json dump, const std::string& name, const std::string& guild_rank_str, const std::string& title = "")
+    {
+        if (dump.find("characters") == dump.end())
+            dump["characters"] = nlohmann::json::array();
+
+        auto player = CreatePlayer(name);
+        Character c(za_warudo.get());
+        c.player = &player;
+        nlohmann::json character;
+        SetCharacterDefaultProperties(character, &c);
+
+        character["account"] = name;
+        character["name"] = name;
+        character["guildrank_str"] =  guild_rank_str;
+        character["title"] = title;
+        dump["characters"].push_back(character);
+
+        return dump;
+    }
+
+    void SetCharacterDefaultProperties(nlohmann::json& character, Character* c = nullptr)
+    {
+        character["name"] = c->real_name;
+        character["account"] = c->player->username;
+        character["title"] = c->title;
+        character["class"] = c->clas;
+        character["gender"] = c->gender;
+        character["race"] = c->race;
+        character["hairstyle"] = c->hairstyle;
+        character["haircolor"] = c->haircolor;
+        character["map"] = c->mapid;
+        character["x"] = c->x;
+        character["y"] = c->y;
+        character["direction"] = c->direction;
+        character["admin"] = c->admin;
+        character["level"] = c->level;
+        character["exp"] = c->exp;
+        character["hp"] = c->hp;
+        character["tp"] = c->tp;
+        character["str"] = c->str;
+        character["intl"] = c->intl;
+        character["wis"] = c->wis;
+        character["agi"] = c->agi;
+        character["con"] = c->con;
+        character["cha"] = c->cha;
+        character["statpoints"] = c->statpoints;
+        character["skillpoints"] = c->skillpoints;
+        character["karma"] = c->karma;
+        character["sitting"] = c->sitting;
+        character["hidden"] = c->hidden;
+        character["nointeract"] = c->nointeract;
+        character["bankmax"] = c->bankmax;
+        character["goldbank"] = c->goldbank;
+        character["usage"] = c->usage;
+        character["inventory"] = ItemSerialize(c->inventory);
+        character["bank"] = ItemSerialize(c->bank);
+        character["paperdoll"] = DollSerialize(c->paperdoll);
+        character["spells"] = SpellSerialize(c->spells);
+        character["guild"] = c->guild ? c->guild->tag : "";
+        character["guildrank"] = c->guild_rank;
+        character["guildrank_str"] = c->guild_rank_string;
+        character["quest"] = c->quest_string.empty()
+            ? QuestSerialize(c->quests, c->quests_inactive)
+            : c->quest_string;
+    }
+
     nlohmann::json LoadDump()
     {
         nlohmann::json dump;
@@ -90,6 +156,13 @@ protected:
         inFile >> dump;
         inFile.close();
         return dump;
+    }
+
+    void WriteDump(nlohmann::json dump)
+    {
+        std::ofstream existing(dumpFileName);
+        existing << dump;
+        existing.close();
     }
 
     void AssertCharacterProperties(const nlohmann::json& dump, const std::string& name, const std::string& guild_rank_str, const std::string& title = "")
@@ -168,6 +241,24 @@ protected:
         ASSERT_EQ(chest["itemId"].get<int>(), chestItem->id);
         ASSERT_EQ(chest["amount"].get<int>(), chestItem->amount);
     }
+
+    void ExpectDatabaseTransaction()
+    {
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    BeginTransaction())
+            .WillOnce(Return(true));
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    Commit());
+    }
+
+    void ExpectNewCharacter(const std::string& name, const std::string& guild_rank_str)
+    {
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(HasSubstr("SELECT usage FROM characters"), _, _));
+
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(HasSubstr("INSERT INTO characters"), HasSubstr(name), HasSubstr(guild_rank_str)), _, _));
+    }
 };
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresCharacters)
@@ -193,12 +284,9 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
     const std::string OverwriteGuildRank = "Star Platinum";
 
     nlohmann::json dump;
-    dump["characters"] = nlohmann::json::array();
-    dump["characters"].push_back(nlohmann::json::object({{"account", ExistingName}, {"name", ExistingName}, {"guildrank_str", ExistingGuildRank}, {"title", ExistingTitle}}));
-    dump["characters"].push_back(nlohmann::json::object({{"account", ExistingName2}, {"name", ExistingName2}, {"guildrank_str", ExistingGuildRank2}, {"title", ExistingTitle2}}));
-    std::ofstream existing(dumpFileName);
-    existing << dump;
-    existing.close();
+    dump = DumpCharacter(dump, ExistingName, ExistingGuildRank, ExistingTitle);
+    dump = DumpCharacter(dump, ExistingName2, ExistingGuildRank2, ExistingTitle2);
+    WriteDump(dump);
 
     auto& player = CreatePlayer(ExistingName);
     auto& character = CreateCharacter(player, ExistingName);
@@ -214,6 +302,20 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 {
+    const std::string ExpectedName = "Dio Brando";
+    const std::string ExpectedGuildRank = "Bisexual Vampire";
+
+    nlohmann::json dump;
+    dump = DumpCharacter(dump, ExpectedName, ExpectedGuildRank);
+    WriteDump(dump);
+
+    ExpectDatabaseTransaction();
+    ExpectNewCharacter(ExpectedName, ExpectedGuildRank);
+
+    // make the existing dump store all the expected properties
+    za_warudo->DumpToFile(dumpFileName);
+
+    za_warudo->RestoreFromDump(dumpFileName);
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresGuilds)
