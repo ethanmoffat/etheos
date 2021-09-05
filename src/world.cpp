@@ -784,19 +784,19 @@ void World::RestoreFromDump(const std::string& fileName)
 			Database_Result dbRes;
 			if (exists.empty() || exists.front()["count"].GetInt() != 1)
 			{
-				dbRes = this->db->Query("INSERT INTO `guilds` (`tag`, `name`, `description`, `ranks`, `bank`) VALUES ('$', '$', '$', '$', '$')",
+				dbRes = this->db->Query("INSERT INTO `guilds` (`tag`, `name`, `description`, `ranks`, `bank`) VALUES ('$', '$', '$', '$', #)",
 					guildTag.c_str(),
 					guildName.c_str(),
 					g["description"].get<std::string>().c_str(),
 					g["ranks"].get<std::string>().c_str(),
-					g["bank"].get<std::string>().c_str());
+					g["bank"].get<int>());
 			}
 			else
 			{
 				dbRes = this->db->Query("UPDATE `guilds` SET `description` = '$', `ranks` = '$', `bank` = # WHERE tag = '$'",
 					g["description"].get<std::string>().c_str(),
 					g["ranks"].get<std::string>().c_str(),
-					g["bank"].get<std::string>().c_str(),
+					g["bank"].get<int>(),
 					guildTag.c_str());
 			}
 

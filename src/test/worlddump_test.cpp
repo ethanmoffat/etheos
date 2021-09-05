@@ -103,7 +103,21 @@ protected:
         return dump;
     }
 
-    void SetCharacterDefaultProperties(nlohmann::json& character, Character* c = nullptr)
+    nlohmann::json DumpGuild(nlohmann::json dump, const std::string& tag, const std::string& name)
+    {
+        if (dump.find("guilds") == dump.end())
+            dump["guilds"] = nlohmann::json::array();
+
+        auto g = CreateGuild(tag, name);
+        nlohmann::json guild;
+        SetGuildDefaultProperties(guild, g);
+
+        dump["guilds"].push_back(guild);
+
+        return dump;
+    }
+
+    void SetCharacterDefaultProperties(nlohmann::json& character, const Character* c)
     {
         character["name"] = c->real_name;
         character["account"] = c->player->username;
@@ -147,6 +161,15 @@ protected:
         character["quest"] = c->quest_string.empty()
             ? QuestSerialize(c->quests, c->quests_inactive)
             : c->quest_string;
+    }
+
+    void SetGuildDefaultProperties(nlohmann::json& guild, std::shared_ptr<Guild> g)
+    {
+        guild["tag"] = g->tag;
+        guild["name"] = g->name;
+        guild["description"] = g->description;
+        guild["ranks"] = RankSerialize(g->ranks);
+        guild["bank"] = g->bank;
     }
 
     nlohmann::json LoadDump()
@@ -254,10 +277,23 @@ protected:
     void ExpectNewCharacter(const std::string& name, const std::string& guild_rank_str)
     {
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
-                    RawQuery(HasSubstr("SELECT usage FROM characters"), _, _));
+                    RawQuery(StartsWith("SELECT usage FROM characters"), _, _));
 
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
-                    RawQuery(AllOf(HasSubstr("INSERT INTO characters"), HasSubstr(name), HasSubstr(guild_rank_str)), _, _));
+                    RawQuery(AllOf(StartsWith("INSERT INTO characters"), HasSubstr(name), HasSubstr(guild_rank_str)), _, _));
+    }
+
+    void ExpectNewGuild(const std::string& tag, const std::string& name)
+    {
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(StartsWith("SELECT COUNT(1) AS count FROM guilds"), _, _));
+
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("INSERT INTO guilds"), HasSubstr(tag), HasSubstr(name)), _, _));
+
+        // expect new guilds to be cached into the guild manager
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("SELECT tag, name, description, created, ranks, bank FROM guilds"), HasSubstr(tag)), _, _));
     }
 };
 
@@ -300,6 +336,7 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
     AssertCharacterProperties(dump, ExistingName2, ExistingGuildRank2, ExistingTitle2);
 }
 
+// todo: need a test for merging character (see usage query in RestoreFromDump)
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 {
     const std::string ExpectedName = "Dio Brando";
@@ -311,9 +348,6 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 
     ExpectDatabaseTransaction();
     ExpectNewCharacter(ExpectedName, ExpectedGuildRank);
-
-    // make the existing dump store all the expected properties
-    za_warudo->DumpToFile(dumpFileName);
 
     za_warudo->RestoreFromDump(dumpFileName);
 }
@@ -356,6 +390,17 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingGuild_Overwrites)
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
 {
+    const std::string ExpectedName = "stardust crusaders";
+    const std::string ExpectedTag = "SDC";
+
+    nlohmann::json dump;
+    dump = DumpGuild(dump, ExpectedTag, ExpectedName);
+    WriteDump(dump);
+
+    ExpectDatabaseTransaction();
+    ExpectNewGuild(ExpectedTag, ExpectedName);
+
+    za_warudo->RestoreFromDump(dumpFileName);
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
