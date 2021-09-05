@@ -5,6 +5,7 @@
 #include "world.hpp"
 #include "character.hpp"
 #include "player.hpp"
+#include "guild.hpp"
 
 #include "testhelper/mocks.hpp"
 #include "testhelper/setup.hpp"
@@ -47,7 +48,7 @@ protected:
     std::list<Player> players;
     std::list<Character> characters;
 
-    Player& CreatePlayer(const std::string name)
+    Player& CreatePlayer(const std::string& name)
     {
         Player player(name);
         player.world = za_warudo.get();
@@ -55,7 +56,7 @@ protected:
         return players.back();
     }
 
-    Character& CreateCharacter(Player& player, const std::string name)
+    Character& CreateCharacter(Player& player, const std::string& name)
     {
         Character testChar(za_warudo.get());
         testChar.player = &player;
@@ -65,6 +66,21 @@ protected:
         za_warudo->characters.push_back(&characters.back());
 
         return characters.back();
+    }
+
+    std::shared_ptr<Guild> CreateGuild(const std::string& tag, const std::string& name)
+    {
+        std::shared_ptr<Guild> guild(new Guild(za_warudo->guildmanager));
+        guild->tag = tag;
+        guild->name = name;
+
+        za_warudo->guildmanager->cache[tag] = guild;
+
+        // make sure guild destructor doesn't do any database stuff
+        guild->needs_save = false;
+        guild->members.push_back(std::make_shared<Guild_Member>("dummy"));
+
+        return guild;
     }
 
     nlohmann::json LoadDump()
@@ -94,6 +110,22 @@ protected:
 
         if (!title.empty())
             ASSERT_EQ((*character)["title"], title);
+    }
+
+    void AssertGuildProperties(const nlohmann::json& dump, const std::string& tag, const std::string& name)
+    {
+        ASSERT_NE(dump.find("guilds"), dump.end());
+        ASSERT_GE(dump["guilds"].size(), static_cast<size_t>(1));
+
+        auto guild = std::find_if(dump["guilds"].begin(), dump["guilds"].end(),
+            [&tag](nlohmann::json check)
+            {
+                return check.find("tag") != check.end() && check["tag"] == tag;
+            });
+        ASSERT_NE(guild, dump["guilds"].end());
+
+        ASSERT_EQ((*guild)["tag"], tag);
+        ASSERT_EQ((*guild)["name"], name);
     }
 
     void AssertMapItemProperties(const nlohmann::json& dump, int mapId, const Map_Item* mapItem)
@@ -186,10 +218,38 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresGuilds)
 {
+    const std::string ExpectedName = "stardust crusaders";
+    const std::string ExpectedTag = "SDC";
+
+    auto guild = CreateGuild(ExpectedTag, ExpectedName);
+    za_warudo->DumpToFile(dumpFileName);
+
+    auto dump = LoadDump();
+    AssertGuildProperties(dump, ExpectedTag, ExpectedName);
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingGuild_Overwrites)
 {
+    const std::string ExistingName = "Stardust Crusaders", ExistingName2 = "Speedwagon Foundation";
+    const std::string ExistingTag = "SDC", ExistingTag2 = "SWF";
+    const std::string OverwriteGuildName = "dio bad";
+
+    nlohmann::json dump;
+    dump["guilds"] = nlohmann::json::array();
+    dump["guilds"].push_back(nlohmann::json::object({{"tag", ExistingTag}, {"name", ExistingName}}));
+    dump["guilds"].push_back(nlohmann::json::object({{"tag", ExistingTag2}, {"name", ExistingName2}}));
+    std::ofstream existing(dumpFileName);
+    existing << dump;
+    existing.close();
+
+    auto guild = CreateGuild(ExistingTag, ExistingName);
+    guild->name = OverwriteGuildName;
+
+    za_warudo->DumpToFile(dumpFileName);
+
+    dump = LoadDump();
+    AssertGuildProperties(dump, ExistingTag, OverwriteGuildName);
+    AssertGuildProperties(dump, ExistingTag2, ExistingName2);
 }
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
