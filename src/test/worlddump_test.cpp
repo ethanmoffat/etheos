@@ -84,7 +84,7 @@ protected:
         return guild;
     }
 
-    nlohmann::json DumpCharacter(nlohmann::json dump, const std::string& name, const std::string& guild_rank_str, const std::string& title = "")
+    nlohmann::json DumpCharacter(nlohmann::json dump, const std::string& name, const std::string& guild_rank_str, const std::string& title = "", int usage = 0)
     {
         if (dump.find("characters") == dump.end())
             dump["characters"] = nlohmann::json::array();
@@ -99,17 +99,19 @@ protected:
         character["name"] = name;
         character["guildrank_str"] =  guild_rank_str;
         character["title"] = title;
+        character["usage"] = usage;
         dump["characters"].push_back(character);
 
         return dump;
     }
 
-    nlohmann::json DumpGuild(nlohmann::json dump, const std::string& tag, const std::string& name)
+    nlohmann::json DumpGuild(nlohmann::json dump, const std::string& tag, const std::string& name, const std::string& description = "")
     {
         if (dump.find("guilds") == dump.end())
             dump["guilds"] = nlohmann::json::array();
 
         auto g = CreateGuild(tag, name);
+        g->description = description;
         nlohmann::json guild;
         SetGuildDefaultProperties(guild, g);
 
@@ -325,6 +327,32 @@ protected:
                     Commit());
     }
 
+    void GivenExistingCharacter(const std::string& name, int usage)
+    {
+        std::unordered_map<std::string, util::variant> row;
+        row["usage"] = usage;
+
+        Database_Result res;
+        res.push_back(row);
+
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("SELECT usage FROM characters"), HasSubstr(name)), _, _))
+            .WillOnce(Return(res));
+    }
+
+    void GivenExistingGuild(const std::string& tag)
+    {
+        std::unordered_map<std::string, util::variant> row;
+        row["count"] = 1;
+
+        Database_Result res;
+        res.push_back(row);
+
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("SELECT COUNT(1) AS count FROM guilds"), HasSubstr(tag)), _, _))
+            .WillOnce(Return(res));
+    }
+
     void ExpectNewCharacter(const std::string& name, const std::string& guild_rank_str)
     {
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
@@ -334,6 +362,12 @@ protected:
                     RawQuery(AllOf(StartsWith("INSERT INTO characters"), HasSubstr(name), HasSubstr(guild_rank_str)), _, _));
     }
 
+    void ExpectUpdatedCharacter(const std::string& name, const std::string& guild_rank_str)
+    {
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("UPDATE characters"), HasSubstr(name), HasSubstr(guild_rank_str)), _, _));
+    }
+
     void ExpectNewGuild(const std::string& tag, const std::string& name)
     {
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
@@ -341,6 +375,16 @@ protected:
 
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
                     RawQuery(AllOf(StartsWith("INSERT INTO guilds"), HasSubstr(tag), HasSubstr(name)), _, _));
+
+        // expect new guilds to be cached into the guild manager
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("SELECT tag, name, description, created, ranks, bank FROM guilds"), HasSubstr(tag)), _, _));
+    }
+
+    void ExpectUpdatedGuild(const std::string& tag, const std::string& description)
+    {
+        EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
+                    RawQuery(AllOf(StartsWith("UPDATE guilds"), HasSubstr(tag), HasSubstr(description)), _, _));
 
         // expect new guilds to be cached into the guild manager
         EXPECT_CALL(*dynamic_cast<MockDatabase*>(database.get()),
@@ -387,7 +431,6 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_ExistingCharacter_Overwrites)
     AssertCharacterProperties(dump, ExistingName2, ExistingGuildRank2, ExistingTitle2);
 }
 
-// todo: need a test for merging character (see usage query in RestoreFromDump)
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 {
     const std::string ExpectedName = "Dio Brando";
@@ -399,6 +442,41 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresCharacters)
 
     ExpectDatabaseTransaction();
     ExpectNewCharacter(ExpectedName, ExpectedGuildRank);
+
+    za_warudo->RestoreFromDump(dumpFileName);
+}
+
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_DoesNotOverwrite_CharacterWithNewerData)
+{
+    const std::string ExpectedName = "Dio Brando";
+    const std::string ExpectedGuildRank = "Bisexual Vampire";
+    const int ExistingUsage = 100;
+
+    nlohmann::json dump;
+    dump = DumpCharacter(dump, ExpectedName, ExpectedGuildRank);
+    WriteDump(dump);
+
+    GivenExistingCharacter(ExpectedName, ExistingUsage);
+    ExpectDatabaseTransaction();
+    // no new character expected
+
+    za_warudo->RestoreFromDump(dumpFileName);
+}
+
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_UpdatesCharacter_WithOlderData)
+{
+    const std::string ExpectedName = "Dio Brando";
+    const std::string ExpectedGuildRank = "Bisexual Vampire";
+    const int DumpUsage = 100;
+    const int ExistingUsage = 99;
+
+    nlohmann::json dump;
+    dump = DumpCharacter(dump, ExpectedName, ExpectedGuildRank, "", DumpUsage);
+    WriteDump(dump);
+
+    GivenExistingCharacter(ExpectedName, ExistingUsage);
+    ExpectDatabaseTransaction();
+    ExpectUpdatedCharacter(ExpectedName, ExpectedGuildRank);
 
     za_warudo->RestoreFromDump(dumpFileName);
 }
@@ -450,6 +528,23 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
 
     ExpectDatabaseTransaction();
     ExpectNewGuild(ExpectedTag, ExpectedName);
+
+    za_warudo->RestoreFromDump(dumpFileName);
+}
+
+GTEST_TEST_F(WorldDumpTest, RestoreFromDump_ExistingGuild_UpdatesGuild)
+{
+    const std::string ExpectedName = "stardust crusaders";
+    const std::string ExpectedTag = "SDC";
+    const std::string ExpectedDescription = "OH MY GAWD";
+
+    nlohmann::json dump;
+    dump = DumpGuild(dump, ExpectedTag, ExpectedName, ExpectedDescription);
+    WriteDump(dump);
+
+    GivenExistingGuild(ExpectedTag);
+    ExpectDatabaseTransaction();
+    ExpectUpdatedGuild(ExpectedTag, ExpectedDescription);
 
     za_warudo->RestoreFromDump(dumpFileName);
 }
