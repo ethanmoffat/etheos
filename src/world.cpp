@@ -627,9 +627,7 @@ void World::DumpToFile(const std::string& fileName)
 				{ "y", item->y },
 				{ "itemId", item->id },
 				{ "amount", item->amount },
-				{ "uid", item->uid },
-				{ "owner", item->owner },
-				{ "unprotect", item->unprotecttime }
+				{ "uid", item->uid }
 			});
 		}
 

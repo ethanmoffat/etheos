@@ -18,6 +18,7 @@ public:
     WorldDumpTest()
         : dumpFileName("test_dump.bak.json")
     {
+        srand(static_cast<unsigned>(time(0)));
         Console::SuppressOutput(true);
 
         Config config, aConfig;
@@ -115,6 +116,31 @@ protected:
         dump["guilds"].push_back(guild);
 
         return dump;
+    }
+
+    void DumpItem(nlohmann::json& dump, std::shared_ptr<Map_Item> mapItem, Map* map)
+    {
+        if (dump.find("mapState") == dump.end())
+        {
+            dump["mapState"] = nlohmann::json::object();
+        }
+
+        if (dump["mapState"].find("items") == dump["mapState"].end())
+        {
+            dump["mapState"]["items"] = nlohmann::json::array();
+        }
+
+        nlohmann::json item = nlohmann::json::object(
+        {
+            { "mapId", map->id },
+            { "x", mapItem->x },
+            { "y", mapItem->y },
+            { "itemId", mapItem->id },
+            { "amount", mapItem->amount },
+            { "uid", mapItem->uid }
+        });
+
+        dump["mapState"]["items"].push_back(item);
     }
 
     void SetCharacterDefaultProperties(nlohmann::json& character, const Character* c)
@@ -405,8 +431,6 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresGuilds)
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
 {
-    srand(static_cast<unsigned>(time(0)));
-
     std::list<std::pair<Map_Item*, Map*>> items;
     for (const auto& map : za_warudo->maps)
     {
@@ -421,12 +445,37 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
 {
+    std::list<std::pair<std::shared_ptr<Map_Item>, Map*>> items;
+
+    nlohmann::json dump;
+    for (const auto& map : za_warudo->maps)
+    {
+        auto item = map->AddItem(rand() % 480, rand() % 10000, rand() % 25, rand() % 25);
+        DumpItem(dump, item, map);
+        items.push_back(std::make_pair(item, map));
+        map->DelItem(item->uid);
+    }
+    WriteDump(dump);
+
+    ExpectDatabaseTransaction();
+
+    za_warudo->RestoreFromDump(dumpFileName);
+
+    for (const auto itemPair : items)
+    {
+        auto expectedItem = itemPair.first;
+        auto restoredItem = itemPair.second->GetItem(expectedItem->uid);
+
+        ASSERT_EQ(expectedItem->uid, restoredItem->uid);
+        ASSERT_EQ(expectedItem->id, restoredItem->id);
+        ASSERT_EQ(expectedItem->amount, restoredItem->amount);
+        ASSERT_EQ(expectedItem->x, restoredItem->x);
+        ASSERT_EQ(expectedItem->y, restoredItem->y);
+    }
 }
 
 GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapChests)
 {
-    srand(static_cast<unsigned>(time(0)));
-
     std::list<std::pair<Map_Chest_Item*, Map*>> chests;
     for (const auto& map : za_warudo->maps)
     {
