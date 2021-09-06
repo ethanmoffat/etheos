@@ -258,7 +258,9 @@ protected:
         ASSERT_EQ((*character)["guildrank_str"], guild_rank_str);
 
         if (!title.empty())
+        {
             ASSERT_EQ((*character)["title"], title);
+        }
     }
 
     void AssertGuildProperties(const nlohmann::json& dump, const std::string& tag, const std::string& name)
@@ -640,7 +642,6 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapChests)
     {
         auto& expectedChestItem = chestPair.first;
         auto& expectedChest = chestPair.second->chests.front();
-        auto& expectedMap = chestPair.second;
 
         ASSERT_EQ(expectedChest->items.size(), 1);
 

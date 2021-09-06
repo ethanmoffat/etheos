@@ -354,8 +354,8 @@ template <typename T> static T GetRow(std::unordered_map<std::string, util::vari
 }
 
 Character::Character(World * world)
-	: world(world)
-	, online(false)
+	: online(false)
+	, world(world)
 	, display_str(this->world->config["UseAdjustedStats"] ? adj_str : str)
 	, display_intl(this->world->config["UseAdjustedStats"] ? adj_intl : intl)
 	, display_wis(this->world->config["UseAdjustedStats"] ? adj_wis : wis)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <thread>
+
 #include "config.hpp"
 #include "eoserv_config.hpp"
 
