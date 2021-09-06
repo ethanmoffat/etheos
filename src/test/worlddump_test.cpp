@@ -143,6 +143,31 @@ protected:
         dump["mapState"]["items"].push_back(item);
     }
 
+    void DumpChest(nlohmann::json& dump, Map_Chest mapChest, Map_Chest_Item item, Map* map)
+    {
+        if (dump.find("mapState") == dump.end())
+        {
+            dump["mapState"] = nlohmann::json::object();
+        }
+
+        if (dump["mapState"].find("chests") == dump["mapState"].end())
+        {
+            dump["mapState"]["chests"] = nlohmann::json::array();
+        }
+
+        nlohmann::json chest = nlohmann::json::object(
+        {
+            { "mapId", map->id },
+            { "x", mapChest.x },
+            { "y", mapChest.y },
+            { "itemId", item.id },
+            { "amount", item.amount },
+            { "slot", item.slot }
+        });
+
+        dump["mapState"]["chests"].push_back(chest);
+    }
+
     void SetCharacterDefaultProperties(nlohmann::json& character, const Character* c)
     {
         character["name"] = c->real_name;
@@ -461,7 +486,7 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
 
     za_warudo->RestoreFromDump(dumpFileName);
 
-    for (const auto itemPair : items)
+    for (const auto& itemPair : items)
     {
         auto expectedItem = itemPair.first;
         auto restoredItem = itemPair.second->GetItem(expectedItem->uid);
@@ -495,4 +520,39 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapChests)
 
 GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapChests)
 {
+    std::list<std::pair<std::shared_ptr<Map_Chest_Item>, Map*>> chests;
+
+    nlohmann::json dump;
+    for (const auto& map : za_warudo->maps)
+    {
+        auto chest = std::make_shared<Map_Chest>();
+        chest->chestslots = 1;
+        chest->maxchest = 10001;
+        map->chests.push_back(chest);
+        map->chests.front()->AddItem(rand() % 480, rand() % 10000);
+        auto item = map->chests.front()->items.front();
+        map->chests.front()->DelItem(item.id);
+
+        DumpChest(dump, *chest, item, map);
+    }
+    WriteDump(dump);
+
+    ExpectDatabaseTransaction();
+
+    za_warudo->RestoreFromDump(dumpFileName);
+
+    for (const auto& chestPair : chests)
+    {
+        auto& expectedChestItem = chestPair.first;
+        auto& expectedChest = chestPair.second->chests.front();
+        auto& expectedMap = chestPair.second;
+
+        ASSERT_EQ(expectedChest->items.size(), 1);
+
+        auto& restoredItem = expectedChest->items.front();
+
+        ASSERT_EQ(expectedChestItem->id, restoredItem.id);
+        ASSERT_EQ(expectedChestItem->amount, restoredItem.amount);
+        ASSERT_EQ(expectedChestItem->slot, restoredItem.slot);
+    }
 }
