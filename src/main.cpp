@@ -419,7 +419,6 @@ int eoserv_main(int argc, char *argv[])
 			if (eoserv_sig_abort)
 			{
 				Console::Out("Exiting EOSERV");
-				DumpWorld(server);
 				eoserv_sig_abort = false;
 				break;
 			}
