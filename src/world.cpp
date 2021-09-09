@@ -1816,9 +1816,4 @@ World::~World()
 	delete this->ecf;
 
 	delete this->guildmanager;
-
-	if (this->config["TimedSave"])
-	{
-		this->db->Commit();
-	}
 }
