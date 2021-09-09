@@ -130,8 +130,8 @@ class World
 
 		void Initialize();
 
-		void BeginDB();
-		void CommitDB();
+		void DumpToFile(const std::string& fileName);
+		void RestoreFromDump(const std::string& fileName);
 
 		void UpdateAdminCount(int admin_count);
 		void IncAdminCount() { UpdateAdminCount(this->admin_count + 1); }

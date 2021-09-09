@@ -74,7 +74,8 @@ class Player
 
 		std::string dutylast;
 
-		Player(std::string username, World *, Database * = nullptr);
+		Player(const std::string& username);
+		Player(const std::string& username, World *, Database * = nullptr);
 
 		std::vector<Character *> characters;
 		Character *character;

@@ -11,6 +11,7 @@ class Character;
 
 struct Character_Item;
 struct Character_Spell;
+struct Character_QuestState;
 
 enum AdminLevel : unsigned char
 {

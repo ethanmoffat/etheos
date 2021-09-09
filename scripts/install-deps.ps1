@@ -125,10 +125,6 @@ if (-not $SkipSQLite) {
     CheckPathForDll -DllName "sqlite3.dll" -AdditionalPaths "$LocalSqliteDir\bin"
 }
 
-if ((Test-Path $DownloadDir)) {
-    Remove-Item $DownloadDir -Recurse -Force
-}
-
 if (-not (Get-Command vswhere)) {
     Write-Output "Installing vswhere..."
     choco install -y vswhere | Out-Null
@@ -137,4 +133,23 @@ if (-not (Get-Command vswhere)) {
     if (-not (Get-Command vswhere)) {
         Write-Warning "Could not detect vswhere after install. Shell may need to be restarted."
     }
+}
+
+$JSON_VERSION="3.9.1"
+if (-not (Test-Path (Join-Path $PSScriptRoot "..\json"))) {
+    New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot "..\json")
+
+    $JsonUrl="https://raw.githubusercontent.com/nlohmann/json/v$JSON_VERSION/single_include/nlohmann/json.hpp"
+    $DownloadedFile=(Join-Path $DownloadDir "json.hpp")
+    (New-Object System.Net.WebClient).DownloadFile($JsonUrl, $DownloadedFile)
+
+    if (-not (Test-Path $DownloadedFile)) {
+        Write-Error "Error downloading JSON library"
+    } else {
+        Copy-Item $DownloadedFile (Join-Path $PSScriptRoot "..\json")
+    }
+}
+
+if ((Test-Path $DownloadDir)) {
+    Remove-Item $DownloadDir -Recurse -Force
 }

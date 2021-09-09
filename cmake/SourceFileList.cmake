@@ -275,6 +275,7 @@ set(ExtraFiles
 
 set(TestFiles
 	src/test/config_test.cpp
+	src/test/worlddump_test.cpp
 	src/test/handlers/Login_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp

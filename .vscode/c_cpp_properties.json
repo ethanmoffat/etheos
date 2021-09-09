@@ -12,6 +12,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -36,6 +37,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -56,11 +58,38 @@
             "intelliSenseMode": "msvc-x64"
         },
         {
+            "name": "Sqlite - Windows",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "sqlite/include",
+                "json",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLITE",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
             "name": "SqlServer - Linux",
             "includePath": [
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -84,6 +113,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -103,11 +133,36 @@
             "intelliSenseMode": "gcc-x64"
         },
         {
+            "name": "Sqlite - Linux",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "json",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLITE"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
             "name": "SqlServer - Windows (Debug)",
             "includePath": [
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -133,6 +188,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -154,11 +210,39 @@
             "intelliSenseMode": "msvc-x64"
         },
         {
+            "name": "Sqlite - Windows (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "sqlite/include",
+                "json",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLITE",
+                "DEBUG",
+                "_WIN32" // defining _WIN32 here so intellisense works as expected
+            ],
+            "compilerPath": "\"${myCompilerPath}cl.exe\"",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
             "name": "SqlServer - Linux (Debug)",
             "includePath": [
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
@@ -183,11 +267,37 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "json",
                 "src"
             ],
             "defines": [
                 "DATABASE_SQLSERVER",
                 "DATABASE_MYSQL",
+                "DEBUG"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "Sqlite - Linux (Debug)",
+            "includePath": [
+                "build/googletest-src/googletest/include",
+                "build/googletest-src/googlemock/include",
+                "build/bcrypt-src/include",
+                "json",
+                "src"
+            ],
+            "defines": [
+                "DATABASE_SQLITE",
                 "DEBUG"
             ],
             "compilerPath": "/usr/bin/g++",

@@ -24,7 +24,16 @@
 #include <unordered_map>
 #include <utility>
 
-Player::Player(std::string username, World * world, Database * database)
+Player::Player(const std::string& username)
+	: username(username)
+{
+	this->online = true;
+	this->character = nullptr;
+	this->client = nullptr;
+	this->login_time = static_cast<int>(std::time(0));
+}
+
+Player::Player(const std::string& username, World * world, Database * database)
 {
 	this->world = world;
 

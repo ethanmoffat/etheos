@@ -8,7 +8,13 @@
             "args": [
                 "-command",
                 ".\\build-windows.ps1",
-                "-Debug"
+                "-Debug",
+                "-SqlServer",
+                "ON",
+                "-MariaDB",
+                "ON",
+                "-Sqlite",
+                "ON"
             ],
             "group": "build",
             "presentation": {
@@ -23,6 +29,12 @@
             "args": [
                 "-command",
                 ".\\build-windows.ps1",
+                "-SqlServer",
+                "ON",
+                "-MariaDB",
+                "ON",
+                "-Sqlite",
+                "ON"
             ],
             "group": "build",
             "presentation": {
