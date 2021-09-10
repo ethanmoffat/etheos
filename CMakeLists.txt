@@ -3,11 +3,12 @@
 # See LICENSE.txt for more info.
 
 cmake_minimum_required(VERSION 2.6)
-project(eoserv C CXX)
+cmake_policy(SET CMP0048 NEW)
+cmake_policy(SET CMP0054 NEW)
+
+project(etheos VERSION 0.7.1 LANGUAGES C CXX)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-
-cmake_policy(SET CMP0054 NEW)
 
 # ---------
 #  Options
@@ -177,7 +178,7 @@ include(DownloadGoogleTest)
 # ---------
 
 add_library(eoserv_lib STATIC ${eoserv_SOURCE_FILES})
-add_executable(eoserv ${eoserv_MAIN_FILES})
+add_executable(etheos ${eoserv_MAIN_FILES})
 add_executable(eoserv_test ${TestFiles})
 
 target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/json)
@@ -239,16 +240,16 @@ endif()
 
 include(DownloadBcrypt)
 
-target_include_directories(eoserv PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
+target_include_directories(etheos PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
 
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
 
-target_link_libraries(eoserv eoserv_lib)
+target_link_libraries(etheos eoserv_lib)
 target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})
 
-install(TARGETS eoserv RUNTIME DESTINATION .)
+install(TARGETS etheos RUNTIME DESTINATION .)
 install(TARGETS eoserv_test RUNTIME DESTINATION ./test)
 
 foreach (File ${ExtraFiles})
@@ -293,7 +294,7 @@ if(EOSERV_USE_PRECOMPILED_HEADERS)
 	compile_pch(eoserv-pch ${CMAKE_BINARY_DIR}/eoserv-pch.h)
 
 	add_dependencies(eoserv-pch-autogen eoserv-pch)
-	add_dependencies(eoserv eoserv-pch)
+	add_dependencies(etheos eoserv-pch)
 	add_dependencies(eoserv_lib eoserv-pch)
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${eoserv-pch_INCLUDE_FLAG}")
