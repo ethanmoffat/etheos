@@ -89,19 +89,19 @@ stages:
       displayName: 'Build/push etheos image'
       inputs:
         command: buildAndPush
-        repository: etheos
+        repository: etheos/dev
         tags: |
-          dev/$(Build.BuildNumber)
-          dev/$(Build.SourceBranchName)
+          $(Build.BuildNumber)
+          $(Build.SourceBranchName)
     - task: Docker@2
       condition: eq(variables['Build.Reason'], 'IndividualCI')
       displayName: 'Push etheos:test image - CI build'
       inputs:
         command: push
-        repository: etheos
+        repository: etheos/test
         tags: |
-          test/$(Build.BuildNumber)
-          test/$(Build.SourceBranchName)
+          $(Build.BuildNumber)
+          $(Build.SourceBranchName)
 
   - job: tag_sources
     displayName: 'Tag on success'
