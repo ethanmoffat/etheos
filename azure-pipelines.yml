@@ -17,7 +17,7 @@ stages:
 - stage: build_test
   displayName: 'Build + Test'
   jobs:
-  - job:
+  - job: build_linux
     displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server + Sqlite)'
     pool:
       vmImage: 'ubuntu-latest'
@@ -38,7 +38,7 @@ stages:
         ArtifactName: 'linux'
         publishLocation: 'Container'
 
-  - job:
+  - job: build_windows
     displayName: 'Build - Release - Windows (MariaDB + SQL Server + Sqlite)'
     pool:
       vmImage: 'windows-latest'
@@ -63,3 +63,58 @@ stages:
         PathtoPublish: 'install'
         ArtifactName: 'windows'
         publishLocation: 'Container'
+
+  - job: build_docker
+    displayName: 'Docker build'
+    dependsOn: build_linux
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      lfs: true
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        downloadType: 'single'
+        artifactName: 'linux'
+        downloadPath: '$(Build.SourcesDirectory)'
+    - script: mv linux install
+      displayName: 'Rename linux dir -> install'
+    - script: chmod +x install/etheos
+      displayName: 'Make etheos binary executable'
+    - task: Docker@2
+      inputs:
+        command: login
+        containerRegistry: etheos
+    - task: Docker@2
+      condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
+      displayName: 'Build/push etheos image'
+      inputs:
+        command: buildAndPush
+        repository: etheos/dev
+        tags: |
+          $(Build.BuildNumber)
+          $(Build.SourceBranchName)
+    - task: Docker@2
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'Push etheos:test image - CI build'
+      inputs:
+        command: push
+        repository: etheos/test
+        tags: |
+          $(Build.BuildNumber)
+          $(Build.SourceBranchName)
+
+  - job: tag_sources
+    displayName: 'Tag on success'
+    dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
+    condition: succeeded()
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      lfs: true
+      persistCredentials: true
+    - script: |
+        git tag build/$(Build.BuildNumber)
+        git push origin build/$(Build.BuildNumber)
+      workingDirectory: $(Build.SourcesDirectory)

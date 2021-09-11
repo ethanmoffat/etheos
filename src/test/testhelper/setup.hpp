@@ -18,6 +18,14 @@ static void CreateConfigWithTestDefaults(Config& config, Config& admin_config)
     config["ESF"] = "../data/pub/empty.esf";
     config["ECF"] = "../data/pub/empty.ecf";
 
+    config["DropsFile"] = "../data/drops.ini";
+    config["ShopsFile"] = "../data/shops.ini";
+    config["ArenasFile"] = "../data/arenas.ini";
+    config["FormulasFile"] = "../data/formulas.ini";
+    config["HomeFile"] = "../data/home.ini";
+    config["SkillsFile"] = "../data/skills.ini";
+    config["SpeechFile"] = "../data/speech.ini";
+
     //turn off SLN
     config["SLN"] = "false";
     // turn off timed save
