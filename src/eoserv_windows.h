@@ -35,4 +35,6 @@
 #undef max
 #endif
 
+#define setenv(_Name, _Value, _Overwrite) _putenv_s(_Name, _Value)
+
 #endif // EOSERV_WINDOWS_H_INCLUDED
