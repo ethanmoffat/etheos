@@ -6,6 +6,7 @@ SKIPCMAKE=false
 SKIPMARIADB=false
 SKIPSQLITE=false
 SKIPSQLSERVER=false
+SKIPJSON=false
 HELP=false
 
 function parse_options {
@@ -17,6 +18,7 @@ function parse_options {
       --skip-mariadb)         SKIPMARIADB=true        ;;
       --skip-sqlite)          SKIPSQLITE=true         ;;
       --skip-odbc)            SKIPSQLSERVER=true      ;;
+      --skip-json)            SKIPJSON=true           ;;
       *)                      HELP=true               ; break ;;
     esac
     shift
@@ -31,6 +33,7 @@ if [ "$HELP" == "true" ]; then
     echo "  --skip-mariadb           Skip MariaDB download"
     echo "  --skip-sqlite            Skip SQLite download"
     echo "  --skip-odbc              Skip ODBC (SQL Server) download"
+    echo "  --skip-json              Skip JSON library download"
     echo -e "\nThis script must be run as sudo."
 
     exit 0
@@ -116,10 +119,10 @@ echo "Installing packages: $PACKAGES"
 
 if [ "$PLATFORM_NAME" == "ubuntu" ]; then
     apt-get update > /dev/null
-    sudo ACCEPT_EULA=Y apt-get install -y $PACKAGES
+    ACCEPT_EULA=Y apt-get install -y $PACKAGES
 elif [ "$PLATFORM_NAME" == "rhel" ]; then
     yum makecache fast > /dev/null
-    sudo ACCEPT_EULA=Y yum install -y $PACKAGES
+    ACCEPT_EULA=Y yum install -y $PACKAGES
 fi
 
 if [ "$SKIPCMAKE" == "false" ]; then
@@ -135,11 +138,13 @@ if [ "$SKIPCMAKE" == "false" ]; then
     rm cmake-3.16.0-Linux-x86_64.sh
 fi
 
-echo "Installing json library dependency"
+if [ "$SKIPJSON" == "false" ]; then
+    echo "Installing json library dependency"
 
-if [ ! -d ../json ]; then
-    mkdir ../json
+    if [ ! -d ../json ]; then
+        mkdir ../json
+    fi
+    JSON_VERSION=3.9.1
+    wget -q "https://raw.githubusercontent.com/nlohmann/json/v$JSON_VERSION/single_include/nlohmann/json.hpp"
+    mv json.hpp ../json
 fi
-JSON_VERSION=3.9.1
-wget -q "https://raw.githubusercontent.com/nlohmann/json/v$JSON_VERSION/single_include/nlohmann/json.hpp"
-mv json.hpp ../json

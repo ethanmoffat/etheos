@@ -1,16 +1,20 @@
 #include <gtest/gtest.h>
+
 #include "config.hpp"
+#include "console.hpp"
+#include "eoserv_config.hpp"
 
-GTEST_TEST(ConfigTests, SampleTestPasses)
+#ifdef _WIN32
+#include "eoserv_windows.h"
+#endif
+
+GTEST_TEST(ConfigTests, EoservConfig_ValueFromEnvironmentVariable_OverridesFileValue)
 {
-    Config config;
-    ASSERT_TRUE(true);
-}
-
-GTEST_TEST(ConfigTests, SampleTestFails)
-{
-    GTEST_SKIP();
+    Console::SuppressOutput(true);
+    setenv("ETHEOS_PORT", "12345", 1);
 
     Config config;
-    ASSERT_TRUE(false);
+    eoserv_config_validate_config(config);
+
+    ASSERT_EQ(config["Port"].GetInt(), 12345);
 }
