@@ -98,7 +98,7 @@ stages:
       condition: or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Schedule'))
       displayName: 'Push etheos:test image - CI build'
       inputs:
-        command: push
+        command: buildAndPush
         repository: etheos/test
         tags: |
           $(Build.BuildNumber)
