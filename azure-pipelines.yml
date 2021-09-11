@@ -86,23 +86,23 @@ stages:
         command: login
         containerRegistry: etheos
     - task: Docker@2
-      condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
+      condition: not(or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Schedule')))
       displayName: 'Build/push etheos image'
       inputs:
         command: buildAndPush
         repository: etheos/dev
         tags: |
           $(Build.BuildNumber)
-          $(Build.SourceBranchName)
+          latest
     - task: Docker@2
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      condition: or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Schedule'))
       displayName: 'Push etheos:test image - CI build'
       inputs:
         command: push
         repository: etheos/test
         tags: |
           $(Build.BuildNumber)
-          $(Build.SourceBranchName)
+          latest
 
   - job: tag_sources
     displayName: 'Tag on success'
