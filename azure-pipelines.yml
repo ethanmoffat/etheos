@@ -86,6 +86,7 @@ stages:
         command: login
         containerRegistry: etheos
     - task: Docker@2
+      condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
       displayName: 'Build/push etheos image'
       inputs:
         command: buildAndPush
