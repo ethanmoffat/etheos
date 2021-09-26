@@ -34,6 +34,7 @@
         {
             "name": "MySQL + SqlServer - Windows",
             "includePath": [
+                "C:/Program Files (x86)/MariaDB/MariaDB Connector C/include",
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
@@ -185,6 +186,7 @@
         {
             "name": "MySQL + SqlServer - Windows (Debug)",
             "includePath": [
+                "C:/Program Files (x86)/MariaDB/MariaDB Connector C/include",
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",

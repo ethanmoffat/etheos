@@ -77,6 +77,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "DBHost"             , "localhost");
 	eoserv_config_default(config, "DBUser"             , "eoserv");
 	eoserv_config_default(config, "DBPass"             , "eoserv");
+	eoserv_config_default(config, "DBPassFile"         , "");
 	eoserv_config_default(config, "DBName"             , "eoserv");
 	eoserv_config_default(config, "DBPort"             , 0);
 	eoserv_config_default(config, "EIF"                , "./data/pub/dat001.eif");
