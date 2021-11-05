@@ -1,0 +1,113 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "containerName": "etheos-dev",
+    "containerImage": "etheos.azurecr.io/etheos/dev"
+  },
+  "resources": [
+    {
+      "name": "file-share-demo",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2021-07-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "containers": [
+          {
+            "name": "[variables('containerName')]",
+            "properties": {
+              "image": "[variables('containerImage')]",
+              "resources": {
+                "requests": {
+                  "cpu": 2,
+                  "memoryInGB": 1.0
+                }
+              },
+              "ports": [
+                {
+                  "port": 8078
+                }
+              ],
+              "volumeMounts": [
+                {
+                  "name": "logs",
+                  "mountPath": "/logs"
+                },
+                {
+                  "name": "data",
+                  "mountPath": "/etheos/data"
+                }
+              ],
+              "environmentVariables": [
+                {
+                  "name": "ETHEOS_DBPASS",
+                  "secureValue": "true",
+                  "value": "!!DatabasePassword!!"
+                },
+                {
+                  "name": "ETHEOS_LOGOUT",
+                  "value": "/logs/dev/stdout"
+                },
+                {
+                  "name": "ETHEOS_LOGOUT",
+                  "value": "/logs/dev/stderr"
+                },
+                {
+                  "name": "ETHEOS_WORLDDUMPFILE",
+                  "value": "/logs/world.bak.json"
+                },
+                {
+                  "name": "ETHEOS_DBNAME",
+                  "value": "etheos-dev"
+                },
+                {
+                  "name": "ETHEOS_DBHOST",
+                  "value": "etheos.database.windows.net"
+                },
+                {
+                  "name": "ETHEOS_BCRYPTWORKLOAD",
+                  "value": "12"
+                },
+                {
+                  "name": "ETHEOS_THREADPOOLTHREADS",
+                  "value": "4"
+                }
+              ]
+            }
+          }
+        ],
+        "osType": "Linux",
+        "ipAddress": {
+          "type": "Public",
+          "ports": [
+            {
+              "protocol": "TCP",
+              "port": 8078
+            }
+          ],
+          "dnsNameLabel": "etheos-dev"
+        },
+        "volumes": [
+          {
+            "name": "logs",
+            "azureFile": {
+              "shareName": "etheos-logs",
+              "storageAccountName": "etheosstorage",
+              "storageAccountKey": "!!StorageAccountKey!!",
+              "readOnly": false
+            }
+          },
+          {
+            "name": "data",
+            "azureFile": {
+              "shareName": "etheos-sample-data",
+              "storageAccountName": "etheosstorage",
+              "storageAccountKey": "!!StorageAccountKey!!",
+              "readOnly": true
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
