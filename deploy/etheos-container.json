@@ -5,9 +5,44 @@
     "containerName": "etheos-dev",
     "containerImage": "etheos.azurecr.io/etheos/dev"
   },
+  "parameters": {
+    "sqlDbUser": {
+      "type": "string"
+    },
+    "sqlDbPass": {
+      "type": "securestring"
+    },
+    "sqlDbHost": {
+      "type": "string"
+    },
+    "sqlDbName": {
+      "type": "string"
+    },
+    "imageRegistryPass": {
+      "type": "securestring"
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "storageAccountKey": {
+      "type": "securestring"
+    },
+    "logsShare": {
+      "type": "string"
+    },
+    "dataShare": {
+      "type": "string"
+    },
+    "cpu": {
+      "type": "string"
+    },
+    "memoryInGb": {
+      "type": "string"
+    }
+  },
   "resources": [
     {
-      "name": "file-share-demo",
+      "name": "etheos-dev",
       "type": "Microsoft.ContainerInstance/containerGroups",
       "apiVersion": "2021-07-01",
       "location": "[resourceGroup().location]",
@@ -19,8 +54,8 @@
               "image": "[variables('containerImage')]",
               "resources": {
                 "requests": {
-                  "cpu": 2,
-                  "memoryInGB": 1.0
+                  "cpu": "[parameters('cpu')]",
+                  "memoryInGB": "[parameters('memoryInGb')]"
                 }
               },
               "ports": [
@@ -41,28 +76,31 @@
               "environmentVariables": [
                 {
                   "name": "ETHEOS_DBPASS",
-                  "secureValue": "true",
-                  "value": "!!DatabasePassword!!"
+                  "secureValue": "[parameters('sqlDbPass')]"
                 },
                 {
                   "name": "ETHEOS_LOGOUT",
                   "value": "/logs/dev/stdout"
                 },
                 {
-                  "name": "ETHEOS_LOGOUT",
+                  "name": "ETHEOS_LOGERR",
                   "value": "/logs/dev/stderr"
                 },
                 {
                   "name": "ETHEOS_WORLDDUMPFILE",
-                  "value": "/logs/world.bak.json"
+                  "value": "/logs/dev/world.bak.json"
                 },
                 {
                   "name": "ETHEOS_DBNAME",
-                  "value": "etheos-dev"
+                  "value": "[parameters('sqlDbName')]"
                 },
                 {
                   "name": "ETHEOS_DBHOST",
-                  "value": "etheos.database.windows.net"
+                  "value": "[parameters('sqlDbHost')]"
+                },
+                {
+                  "name": "ETHEOS_DBUSER",
+                  "value": "[parameters('sqlDbUser')]"
                 },
                 {
                   "name": "ETHEOS_BCRYPTWORKLOAD",
@@ -74,6 +112,13 @@
                 }
               ]
             }
+          }
+        ],
+        "imageRegistryCredentials": [
+          {
+            "server": "etheos.azurecr.io",
+            "username": "etheos",
+            "password": "[parameters('imageRegistryPass')]"
           }
         ],
         "osType": "Linux",
@@ -91,18 +136,18 @@
           {
             "name": "logs",
             "azureFile": {
-              "shareName": "etheos-logs",
-              "storageAccountName": "etheosstorage",
-              "storageAccountKey": "!!StorageAccountKey!!",
+              "shareName": "[parameters('logsShare')]",
+              "storageAccountName": "[parameters('storageAccountName')]",
+              "storageAccountKey": "[parameters('storageAccountKey')]",
               "readOnly": false
             }
           },
           {
             "name": "data",
             "azureFile": {
-              "shareName": "etheos-sample-data",
-              "storageAccountName": "etheosstorage",
-              "storageAccountKey": "!!StorageAccountKey!!",
+              "shareName": "[parameters('dataShare')]",
+              "storageAccountName": "[parameters('storageAccountName')]",
+              "storageAccountKey": "[parameters('storageAccountKey')]",
               "readOnly": true
             }
           }
