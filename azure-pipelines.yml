@@ -13,6 +13,9 @@ schedules:
       - master
   always: true
 
+variables:
+- group: deploy-secrets
+
 stages:
 - stage: build_test
   displayName: 'Build + Test'
@@ -118,3 +121,19 @@ stages:
         git tag build/$(Build.BuildNumber)
         git push origin build/$(Build.BuildNumber)
       workingDirectory: $(Build.SourcesDirectory)
+
+  - job: deploy
+    displayName: 'Deploy to dev environment'
+    dependsOn: [ 'tag_sources' ]
+    condition: succeeded()
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - script: |
+        az login --service-principal -u etheos-deployment -p $(deployAppSecret) --tenant moffat.io
+        az container show -n etheos-dev -g etheos && az container delete -n etheos-dev -g etheos -y
+        az deployment group create --resource-group etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-container.json --parameters $(Build.SourcesDirectory)/deploy/params-dev.json
+        az network dns record-set a show -n dev.etheos -g moffat.io -z moffat.io && az network dns record-set a delete -n dev.etheos -g moffat.io -z moffat.io -y
+        ipAddr=$(az container show -g etheos -n etheos-dev | jq -r .ipAddress.ip)
+        az network dns record-set a add-record -a $ipAddr -n dev.etheos -g moffat.io -z moffat.io
