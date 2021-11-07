@@ -131,7 +131,7 @@ stages:
     steps:
     - checkout: self
     - script: |
-        az login --service-principal -u etheos-deployment -p $(deployAppSecret) --tenant moffat.io
+        az login --service-principal -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) --tenant moffat.io
         az container show -n etheos-dev -g etheos && az container delete -n etheos-dev -g etheos -y
         az deployment group create --resource-group etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-container.json --parameters $(Build.SourcesDirectory)/deploy/params-dev.json
         az network dns record-set a show -n dev.etheos -g moffat.io -z moffat.io && az network dns record-set a delete -n dev.etheos -g moffat.io -z moffat.io -y
