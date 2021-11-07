@@ -1,10 +1,6 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
-  "variables": {
-    "containerName": "etheos-dev",
-    "containerImage": "etheos.azurecr.io/etheos/dev"
-  },
   "parameters": {
     "sqlDbUser": {
       "type": "string"
@@ -15,7 +11,7 @@
     "sqlDbHost": {
       "type": "string"
     },
-    "sqlDbName": {
+    "environmentName": {
       "type": "string"
     },
     "imageRegistryPass": {
@@ -42,16 +38,16 @@
   },
   "resources": [
     {
-      "name": "etheos-dev",
+      "name": "etheos-[parameters('environmentName')]",
       "type": "Microsoft.ContainerInstance/containerGroups",
       "apiVersion": "2021-07-01",
       "location": "[resourceGroup().location]",
       "properties": {
         "containers": [
           {
-            "name": "[variables('containerName')]",
+            "name": "etheos-[parameters('environmentName')]",
             "properties": {
-              "image": "[variables('containerImage')]",
+              "image": "etheos.azurecr.io/etheos/[parameters('environmentName')]",
               "resources": {
                 "requests": {
                   "cpu": "[parameters('cpu')]",
@@ -80,19 +76,19 @@
                 },
                 {
                   "name": "ETHEOS_LOGOUT",
-                  "value": "/logs/dev/stdout"
+                  "value": "/logs/[parameters('environmentName')]/stdout"
                 },
                 {
                   "name": "ETHEOS_LOGERR",
-                  "value": "/logs/dev/stderr"
+                  "value": "/logs/[parameters('environmentName')]/stderr"
                 },
                 {
                   "name": "ETHEOS_WORLDDUMPFILE",
-                  "value": "/logs/dev/world.bak.json"
+                  "value": "/logs/[parameters('environmentName')]/world.bak.json"
                 },
                 {
                   "name": "ETHEOS_DBNAME",
-                  "value": "[parameters('sqlDbName')]"
+                  "value": "etheos-[parameters('environmentName')]"
                 },
                 {
                   "name": "ETHEOS_DBHOST",
@@ -130,7 +126,7 @@
               "port": 8078
             }
           ],
-          "dnsNameLabel": "etheos-dev"
+          "dnsNameLabel": "etheos-[parameters('environmentName')]"
         },
         "volumes": [
           {

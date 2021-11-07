@@ -3,13 +3,14 @@
 function main() {
   set -e
 
-  local SOURCE_ROOT="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/.."
+  local SCRIPT_ROOT="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
   local service_principal=""
   local service_principal_password=""
-  local env_name=""
+  local environment_name=""
   local resource_group="etheos"
-  local template_file="etheos-container.json"
+  local template_file="${SCRIPT_ROOT}/etheos-container.json"
+  local parameter_file=""
   local opt_help="false"
 
   local option
@@ -26,7 +27,7 @@ function main() {
         shift
         ;;
       -e|--environment-name)
-        env_name="$2"
+        environment_name="$2"
         shift
         ;;
       -g|--resource-group)
@@ -35,6 +36,10 @@ function main() {
         ;;
       --template-file)
         template_file="$2"
+        shift
+        ;;
+      --parameter-file)
+        parameter-file="$2"
         shift
         ;;
       -h|--help)
@@ -71,13 +76,15 @@ function main() {
       ;;
   esac
 
+  if [[ -z "${parameter_file}" ]]; then
+    parameter_file="${SCRIPT_ROOT}/params-${environment_name}.json"
+  fi
+
   echo ""
   echo "Service principal: ${service_principal}"
   echo "Environment name: ${environment_name}"
   echo "Resource group: ${resource_group}"
   echo "Template file: ${template_file}"
-
-  local parameter_file="${SOURCE_ROOT}/deploy/params-${environment_name}"
   echo "Parameter file: ${parameter_file}"
 
   local container_name="etheos-${environment_name}"
@@ -88,7 +95,7 @@ function main() {
 
   echo ""
   echo "******Logging in to moffat.io tenant as ${service_principal}******"
-  az login --service-principal -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) --tenant moffat.io > /dev/null
+  az login --service-principal -u "${service_principal}" -p "${service_principal_password}" --tenant moffat.io > /dev/null
 
   echo ""
   echo "******Deleting existing container (if exists)******"
@@ -120,6 +127,7 @@ function display_usage() {
   echo "  -e --environment-name  Environment (one of: dev/test/ci-test/prod)"
   echo "  -g --resource-group    (optional) Resource group to deploy to"
   echo "  --template-file        (optional) Path to the template file to use for deployment"
+  echo "  --parameter-file       (optional) Path to parameters for deployment. Defaults to deploy/params-{environment}.json"
   echo "  -h --help              Show this help"
 }
 
