@@ -13,6 +13,9 @@ schedules:
       - master
   always: true
 
+variables:
+- group: deploy-secrets
+
 stages:
 - stage: build_test
   displayName: 'Build + Test'
@@ -118,3 +121,18 @@ stages:
         git tag build/$(Build.BuildNumber)
         git push origin build/$(Build.BuildNumber)
       workingDirectory: $(Build.SourcesDirectory)
+
+  - job: deploy
+    displayName: 'Deploy to azure'
+    dependsOn: [ 'tag_sources' ]
+    condition: succeeded()
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e dev
+      condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
+    # TODO: deploy to ci-test environment on CI builds
+    #       separate pipeline for ci tests; if that is successful, deploy to test
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
