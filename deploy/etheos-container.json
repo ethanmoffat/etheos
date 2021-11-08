@@ -12,7 +12,13 @@
       "type": "string"
     },
     "environmentName": {
-      "type": "string"
+      "type": "string",
+      "allowedValues": [
+        "dev",
+        "test",
+        "ci-test",
+        "prod"
+      ]
     },
     "imageRegistryPass": {
       "type": "securestring"
@@ -38,16 +44,16 @@
   },
   "resources": [
     {
-      "name": "etheos-[parameters('environmentName')]",
+      "name": "[concat('etheos-', parameters('environmentName'))]",
       "type": "Microsoft.ContainerInstance/containerGroups",
       "apiVersion": "2021-07-01",
       "location": "[resourceGroup().location]",
       "properties": {
         "containers": [
           {
-            "name": "etheos-[parameters('environmentName')]",
+            "name": "[concat('etheos-', parameters('environmentName'))]",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/[parameters('environmentName')]",
+              "image": "[concat('etheos.azurecr.io/etheos/', [parameters('environmentName'))]",
               "resources": {
                 "requests": {
                   "cpu": "[parameters('cpu')]",
@@ -76,19 +82,19 @@
                 },
                 {
                   "name": "ETHEOS_LOGOUT",
-                  "value": "/logs/[parameters('environmentName')]/stdout"
+                  "value": "[concat('/logs/', parameters('environmentName'), '/stdout')]"
                 },
                 {
                   "name": "ETHEOS_LOGERR",
-                  "value": "/logs/[parameters('environmentName')]/stderr"
+                  "value": "[concat('/logs/', parameters('environmentName'), '/stderr')]"
                 },
                 {
                   "name": "ETHEOS_WORLDDUMPFILE",
-                  "value": "/logs/[parameters('environmentName')]/world.bak.json"
+                  "value": "[concat('/logs/', parameters('environmentName'), '/world.bak.json')]"
                 },
                 {
                   "name": "ETHEOS_DBNAME",
-                  "value": "etheos-[parameters('environmentName')]"
+                  "value": "[concat('etheos-', parameters('environmentName'))]"
                 },
                 {
                   "name": "ETHEOS_DBHOST",
@@ -126,7 +132,7 @@
               "port": 8078
             }
           ],
-          "dnsNameLabel": "etheos-[parameters('environmentName')]"
+          "dnsNameLabel": "[concat('etheos-', parameters('environmentName'))]"
         },
         "volumes": [
           {
