@@ -1,6 +1,6 @@
 # ETHEOS
 
-[![Build status](https://ethanmoffat.visualstudio.com/EndlessClient/_apis/build/status/ethanmoffat.etheos?branchName=master)](https://ethanmoffat.visualstudio.com/EndlessClient/_build/latest?definitionId=12&branchName=master)
+[![Build Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/ethanmoffat.etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
 
 ## Table of Contents
 
