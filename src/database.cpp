@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <fstream>
 #include <list>
 #include <string>
 #include <unordered_map>
@@ -154,6 +155,19 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 	auto dbPass = std::string(config["DBPass"]);
 	auto dbName = std::string(config["DBName"]);
 	auto dbPort = int(config["DBPort"]);
+
+	auto dbPassFilePath = std::string(config["DBPassFile"]);
+	Console::Out("dbPassFilePath: %s", dbPassFilePath.c_str());
+	if (dbPassFilePath.size() > 0)
+	{
+		std::ifstream dbPassFile(dbPassFilePath);
+		if (!dbPassFile.bad())
+		{
+			dbPassFile >> dbPass;
+		}
+
+		dbPassFile.close();
+	}
 
 	std::string dbdesc;
 	std::string engineStr;
