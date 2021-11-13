@@ -99,7 +99,7 @@ function main() {
 
   echo ""
   echo "******Deleting existing container (if exists)******"
-  az container show -n etheos-dev -g etheos > /dev/null && az container delete -n etheos-dev -g etheos -y
+  az container show -n "${container_name}" -g etheos > /dev/null && az container delete -n "${container_name}" -g etheos -y
 
   echo ""
   echo "******Creating container******"
@@ -107,12 +107,12 @@ function main() {
 
   echo ""
   echo "******Deleting existing DNS A record for ${environment_name}******"
-  az network dns record-set a show -n dev.etheos -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n dev.etheos -g moffat.io -z moffat.io -y
+  az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
 
   echo ""
   echo "******Creating new DNS A record for ${environment_name}******"
-  ipAddr=$(az container show -g etheos -n etheos-dev | jq -r .ipAddress.ip)
-  az network dns record-set a add-record -a $ipAddr -n dev.etheos -g moffat.io -z moffat.io > /dev/null
+  ipAddr=$(az container show -g etheos -n "${container_name}" | jq -r .ipAddress.ip)
+  az network dns record-set a add-record -a $ipAddr -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
 
   return 0
 }
