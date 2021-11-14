@@ -111,6 +111,10 @@
                 {
                   "name": "ETHEOS_THREADPOOLTHREADS",
                   "value": "4"
+                },
+                {
+                  "name": "ETHEOS_LOGCONNECTION",
+                  "value": "1"
                 }
               ]
             }

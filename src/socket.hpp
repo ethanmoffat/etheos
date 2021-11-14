@@ -182,6 +182,11 @@ class IPAddress
 		std::string GetString() const;
 
 		/**
+		 * Check if the IP address is private per RFC 1918
+		 */
+		bool IsPrivate() const;
+
+		/**
 		 * Return the IP address as an integer.
 		 */
 		operator unsigned int() const;

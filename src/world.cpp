@@ -690,7 +690,9 @@ void World::RestoreFromDump(const std::string& fileName)
 	std::ifstream file(fileName);
 	if (!file.is_open())
 	{
+#ifdef DEBUG
 		Console::Dbg("Unable to open input file stream for world restore.");
+#endif
 		return;
 	}
 
@@ -760,7 +762,9 @@ void World::RestoreFromDump(const std::string& fileName)
 
 			if (!dbRes.Error())
 			{
+#ifdef DEBUG
 				Console::Dbg("Restored character: %s", charName.c_str());
+#endif
 				restoredChars.push_back(c_iter);
 			}
 		}
@@ -800,7 +804,9 @@ void World::RestoreFromDump(const std::string& fileName)
 
 			if (!dbRes.Error())
 			{
+#ifdef DEBUG
 				Console::Dbg("Restored guild:     %s (%s)", guildName.c_str(), guildTag.c_str());
+#endif
 				restoredGuilds.push_back(g_iter);
 				// cache the guild that was just restored
 				(void)this->guildmanager->GetGuild(guildTag);
@@ -837,7 +843,9 @@ void World::RestoreFromDump(const std::string& fileName)
 				i["y"].get<unsigned char>(),
 				0, 0));
 
+#ifdef DEBUG
 		Console::Dbg("Restored item:     %dx%d", i["itemId"].get<int>(), i["amount"].get<int>());
+#endif
 	}
 
 	UTIL_FOREACH_CREF(dump["mapState"]["chests"], chest)
@@ -856,7 +864,9 @@ void World::RestoreFromDump(const std::string& fileName)
 
 		(*mapChest)->AddItem(chest["itemId"].get<int>(), chest["amount"].get<int>(), chest["slot"].get<int>());
 
+#ifdef DEBUG
 		Console::Dbg("Restored chest:    %dx%d", chest["itemId"].get<int>(), chest["amount"].get<int>());
+#endif
 	}
 
 	if (dump["characters"].empty() && dump["guilds"].empty())
