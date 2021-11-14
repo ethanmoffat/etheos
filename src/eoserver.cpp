@@ -180,6 +180,7 @@ void EOServer::Tick()
 
 		const int reconnect_limit = int(this->world->config["IPReconnectLimit"]);
 		const int max_per_ip = int(this->world->config["MaxConnectionsPerIP"]);
+		const int log_connection = static_cast<LogConnection>(int(this->world->config["LogConnection"]));
 
 		UTIL_IFOREACH(connection_log, connection)
 		{
@@ -222,7 +223,7 @@ void EOServer::Tick()
 			Console::Wrn("Connection from %s was rejected (too many connections to server)", std::string(remote_addr).c_str());
 			newclient->Close(true);
 		}
-		else
+		else if (log_connection == LogConnection::LogAll || (log_connection == LogConnection::FilterPrivate && !remote_addr.IsPrivate()))
 		{
 			connection_log[remote_addr] = Timer::GetTime();
 			Console::Out("New connection from %s (%i/%i connections)", std::string(remote_addr).c_str(), this->Connections(), this->MaxConnections());

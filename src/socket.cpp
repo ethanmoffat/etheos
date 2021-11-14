@@ -195,6 +195,16 @@ std::string IPAddress::GetString() const
 	return std::string(buf);
 }
 
+bool IPAddress::IsPrivate() const
+{
+	unsigned char o1 = (this->address & 0xFF000000) >> 24;
+	unsigned char o2 = (this->address & 0x00FF0000) >> 16;
+
+	return o1 == 10 ||
+		(o1 == 172 && o2 >= 16 && o2 <= 31) ||
+		(o1 == 192 && o2 == 168);
+}
+
 IPAddress::operator unsigned int() const
 {
 	return this->address;

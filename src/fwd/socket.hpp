@@ -11,6 +11,13 @@ class IPAddress;
 class Client;
 class Server;
 
+enum LogConnection : unsigned char
+{
+    LogAll = 0,
+    FilterPrivate,
+    FilterAll
+};
+
 /**
  * Return the OS last error message
  */
