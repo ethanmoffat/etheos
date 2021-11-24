@@ -708,8 +708,8 @@ void World::RestoreFromDump(const std::string& fileName)
 
 	try
 	{
-		std::list<nlohmann::json::iterator> restoredChars;
-		for (auto c_iter = dump["characters"].begin(); c_iter != dump["characters"].end(); ++c_iter)
+		auto c_iter = dump["characters"].cbegin();
+		for (; c_iter != dump["characters"].cend();)
 		{
 			auto c = *c_iter;
 			auto charName = c["name"].get<std::string>();
@@ -718,6 +718,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			if (exists.Error())
 			{
 				Console::Wrn("Error checking existence of character %s during restore. Skipping restore.", charName.c_str());
+				++c_iter;
 				continue;
 			}
 
@@ -765,12 +766,16 @@ void World::RestoreFromDump(const std::string& fileName)
 #ifdef DEBUG
 				Console::Dbg("Restored character: %s", charName.c_str());
 #endif
-				restoredChars.push_back(c_iter);
+				c_iter = dump["characters"].erase(c_iter);
+			}
+			else
+			{
+				++c_iter;
 			}
 		}
 
-		std::list<nlohmann::json::iterator> restoredGuilds;
-		for (auto g_iter = dump["guilds"].begin(); g_iter != dump["guilds"].end(); ++g_iter)
+		auto g_iter = dump["guilds"].cbegin();
+		for (; g_iter != dump["guilds"].cend();)
 		{
 			auto g = *g_iter;
 			auto guildTag = g["tag"].get<std::string>();
@@ -780,6 +785,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			if (exists.Error())
 			{
 				Console::Wrn("Error checking existence of guild %s during restore. Skipping restore.", guildTag.c_str());
+				++g_iter;
 				continue;
 			}
 
@@ -807,20 +813,18 @@ void World::RestoreFromDump(const std::string& fileName)
 #ifdef DEBUG
 				Console::Dbg("Restored guild:     %s (%s)", guildName.c_str(), guildTag.c_str());
 #endif
-				restoredGuilds.push_back(g_iter);
+				g_iter = dump["guilds"].erase(g_iter);
 				// cache the guild that was just restored
 				(void)this->guildmanager->GetGuild(guildTag);
+			}
+			else
+			{
+				++g_iter;
 			}
 		}
 
 		if (in_tran)
 			this->db->Commit();
-
-		UTIL_FOREACH(restoredChars, c)
-			dump["characters"].erase(c);
-
-		UTIL_FOREACH(restoredGuilds, g)
-			dump["guilds"].erase(g);
 	}
 	catch (Database_Exception& dbe)
 	{
