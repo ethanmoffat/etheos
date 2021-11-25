@@ -14,26 +14,11 @@
 #include <cstdlib>
 #include <string>
 
-static std::string eoserv_config_fromenv(const char* key)
-{
-	std::string envKey("etheos_");
-	envKey += key;
-	std::transform(envKey.begin(), envKey.end(), envKey.begin(), ::toupper);
-
-	auto envVal = getenv(envKey.c_str());
-	return std::string(envVal ? envVal : "");
-}
 
 template <typename T>
 static void eoserv_config_default(Config& config, const char* key, T value)
 {
-	std::string envVal = eoserv_config_fromenv(key);
-	if (envVal.length() != 0)
-	{
-		config[key] = util::variant(envVal);
-		Console::Wrn("Overriding config value '%s' with value from environment variable (%s)", key, config[key].GetString().c_str());
-	}
-	else if (config.find(key) == config.end())
+	if (config.find(key) == config.end())
 	{
 		config[key] = util::variant(value);
 		Console::Wrn("Could not load config value '%s' - using default (%s)", key, std::string(config[key]).c_str());

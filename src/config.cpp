@@ -15,6 +15,16 @@
 #include <stdexcept>
 #include <string>
 
+static std::string eoserv_config_fromenv(const char* key)
+{
+	std::string envKey("etheos_");
+	envKey += key;
+	std::transform(envKey.begin(), envKey.end(), envKey.begin(), ::toupper);
+
+	auto envVal = getenv(envKey.c_str());
+	return std::string(envVal ? envVal : "");
+}
+
 void Config::Read(const std::string& filename)
 {
 	std::FILE *fh;
@@ -24,6 +34,7 @@ void Config::Read(const std::string& filename)
 	std::string val;
 	std::size_t eqloc;
 
+	this->loadedEnvs.clear();
 	this->filename = filename;
 
 	fh = std::fopen(filename.c_str(), "rt");
@@ -128,4 +139,31 @@ void Config::Read(const std::string& filename)
 	}
 
 	std::fclose(fh);
+}
+
+util::variant& Config::operator[](std::string&& key)
+{
+	auto movedKey = std::move(key);
+	LoadFromEnvironment(movedKey);
+	return unordered_map::operator[](std::move(movedKey));
+}
+
+util::variant& Config::operator[](const std::string& key)
+{
+	LoadFromEnvironment(key);
+	return unordered_map::operator[](key);
+}
+
+void Config::LoadFromEnvironment(const std::string& key)
+{
+	if (std::find(loadedEnvs.begin(), loadedEnvs.end(), key) != loadedEnvs.end())
+		return;
+
+	std::string envVal = eoserv_config_fromenv(key.c_str());
+	if (envVal.length() != 0)
+	{
+		unordered_map::operator[](key) = util::variant(envVal);
+	}
+
+	loadedEnvs.push_back(key);
 }
