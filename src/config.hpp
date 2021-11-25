@@ -21,12 +21,17 @@
  */
 class Config : public std::unordered_map<std::string, util::variant>
 {
+	private:
+		void LoadFromEnvironment(const std::string& key);
+
 	protected:
 		/**
 		 * Filename of the configuration file.
 		 * Stored in case save support is ever added.
 		 */
 		std::string filename;
+
+		std::list<std::string> loadedEnvs;
 
 	public:
 		/**
@@ -50,6 +55,9 @@ class Config : public std::unordered_map<std::string, util::variant>
 		 * @param filename File to read from.
 		 */
 		void Read(const std::string& filename);
+
+		util::variant& operator[](const std::string& key);
+		util::variant& operator[](std::string&& key);
 };
 
 #endif // CONFIG_HPP_INCLUDED
