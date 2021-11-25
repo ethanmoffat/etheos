@@ -14,7 +14,7 @@ GTEST_TEST(ConfigTests, EoservConfig_ValueFromEnvironmentVariable_OverridesFileV
     setenv("ETHEOS_PORT", "12345", 1);
 
     Config config;
-    eoserv_config_validate_config(config);
+    (void)config["Port"];
 
     ASSERT_EQ(config["Port"].GetInt(), 12345);
 }
