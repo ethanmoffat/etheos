@@ -16,7 +16,6 @@
       "allowedValues": [
         "dev",
         "test",
-        "ci-test",
         "prod"
       ]
     },

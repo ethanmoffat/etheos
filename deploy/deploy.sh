@@ -39,7 +39,7 @@ function main() {
         shift
         ;;
       --parameter-file)
-        parameter-file="$2"
+        parameter_file="$2"
         shift
         ;;
       -h|--help)
@@ -99,11 +99,17 @@ function main() {
 
   echo ""
   echo "******Deleting existing container (if exists)******"
-  az container show -n "${container_name}" -g etheos > /dev/null && az container delete -n "${container_name}" -g etheos -y
+  az container show -n "${container_name}" -g "${resource_group}" > /dev/null && az container delete -n "${container_name}" -g "${resource_group}" -y > /dev/null
+
+  # Delete the ci test database container group if it exists
+  #
+  if [[ "${environment_name}" == "ci-test" ]]; then
+    az container show -n "${container_name}-db" -g "${resource_group}" > /dev/null && az container delete -n "${container_name}-db" -g "${resource_group}" -y > /dev/null
+  fi
 
   echo ""
   echo "******Creating container******"
-  az deployment group create --resource-group etheos --template-file "${template_file}" --parameters "${parameter_file}"
+  az deployment group create --resource-group "${resource_group}" --template-file "${template_file}" --parameters "${parameter_file}"
 
   echo ""
   echo "******Deleting existing DNS A record for ${environment_name}******"
@@ -111,8 +117,8 @@ function main() {
 
   echo ""
   echo "******Creating new DNS A record for ${environment_name}******"
-  ipAddr=$(az container show -g etheos -n "${container_name}" | jq -r .ipAddress.ip)
-  az network dns record-set a add-record -a $ipAddr -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
+  ipAddr=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
+  az network dns record-set a add-record -a "${ipAddr}" -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
 
   return 0
 }
