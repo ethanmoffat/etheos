@@ -29,12 +29,12 @@ class Database_Exception : public std::exception
 {
 	protected:
 		const char *err;
-		const int errorCode;
+		const std::list<int> errorCodes;
 	public:
-		Database_Exception(const char *e, int errorCode = -1) : err(e), errorCode(errorCode) {};
+		Database_Exception(const char *e, std::list<int> errorCodes = {}) : err(e), errorCodes(errorCodes) {};
 		const char *error() const noexcept { return err; };
 		virtual const char *what() const noexcept { return "Database_Exception"; }
-		int getErrorCode() const noexcept { return errorCode; }
+		const std::list<int>& getErrorCode() const noexcept { return errorCodes; }
 };
 
 /**
@@ -42,7 +42,7 @@ class Database_Exception : public std::exception
  */
 class Database_OpenFailed : public Database_Exception
 {
-	public: Database_OpenFailed(const char *e, int errorCode = -1) : Database_Exception(e, errorCode) {}
+	public: Database_OpenFailed(const char *e, std::list<int> errorCodes = {}) : Database_Exception(e, errorCodes) {}
 	const char *what() const noexcept { return "Database_OpenFailed"; }
 };
 

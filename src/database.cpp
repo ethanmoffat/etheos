@@ -62,9 +62,8 @@ struct Database::impl_
 	};
 };
 
-
 #ifdef DATABASE_SQLSERVER
-void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...), SQLINTEGER * errorCode = nullptr)
+void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...), std::list<int>* errorCodes = nullptr)
 {
 	SQLSMALLINT iRec = 0;
 	SQLINTEGER iError;
@@ -92,10 +91,9 @@ void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN co
 
 		consoleFunc("[%5.5s] %s (%d)\n", stateBuff, messageBuff, iError);
 
-		if (errorCode != nullptr)
+		if (errorCodes != nullptr)
 		{
-			// take last error code in the list of errors
-			*errorCode = iError;
+			errorCodes->push_back(iError);
 		}
 	}
 }
@@ -212,10 +210,16 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 	}
 	catch (Database_OpenFailed& ex)
 	{
-		if (!static_cast<bool>(config["AutoCreateDatabase"]) || engine == Database::SQLite ||
-			(engine == Database::MySQL && ex.getErrorCode() != 1049) || // https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/error-handling.html#error_er_bad_db_error
-			(engine == Database::SqlServer && ex.getErrorCode() != 4060)) // https://docs.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors?view=sql-server-ver15 (search for 4060)
+		const auto& errors = ex.getErrorCode();
+		// https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/error-handling.html#error_er_bad_db_error
+		auto missingMySqlDatabase = engine == Database::MySQL && std::find(errors.begin(), errors.end(), 1049) == errors.end();
+		// https://docs.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors?view=sql-server-ver15 (search for 4060)
+		auto missingSqlServerDatabase = engine == Database::SqlServer && std::find(errors.begin(), errors.end(), 4060) == errors.end();
+
+		if (!static_cast<bool>(config["AutoCreateDatabase"]) || engine == Database::SQLite || missingMySqlDatabase || missingSqlServerDatabase)
+		{
 			throw;
+		}
 
 		Console::Wrn("Database '%s' does not exist. Attempting to create for engine '%s'", dbName.c_str(), engineStr.c_str());
 
@@ -348,7 +352,7 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 
 			if (!db.empty() && mysql_select_db(this->impl->mysql_handle, db.c_str()) != 0)
 			{
-				throw Database_OpenFailed(mysql_error(this->impl->mysql_handle), mysql_errno(this->impl->mysql_handle));
+				throw Database_OpenFailed(mysql_error(this->impl->mysql_handle), { static_cast<int>(mysql_errno(this->impl->mysql_handle)) });
 			}
 
 			this->connected = true;
@@ -449,11 +453,11 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 
 			if (!SQLSERVER_SUCCEEDED(ret))
 			{
-				SQLINTEGER errorCode;
+				std::list<int> errorCodes;
 				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err, &errorCode);
+					HandleSqlServerError(SQL_HANDLE_DBC, this->impl->hConn, ret, Console::Err, &errorCodes);
 				this->connected = false;
-				throw Database_OpenFailed("Unable to connect to target server", static_cast<int>(errorCode));
+				throw Database_OpenFailed("Unable to connect to target server", errorCodes);
 			}
 
 			ret = SQLAllocHandle(SQL_HANDLE_STMT, this->impl->hConn, &this->impl->hstmt);
