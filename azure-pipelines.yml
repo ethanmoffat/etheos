@@ -98,11 +98,11 @@ stages:
           $(Build.BuildNumber)
           latest
     - task: Docker@2
-      condition: or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Schedule'))
-      displayName: 'Push etheos:test image - CI build'
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'Push etheos:ci-test image - CI build'
       inputs:
         command: buildAndPush
-        repository: etheos/test
+        repository: etheos/ci-test
         tags: |
           $(Build.BuildNumber)
           latest
@@ -130,9 +130,41 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - checkout: self
+      lfs: true
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e dev
       condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
-    # TODO: deploy to ci-test environment on CI builds
-    #       separate pipeline for ci tests; if that is successful, deploy to test
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
+      displayName: 'PR/Manual Builds - Deploy to dev environment'
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'CI Builds - Deploy to ci-test environment'
+    # TODO: run CI tests, only build/deploy test image on success
+    #
+    - task: DownloadBuildArtifacts@0
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      inputs:
+        downloadType: 'single'
+        artifactName: 'linux'
+        downloadPath: '$(Build.SourcesDirectory)'
+    - script: mv linux install
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'Rename linux dir -> install'
+    - script: chmod +x install/etheos
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'Make etheos binary executable'
+    - task: Docker@2
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      inputs:
+        command: login
+        containerRegistry: etheos
+    - task: Docker@2
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'Push etheos:test image - CI build'
+      inputs:
+        command: buildAndPush
+        repository: etheos/test
+        tags: |
+          $(Build.BuildNumber)
+          latest
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
+      condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
+      displayName: 'Successful CI Builds - Deploy to test environment'
