@@ -131,14 +131,17 @@ stages:
     steps:
     - checkout: self
       lfs: true
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e dev
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e dev
       condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
       displayName: 'PR/Manual Builds - Deploy to dev environment'
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       condition: eq(variables['Build.Reason'], 'IndividualCI')
       displayName: 'CI Builds - Deploy to ci-test environment'
     # TODO: run CI tests, only build/deploy test image on success
     #
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      displayName: 'CI Builds - Delete ci-test environment'
     - task: DownloadBuildArtifacts@0
       condition: eq(variables['Build.Reason'], 'IndividualCI')
       inputs:
@@ -165,6 +168,6 @@ stages:
         tags: |
           $(Build.BuildNumber)
           latest
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
       condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
       displayName: 'Successful CI Builds - Deploy to test environment'
