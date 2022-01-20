@@ -144,7 +144,7 @@ stages:
       condition: eq(variables['Build.Reason'], 'IndividualCI')
       displayName: 'CI Builds - Test connection to server'
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
+      condition: and(eq(variables['Build.Reason'], 'IndividualCI'), succeededOrFailed())
       displayName: 'CI Builds - Delete ci-test environment'
     - task: DownloadBuildArtifacts@0
       condition: eq(variables['Build.Reason'], 'IndividualCI')
