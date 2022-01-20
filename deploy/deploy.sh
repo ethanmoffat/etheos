@@ -13,6 +13,16 @@ function main() {
   local parameter_file=""
   local opt_help="false"
 
+  local operation="$1"
+  if [[ ( "${operation}" != "CREATE" ) && ( "${operation}" != "DELETE" ) ]]; then
+    if [[ ( "${operation}" != "-h" && "${operation}" != "--help" ) ]]; then
+      echo "Error: unsupported operation \"${operation}\", must be CREATE or DELETE"
+      return 1
+    fi
+  else
+    shift # shift the create/delete command
+  fi
+
   local option
   while [[ "$#" -gt 0 ]]
   do
@@ -81,6 +91,7 @@ function main() {
   fi
 
   echo ""
+  echo "Operation: ${operation}"
   echo "Service principal: ${service_principal}"
   echo "Environment name: ${environment_name}"
   echo "Resource group: ${resource_group}"
@@ -107,25 +118,31 @@ function main() {
     az container show -n "${container_name}-db" -g "${resource_group}" > /dev/null && az container delete -n "${container_name}-db" -g "${resource_group}" -y > /dev/null
   fi
 
-  echo ""
-  echo "******Creating container******"
-  az deployment group create --resource-group "${resource_group}" --template-file "${template_file}" --parameters "${parameter_file}"
+  if [[ "${operation}" == "CREATE" ]]; then
+    echo ""
+    echo "******Creating container******"
+    az deployment group create --resource-group "${resource_group}" --template-file "${template_file}" --parameters "${parameter_file}"
+  fi
 
-  echo ""
-  echo "******Deleting existing DNS A record for ${environment_name}******"
-  az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
+  if [[ "${operation}" == "DELETE" ]]; then
+    echo ""
+    echo "******Deleting existing DNS A record for ${environment_name}******"
+    az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
+  fi
 
-  echo ""
-  echo "******Creating new DNS A record for ${environment_name}******"
-  ipAddr=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
-  az network dns record-set a add-record -a "${ipAddr}" -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
+  if [[ "${operation}" == "CREATE" ]]; then
+    echo ""
+    echo "******Creating new DNS A record for ${environment_name}******"
+    ipAddr=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
+    az network dns record-set a add-record -a "${ipAddr}" -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
+  fi
 
   return 0
 }
 
 function display_usage() {
   echo "Usage:"
-  echo "  deploy.sh [options]"
+  echo "  deploy.sh <CREATE|DELETE> [options]"
   echo ""
   echo "Options:"
   echo "  -u --user              User (azure service principal to authenticate as)"
