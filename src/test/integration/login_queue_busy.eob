@@ -10,19 +10,21 @@ $account_pass = "BotP@ssw0rd" + $botindex
 $LOGIN_OK = 3
 $LOGIN_BUSY = 6
 
-print ("SERVER=" + $host + " Logging in " + $account_name)
-sleep(100 * $botindex)
+print ("SERVER=" + $host + ":" + $port + " Logging in " + $account_name)
+sleep(10 * $botindex)
 
 $loginRes = Login($account_name, $account_pass)
-if ($loginRes != $LOGIN_OK) {
-    if ($botindex > $expectedConcurrentLogins)
-    {
-        if ($loginRes != $LOGIN_BUSY)
-            error("Expected busy login for bot " + $botindex + " but was " + $loginRes)
-    }
+if ($botindex >= $expectedConcurrentLogins)
+{
+    if ($loginRes != $LOGIN_BUSY)
+        error("Expected busy login for bot " + $botindex + " but was " + $loginRes)
     else
-    {
-        if ($loginRes != $LOGIN_OK)
-            error("Expected ok login for bot " + $botindex + " but was " + $loginRes)
-    }
+        print("Got expected busy response for bot " + $botindex)
+}
+else
+{
+    if ($loginRes != $LOGIN_OK)
+        error("Expected ok login for bot " + $botindex + " but was " + $loginRes)
+    else
+        print("Got expected OK login for bot " + $botindex)
 }

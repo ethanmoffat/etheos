@@ -5,7 +5,7 @@ $account_pass = "BotP@ssw0rd" + $botindex
 
 $ACCOUNT_CREATED = 3
 
-print ("SERVER=" + $host + " Creating account " + $account_name)
+print ("SERVER=" + $host + ":" + $port + " Creating account " + $account_name)
 $createRes = CreateAccount($account_name, $account_pass)
 
 if ($createRes != $ACCOUNT_CREATED) {
