@@ -26,10 +26,10 @@ stages:
       lfs: true
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       condition: succeeded()
-      displayName: 'CI Builds - Deploy to ci-test environment'
+      displayName: 'Deploy to ci-test environment'
     - script: python3 $(Build.SourcesDirectory)/deploy/test-connection.py ci-test.etheos.moffat.io 8078 9078 10078
       condition: succeeded()
-      displayName: 'CI Builds - Test connection to server'
+      displayName: 'Test connection to server'
 
   - job: test
     displayName: 'Run integration tests against ci-test environment'
@@ -73,4 +73,4 @@ stages:
     steps:
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       condition: succeededOrFailed()
-      displayName: 'CI Builds - Delete ci-test environment'
+      displayName: 'Delete ci-test environment'
