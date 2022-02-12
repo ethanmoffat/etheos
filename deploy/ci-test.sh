@@ -61,10 +61,10 @@ function main() {
     return 1
   fi
 
-  ${botdir}/EOBot host=${host} port=${port} bots=10 script=${SCRIPT_ROOT}/../src/test/integration/create_accounts.eob
-  ${botdir}/EOBot host=${host} port=${port} bots=10 script=${SCRIPT_ROOT}/../src/test/integration/change_passwords.eob -- "BotP@ssw0rd" "NewPassword"
-  ${botdir}/EOBot host=${host} port=${port} bots=10 script=${SCRIPT_ROOT}/../src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
-  ${botdir}/EOBot host=${host} port=${port} bots=5 script=${SCRIPT_ROOT}/../src/test/integration/login_queue_busy.eob
+  ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/create_accounts.eob
+  ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/change_passwords.eob -- "BotP@ssw0rd" "NewPassword"
+  ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
+  ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/login_queue_busy.eob
 
   return 0
 }
