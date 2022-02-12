@@ -8,6 +8,7 @@ resources:
       branches:
         include:
         - master
+        - ci_tests
 
 variables:
 - group: deploy-secrets
