@@ -46,25 +46,15 @@ stages:
       inputs:
         archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
         destinationFolder: $(System.ArtifactsDirectory)/eobot
-    - script: | # todo: make this a reusable script file
-        set -e
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=8078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/create_accounts.eob
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=9078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/create_accounts.eob
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=10078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/create_accounts.eob
-
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=8078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "BotP@ssw0rd" "NewPassword"
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=9078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "BotP@ssw0rd" "NewPassword"
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=10078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "BotP@ssw0rd" "NewPassword"
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=8078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=9078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=10078 bots=10 script=$(Build.SourcesDirectory)/src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
-
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=8078 bots=5 script=$(Build.SourcesDirectory)/src/test/integration/login_queue_busy.eob
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=9078 bots=5 script=$(Build.SourcesDirectory)/src/test/integration/login_queue_busy.eob
-        $(System.ArtifactsDirectory)/eobot/net6.0/EOBot host=ci-test.etheos.moffat.io port=10078 bots=5 script=$(Build.SourcesDirectory)/src/test/integration/login_queue_busy.eob
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 8078 -b $(System.ArtifactsDirectory)/eobot/net6.0
       condition: succeeded()
-      workingDirectory: $(System.ArtifactsDirectory)
-      displayName: 'Run integration test scripts'
+      displayName: 'Run integration test scripts - mssql instance'
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 9078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+      condition: succeeded()
+      displayName: 'Run integration test scripts - mysql instance'
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 10078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+      condition: succeeded()
+      displayName: 'Run integration test scripts - sqlite instance'
 
   - job: undeploy
     displayName: 'Delete ci-test environment (reduce Azure spend)'
