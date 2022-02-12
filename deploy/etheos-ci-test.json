@@ -106,7 +106,7 @@
           {
             "name": "citest-mssql",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,
@@ -207,7 +207,7 @@
           {
             "name": "citest-mysql",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,
@@ -312,7 +312,7 @@
           {
             "name": "citest-sqlite",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,

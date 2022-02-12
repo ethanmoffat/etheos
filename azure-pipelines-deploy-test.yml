@@ -1,0 +1,59 @@
+name: 0.7.1.$(rev:rrrr)
+
+resources:
+  pipelines:
+  - pipeline: etheos-ci-test
+    source: etheos-ci-test
+    trigger:
+      branches:
+        include:
+        - master
+
+variables:
+- group: deploy-secrets
+
+stages:
+- stage: deploy
+  displayName: 'Deploy'
+  jobs:
+  - job: deploy_test_image
+    displayName: 'Deploy to test environment'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      lfs: true
+    - task: DownloadBuildArtifacts@1
+      displayName: 'Download build number from etheos pipeline'
+      inputs:
+        project: etheos
+        pipeline: etheos
+        downloadType: 'single'
+        artifactName: 'build_number'
+        downloadPath: '$(Build.SourcesDirectory)'
+        buildVersionToDownload: 'latestFromBranch'
+        branchName: $(Build.SourceBranchName)
+
+    - task: Docker@2
+      inputs:
+        command: login
+        containerRegistry: etheos
+    - script: |
+        docker pull etheos.azurecr.io/etheos/dev
+        docker tag etheos.azurecr.io/etheos/dev etheos.azurecr.io/etheos/test
+        export BUILD_NUMBER=$(cat build_number/BUILD_NUMBER)
+        docker tag etheos.azurecr.io/etheos/dev etheos.azurecr.io/etheos/test:$BUILD_NUMBER
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: 'Pull etheos:dev image'
+    - task: Docker@2
+      condition: succeeded()
+      displayName: 'Push etheos:test image'
+      inputs:
+        command: push
+        repository: etheos/test
+        tags: |
+          $(Build.BuildNumber)
+          latest
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
+      condition: succeeded()
+      displayName: 'Deploy to test environment'
