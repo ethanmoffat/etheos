@@ -33,6 +33,7 @@ stages:
 
   - job: test
     displayName: 'Run integration tests against ci-test environment'
+    dependsOn: [ 'deploy' ]
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -66,6 +67,7 @@ stages:
 
   - job: undeploy
     displayName: 'Delete ci-test environment (reduce Azure spend)'
+    dependsOn: [ 'test' ]
     pool:
       vmImage: 'ubuntu-latest'
     steps:
