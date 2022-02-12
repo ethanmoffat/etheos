@@ -55,7 +55,7 @@ function main() {
     return 1
   fi
 
-  if [[ -z "${botdir}"]]; then
+  if [[ -z "${botdir}" ]]; then
     echo "EOBot directory is required"
     display_usage
     return 1
