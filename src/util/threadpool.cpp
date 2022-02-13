@@ -7,6 +7,8 @@
 #include <future>
 
 #include "../console.hpp"
+#include "../database.hpp"
+#include "../socket.hpp"
 #include "threadpool.hpp"
 
 namespace util
@@ -150,7 +152,15 @@ namespace util
             {
                 workPair->first(workPair->second);
             }
-            catch(const std::exception& e)
+            catch (const Socket_Exception& se)
+            {
+                Console::Err("Exception on thread %d: %s: %s", threadNum, se.what(), se.error());
+            }
+            catch (const Database_Exception& dbe)
+            {
+                Console::Err("Exception on thread %d: %s: %s", threadNum, dbe.what(), dbe.error());
+            }
+            catch (const std::exception& e)
             {
                 Console::Err("Exception on thread %d: %s", threadNum, e.what());
             }
