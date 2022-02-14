@@ -125,7 +125,7 @@ stages:
   - job: deploy
     displayName: 'Deploy to dev environment - PR/Manual Builds'
     dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
-    condition: or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.Reason'], 'Manual'))
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.Reason'], 'Manual')))
     pool:
       vmImage: 'ubuntu-latest'
     steps:
