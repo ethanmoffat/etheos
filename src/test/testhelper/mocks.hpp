@@ -60,5 +60,5 @@ public:
 class MockDatabaseFactory : public DatabaseFactory
 {
 public:
-    MOCK_METHOD(std::shared_ptr<Database>, CreateDatabase, (Config& config, bool logConnection), (const override));
+    MOCK_METHOD(std::shared_ptr<Database>, CreateDatabase, (Config& config, bool logConnection), (override));
 };
