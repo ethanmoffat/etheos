@@ -86,7 +86,10 @@ class Database_Result : public std::vector<std::unordered_map<std::string, util:
 class DatabaseFactory
 {
 public:
-	virtual std::shared_ptr<Database> CreateDatabase(Config& config, bool logConnection = false) const;
+	virtual std::shared_ptr<Database> CreateDatabase(Config& config, bool logConnection = false);
+
+private:
+	std::shared_ptr<Database> _sqliteConnection;
 };
 
 /**
