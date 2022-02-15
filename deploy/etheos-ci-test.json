@@ -106,7 +106,7 @@
           {
             "name": "citest-mssql",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,
@@ -178,12 +178,28 @@
                   "value": "4"
                 },
                 {
+                  "name": "ETHEOS_LOGINQUEUESIZE",
+                  "value": "4"
+                },
+                {
                   "name": "ETHEOS_LOGCONNECTION",
                   "value": "1"
                 },
                 {
                   "name": "ETHEOS_AUTOCREATEDATABASE",
                   "value": "true"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERPC",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERIP",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_IPRECONNECTLIMIT",
+                  "value": "1s"
                 }
               ]
             }
@@ -191,7 +207,7 @@
           {
             "name": "citest-mysql",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,
@@ -263,6 +279,10 @@
                   "value": "4"
                 },
                 {
+                  "name": "ETHEOS_LOGINQUEUESIZE",
+                  "value": "4"
+                },
+                {
                   "name": "ETHEOS_LOGCONNECTION",
                   "value": "1"
                 },
@@ -273,6 +293,18 @@
                 {
                   "name": "ETHEOS_INSTALLSQL",
                   "value": "./install.sql"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERPC",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERIP",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_IPRECONNECTLIMIT",
+                  "value": "1s"
                 }
               ]
             }
@@ -280,7 +312,7 @@
           {
             "name": "citest-sqlite",
             "properties": {
-              "image": "etheos.azurecr.io/etheos/ci-test",
+              "image": "etheos.azurecr.io/etheos/dev",
               "resources": {
                 "requests": {
                   "cpu": 1.0,
@@ -336,12 +368,28 @@
                   "value": "4"
                 },
                 {
+                  "name": "ETHEOS_LOGINQUEUESIZE",
+                  "value": "4"
+                },
+                {
                   "name": "ETHEOS_LOGCONNECTION",
                   "value": "1"
                 },
                 {
                   "name": "ETHEOS_INSTALLSQL",
                   "value": "./install.sql"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERPC",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_MAXCONNECTIONSPERIP",
+                  "value": "0"
+                },
+                {
+                  "name": "ETHEOS_IPRECONNECTLIMIT",
+                  "value": "1s"
                 }
               ]
             }

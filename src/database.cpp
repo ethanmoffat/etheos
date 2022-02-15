@@ -145,7 +145,7 @@ bool Database_Result::Error()
 	return this->error;
 }
 
-std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool logConnection) const
+std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool logConnection)
 {
 	auto dbType = util::lowercase(std::string(config["DBType"]));
 	auto dbHost = std::string(config["DBHost"]);
@@ -155,13 +155,21 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 	auto dbPort = int(config["DBPort"]);
 
 	auto dbPassFilePath = std::string(config["DBPassFile"]);
-	Console::Out("dbPassFilePath: %s", dbPassFilePath.c_str());
 	if (dbPassFilePath.size() > 0)
 	{
+		if (logConnection)
+		{
+			Console::Out("Using DB password from file %s", dbPassFilePath.c_str());
+		}
+
 		std::ifstream dbPassFile(dbPassFilePath);
 		if (!dbPassFile.bad())
 		{
 			dbPassFile >> dbPass;
+		}
+		else if (logConnection)
+		{
+			Console::Wrn("DB password file could not be opened. Using existing DBPass config value instead.");
 		}
 
 		dbPassFile.close();
@@ -206,7 +214,21 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 
 	try
 	{
-		return std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName);
+		if (engine == Database::SQLite)
+		{
+			if (!this->_sqliteConnection)
+			{
+				// for thread safety, SQLite access is serialized (SQLite calls use an internal mutex to serialize access)
+				// a shared connection is used to ensure that no concurrent access to the database file occurs across etheos threadpool threads
+				this->_sqliteConnection = std::move(std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName));
+			}
+
+			return this->_sqliteConnection;
+		}
+		else
+		{
+			return std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName);
+		}
 	}
 	catch (Database_OpenFailed& ex)
 	{

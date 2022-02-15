@@ -1,0 +1,30 @@
+// Note: this test requires the environment to have ThreadPoolThreads = LoginQueueSize = 4
+//
+$version = 28
+
+$expectedConcurrentLogins = 4
+
+$account_name = "botacc" + $botindex
+$account_pass = "BotP@ssw0rd" + $botindex
+
+$LOGIN_OK = 3
+$LOGIN_BUSY = 6
+
+print ("SERVER=" + $host + ":" + $port + " Logging in " + $account_name)
+sleep(10 * $botindex)
+
+$loginRes = Login($account_name, $account_pass)
+if ($botindex >= $expectedConcurrentLogins)
+{
+    if ($loginRes != $LOGIN_BUSY)
+        error("Expected busy login for bot " + $botindex + " but was " + $loginRes)
+    else
+        print("Got expected busy response for bot " + $botindex)
+}
+else
+{
+    if ($loginRes != $LOGIN_OK)
+        error("Expected ok login for bot " + $botindex + " but was " + $loginRes)
+    else
+        print("Got expected OK login for bot " + $botindex)
+}

@@ -97,18 +97,9 @@ stages:
         tags: |
           $(Build.BuildNumber)
           latest
-    - task: Docker@2
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'Push etheos:ci-test image - CI build'
-      inputs:
-        command: buildAndPush
-        repository: etheos/ci-test
-        tags: |
-          $(Build.BuildNumber)
-          latest
 
-  - job: tag_sources
-    displayName: 'Tag on success'
+  - job: tag_and_publish
+    displayName: 'Tag sources and publish build number'
     dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
     condition: succeeded()
     pool:
@@ -121,57 +112,24 @@ stages:
         git tag build/$(Build.BuildNumber)
         git push origin build/$(Build.BuildNumber)
       workingDirectory: $(Build.SourcesDirectory)
+      displayName: 'Tag sources'
+    - script: echo $(Build.BuildNumber) > $(Build.ArtifactStagingDirectory)/BUILD_NUMBER
+      displayName: 'Store build number in file'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build number as artifact'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'build_number'
+        publishLocation: 'Container'
 
   - job: deploy
-    displayName: 'Deploy to azure'
-    dependsOn: [ 'tag_sources' ]
-    condition: succeeded()
+    displayName: 'Deploy to dev environment - PR/Manual Builds'
+    dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.Reason'], 'Manual')))
     pool:
       vmImage: 'ubuntu-latest'
     steps:
     - checkout: self
       lfs: true
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e dev
-      condition: not(eq(variables['Build.Reason'], 'IndividualCI'))
-      displayName: 'PR/Manual Builds - Deploy to dev environment'
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'CI Builds - Deploy to ci-test environment'
-    # TODO: run CI tests, only build/deploy test image on success
-    # For now just use a simple script to test that we can connect
-    #
-    - script: python3 $(Build.SourcesDirectory)/deploy/test-connection.py ci-test.etheos.moffat.io 8078 9078 10078
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'CI Builds - Test connection to server'
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
-      condition: and(eq(variables['Build.Reason'], 'IndividualCI'), succeededOrFailed())
-      displayName: 'CI Builds - Delete ci-test environment'
-    - task: DownloadBuildArtifacts@0
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      inputs:
-        downloadType: 'single'
-        artifactName: 'linux'
-        downloadPath: '$(Build.SourcesDirectory)'
-    - script: mv linux install
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'Rename linux dir -> install'
-    - script: chmod +x install/etheos
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'Make etheos binary executable'
-    - task: Docker@2
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      inputs:
-        command: login
-        containerRegistry: etheos
-    - task: Docker@2
-      condition: eq(variables['Build.Reason'], 'IndividualCI')
-      displayName: 'Push etheos:test image - CI build'
-      inputs:
-        command: buildAndPush
-        repository: etheos/test
-        tags: |
-          $(Build.BuildNumber)
-          latest
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
-      condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
-      displayName: 'Successful CI Builds - Deploy to test environment'
+      displayName: 'Deploy to dev environment'
