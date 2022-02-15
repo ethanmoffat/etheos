@@ -39,7 +39,6 @@ stages:
     - script: |
         export ETHEOS_BUILD_NUMBER=$(cat build_number/BUILD_NUMBER)
         echo "##vso[task.setvariable variable=ETHEOS_BUILD_NUMBER;]$ETHEOS_BUILD_NUMBER"
-        echo "ETHEOS_BUILD_NUMBER=$(ETHEOS_BUILD_NUMBER)"
       workingDirectory: $(Build.SourcesDirectory)
       displayName: Set ETHEOS_BUILD_NUMBER variable from downloaded artifact
 
