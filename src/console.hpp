@@ -9,38 +9,50 @@
 
 #include "fwd/console.hpp"
 
+#include <cstdarg>
 #include <string>
 
-namespace Console
+class Console
 {
+public:
+	enum Color
+	{
+		COLOR_BLUE = 1,
+		COLOR_GREEN = 2,
+		COLOR_CYAN = 3,
+		COLOR_RED = 4,
+		COLOR_MAGENTA = 5,
+		COLOR_YELLOW = 6,
+		COLOR_GREY = 7,
+		COLOR_BLACK = 8
+	};
 
-extern bool Styled[2];
+	enum Stream
+	{
+		STREAM_OUT,
+		STREAM_ERR
+	};
 
-enum Color
-{
-	COLOR_BLUE = 1,
-	COLOR_GREEN = 2,
-	COLOR_CYAN = 3,
-	COLOR_RED = 4,
-	COLOR_MAGENTA = 5,
-	COLOR_YELLOW = 6,
-	COLOR_GREY = 7,
-	COLOR_BLACK = 8
+private:
+	static size_t BytesWritten[2];
+	static bool OutputSuppressed;
+
+	static inline void Init(Stream i);
+	static inline void SetTextColor(Stream stream, Color color, bool bold);
+	static inline void ResetTextColor(Stream stream);
+
+	static inline size_t GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args);
+
+public:
+	static bool Styled[2];
+
+	static void Out(const char* f, ...);
+	static void Wrn(const char* f, ...);
+	static void Err(const char* f, ...);
+	static void Dbg(const char* f, ...);
+
+	static void SuppressOutput(bool suppress);
+	static void SetRollover(size_t bytesPerFile, time_t interval);
 };
-
-enum Stream
-{
-	STREAM_OUT,
-	STREAM_ERR
-};
-
-void Out(const char* f, ...);
-void Wrn(const char* f, ...);
-void Err(const char* f, ...);
-void Dbg(const char* f, ...);
-
-void SuppressOutput(bool suppress);
-
-}
 
 #endif // CONSOLE_HPP_INCLUDED

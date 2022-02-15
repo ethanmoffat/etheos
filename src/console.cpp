@@ -6,7 +6,6 @@
 
 #include "console.hpp"
 
-#include <cstdarg>
 #include <cstdio>
 #include <string>
 
@@ -16,18 +15,15 @@
 #include "eoserv_windows.h"
 #endif // WIN32
 
-namespace Console
-{
-
-bool Styled[2] = {true, true};
-
-static bool OutputSuppressed = false;
+bool Console::Styled[2] = { true, true };
+size_t Console::BytesWritten[2] = { 0 };
+bool Console::OutputSuppressed = false;
 
 #ifdef WIN32
 
 static HANDLE Handles[2];
 
-inline void Init(Stream i)
+void Console::Init(Stream i)
 {
 	if (!Handles[i])
 	{
@@ -35,13 +31,13 @@ inline void Init(Stream i)
 	}
 }
 
-void SetTextColor(Stream stream, Color color, bool bold)
+void Console::SetTextColor(Stream stream, Color color, bool bold)
 {
 	Init(stream);
 	SetConsoleTextAttribute(Handles[stream], color + (bold ? 8 : 0));
 }
 
-void ResetTextColor(Stream stream)
+void Console::ResetTextColor(Stream stream)
 {
 	Init(stream);
 	SetConsoleTextAttribute(Handles[stream], COLOR_GREY);
@@ -51,7 +47,7 @@ void ResetTextColor(Stream stream)
 
 static const int ansi_color_map[] = {0, 4, 2, 6, 1, 5, 3, 7, 0};
 
-void SetTextColor(Stream stream, Color color, bool bold)
+void Console::SetTextColor(Stream stream, Color color, bool bold)
 {
 	char command[8] = {27, '[', '1', ';', '3', '0', 'm', 0};
 
@@ -70,7 +66,7 @@ void SetTextColor(Stream stream, Color color, bool bold)
 	std::fputs(command, (stream == STREAM_OUT) ? stdout : stderr);
 }
 
-void ResetTextColor(Stream stream)
+void Console::ResetTextColor(Stream stream)
 {
 	char command[5] = {27, '[', '0', 'm', 0};
 	std::fputs(command, (stream == STREAM_OUT) ? stdout : stderr);
@@ -78,50 +74,88 @@ void ResetTextColor(Stream stream)
 
 #endif // WIN32
 
-#define CONSOLE_GENERIC_OUT(prefix, stream, color, bold) \
-do { \
-	if (Styled[stream]) SetTextColor(stream, color, bold); \
-	va_list args; \
-	va_start(args, f); \
-	std::vfprintf((stream == STREAM_OUT) ? stdout : stderr, (std::string("[" prefix "] ") + f + "\n").c_str(), args); \
-	va_end(args); \
-	if (Styled[stream]) ResetTextColor(stream); \
-} while (false)
-
-void Out(const char* f, ...)
+size_t Console::GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args)
 {
-	if (OutputSuppressed) return;
-	CONSOLE_GENERIC_OUT("   ", STREAM_OUT, COLOR_GREY, true);
+	const size_t BUFFER_SIZE = 4096;
+	size_t bytesWritten = 0;
+
+	if (Styled[stream])
+		SetTextColor(stream, color, bold);
+
+	static char formatted[BUFFER_SIZE] = {0};
+	std::vsnprintf(formatted, BUFFER_SIZE, (std::string("[" + prefix + "] ") + format + "\n").c_str(), args);
+	bytesWritten = strnlen_s(formatted, BUFFER_SIZE);
+
+	std::fprintf((stream == STREAM_OUT) ? stdout : stderr, formatted);
+
+	if (Styled[stream])
+		ResetTextColor(stream);
+
+	return bytesWritten;
 }
 
-void Wrn(const char* f, ...)
+void Console::Out(const char* f, ...)
 {
 	if (OutputSuppressed) return;
-	CONSOLE_GENERIC_OUT("WRN", STREAM_OUT, COLOR_YELLOW, true);
+
+	va_list args;
+	va_start(args, f);
+	size_t bytesWritten = GenericOut("   ", STREAM_OUT, COLOR_GREY, true, f, args);
+	va_end(args);
+
+	BytesWritten[STREAM_OUT] += bytesWritten;
 }
 
-void Err(const char* f, ...)
+void Console::Wrn(const char* f, ...)
 {
 	if (OutputSuppressed) return;
+
+	va_list args;
+	va_start(args, f);
+	size_t bytesWritten = GenericOut("WRN", STREAM_OUT, COLOR_YELLOW, true, f, args);
+	va_end(args);
+
+	BytesWritten[STREAM_OUT] += bytesWritten;
+}
+
+void Console::Err(const char* f, ...)
+{
+	if (OutputSuppressed)
+		return;
 
 	if (!Styled[STREAM_ERR])
 	{
-		CONSOLE_GENERIC_OUT("ERR", STREAM_OUT, COLOR_RED, true);
+		va_list args;
+		va_start(args, f);
+
+		size_t bytesWritten = GenericOut("ERR", STREAM_OUT, COLOR_RED, true, f, args);
+		BytesWritten[STREAM_OUT] += bytesWritten;
+
+		va_end(args);
 	}
 
-	CONSOLE_GENERIC_OUT("ERR", STREAM_ERR, COLOR_RED, true);
+	va_list args;
+	va_start(args, f);
+
+	size_t bytesWritten = GenericOut("ERR", STREAM_ERR, COLOR_RED, true, f, args);
+	BytesWritten[STREAM_ERR] += bytesWritten;
+
+	va_end(args);
 }
 
-void Dbg(const char* f, ...)
+void Console::Dbg(const char* f, ...)
 {
 	if (OutputSuppressed) return;
-	CONSOLE_GENERIC_OUT("DBG", STREAM_OUT, COLOR_GREY, false);
+
+	va_list args;
+	va_start(args, f);
+	size_t bytesWritten = GenericOut("DBG", STREAM_OUT, COLOR_GREY, true, f, args);
+	va_end(args);
+
+	BytesWritten[STREAM_OUT] += bytesWritten;
 }
 
-void SuppressOutput(bool suppress)
+void Console::SuppressOutput(bool suppress)
 {
 	OutputSuppressed = suppress;
 }
-
-}
-
