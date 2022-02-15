@@ -52,7 +52,9 @@ public:
 	static void Dbg(const char* f, ...);
 
 	static void SuppressOutput(bool suppress);
-	static void SetRollover(size_t bytesPerFile, time_t interval);
+
+	static void SetLog(Stream stream, const std::string& fileName);
+	static void SetRollover(size_t bytesPerFile, time_t interval, const std::string& format);
 };
 
 #endif // CONSOLE_HPP_INCLUDED

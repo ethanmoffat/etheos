@@ -293,52 +293,8 @@ int eoserv_main(int argc, char *argv[])
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
 #endif
 
-		{
-			std::time_t rawtime;
-			char timestr[256];
-			std::time(&rawtime);
-			std::strftime(timestr, 256, "%c", std::localtime(&rawtime));
-
-			std::string logerr = config["LogErr"];
-			if (!logerr.empty() && logerr.compare("-") != 0)
-			{
-				Console::Out("Redirecting errors to '%s'...", logerr.c_str());
-				if (!std::freopen(logerr.c_str(), "a", stderr))
-				{
-					Console::Err("Failed to redirect errors.");
-				}
-				else
-				{
-					Console::Styled[Console::STREAM_ERR] = false;
-					std::fprintf(stderr, "\n\n--- %s ---\n\n", timestr);
-				}
-
-				if (std::setvbuf(stderr, 0, _IONBF, 0) != 0)
-				{
-					Console::Wrn("Failed to change stderr buffer settings");
-				}
-			}
-
-			std::string logout = config["LogOut"];
-			if (!logout.empty() && logout.compare("-") != 0)
-			{
-				Console::Out("Redirecting output to '%s'...", logout.c_str());
-				if (!std::freopen(logout.c_str(), "a", stdout))
-				{
-					Console::Err("Failed to redirect output.");
-				}
-				else
-				{
-					Console::Styled[Console::STREAM_OUT] = false;
-					std::printf("\n\n--- %s ---\n\n", timestr);
-				}
-
-				if (std::setvbuf(stdout, 0, _IONBF, 0) != 0)
-				{
-					Console::Wrn("Failed to change stdout buffer settings");
-				}
-			}
-		}
+		Console::SetLog(Console::STREAM_OUT, config["LogOut"].GetString());
+		Console::SetLog(Console::STREAM_ERR, config["LogErr"].GetString());
 
 		const auto threadPoolThreads = static_cast<int>(config["ThreadPoolThreads"]);
 		if (threadPoolThreads <= 0)

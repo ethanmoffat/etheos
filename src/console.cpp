@@ -7,6 +7,7 @@
 #include "console.hpp"
 
 #include <cstdio>
+#include <ctime>
 #include <string>
 
 #include "platform.h"
@@ -158,4 +159,51 @@ void Console::Dbg(const char* f, ...)
 void Console::SuppressOutput(bool suppress)
 {
 	OutputSuppressed = suppress;
+}
+
+void Console::SetLog(Stream stream, const std::string& fileName)
+{
+	const size_t TIME_BUF_SIZE = 256;
+	std::time_t rawtime;
+	char timestr[TIME_BUF_SIZE];
+	std::time(&rawtime);
+	std::strftime(timestr, TIME_BUF_SIZE, "%c", std::localtime(&rawtime));
+
+	FILE * outStream = nullptr;
+	switch (stream)
+	{
+		case STREAM_OUT:
+			outStream = stdout;
+			break;
+		case STREAM_ERR:
+			outStream = stderr;
+			break;
+		default:
+			throw std::exception("Invalid stream for setting log");
+	}
+
+	if (!fileName.empty() && fileName.compare("-") != 0)
+	{
+		const char * targetStreamName = (stream == STREAM_OUT ? "stdout" : "stderr");
+		Console::Out("Redirecting %s to '%s'...", targetStreamName, fileName.c_str());
+		if (!std::freopen(fileName.c_str(), "a", outStream))
+		{
+			Console::Err("Failed to redirect %s.", targetStreamName);
+		}
+		else
+		{
+			Console::Styled[stream] = false;
+			std::fprintf(outStream, "\n\n--- %s ---\n\n", timestr);
+		}
+
+		if (std::setvbuf(outStream, 0, _IONBF, 0) != 0)
+		{
+			Console::Wrn("Failed to change %s buffer settings", targetStreamName);
+		}
+	}
+}
+
+void Console::SetRollover(size_t bytesPerFile, time_t interval, const std::string& format)
+{
+	// todo
 }
