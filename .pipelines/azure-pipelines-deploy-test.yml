@@ -8,7 +8,6 @@ resources:
       branches:
         include:
         - master
-        - ci_tests
 
 variables:
 - group: deploy-secrets
@@ -27,13 +26,14 @@ stages:
     - task: DownloadBuildArtifacts@1
       displayName: 'Download build number from etheos pipeline'
       inputs:
-        project: etheos
-        pipeline: etheos
+        buildType: 'specific'
+        project: '1f2fe263-7869-4749-8f35-303d29c536e2'
+        pipeline: '13'
+        buildVersionToDownload: 'latestFromBranch'
+        branchName: '$(Build.SourceBranchName)'
         downloadType: 'single'
         artifactName: 'build_number'
         downloadPath: '$(Build.SourcesDirectory)'
-        buildVersionToDownload: 'latestFromBranch'
-        branchName: $(Build.SourceBranchName)
 
     - task: Docker@2
       inputs:
