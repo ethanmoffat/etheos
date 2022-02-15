@@ -1,6 +1,10 @@
 # ETHEOS
 
-[![Build Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/ethanmoffat.etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
+[![Build + Deployment (env:dev) Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
+
+[![CI test status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos-ci-test?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=17&branchName=master)
+
+[![Deployment (env:test) status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos-deploy-test?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=18&branchName=master)
 
 ## Table of Contents
 

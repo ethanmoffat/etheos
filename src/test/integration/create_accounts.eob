@@ -1,0 +1,22 @@
+$version = 28
+
+$account_name = "botacc" + $botindex
+$account_pass = "BotP@ssw0rd" + $botindex
+
+$ACCOUNT_CREATED = 3
+
+print ("SERVER=" + $host + ":" + $port + " Creating account " + $account_name)
+$createRes = CreateAccount($account_name, $account_pass)
+
+if ($createRes != $ACCOUNT_CREATED) {
+    if ($createRes == 1) {
+        $errorReason = "Already exists"
+    } else if ($createRes == 2) {
+        $errorReason = "Not approved"
+    } else {
+        $errorReason = "Unknown reason"
+    }
+
+    error("Create account failed! Reason: " + $errorReason)
+}
+

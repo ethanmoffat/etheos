@@ -1,0 +1,68 @@
+name: 0.7.1_$(Year:yyyy).$(Month).$(DayOfMonth)_$(SourceBranchName)
+
+trigger: none
+
+resources:
+  pipelines:
+  - pipeline: etheos
+    source: etheos
+    trigger:
+      branches:
+        include:
+        - master
+
+variables:
+- group: deploy-secrets
+
+stages:
+- stage: integration_test
+  displayName: 'Run Integration Tests'
+  jobs:
+  - job: deploy
+    displayName: 'Deploy to ci-test environment'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      lfs: true
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+      condition: succeeded()
+      displayName: 'Deploy to ci-test environment'
+    - script: python3 $(Build.SourcesDirectory)/deploy/test-connection.py ci-test.etheos.moffat.io 8078 9078 10078
+      condition: succeeded()
+      displayName: 'Test connection to server'
+
+  - job: test
+    displayName: 'Run integration tests against ci-test environment'
+    dependsOn: [ 'deploy' ]
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: github_oauth
+        userRepository: ethanmoffat/EndlessClient
+        itemPattern: '**/EOBot.Linux.zip'
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
+        destinationFolder: $(System.ArtifactsDirectory)/eobot
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 8078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+      condition: succeeded()
+      displayName: 'Run integration test scripts - mssql instance'
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 9078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+      condition: succeeded()
+      displayName: 'Run integration test scripts - mysql instance'
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 10078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+      condition: succeeded()
+      displayName: 'Run integration test scripts - sqlite instance'
+
+  - job: undeploy
+    displayName: 'Delete ci-test environment (reduce Azure spend)'
+    dependsOn: [ 'test' ]
+    condition: succeededOrFailed()
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+      displayName: 'Delete ci-test environment'
