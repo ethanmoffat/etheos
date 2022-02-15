@@ -36,6 +36,12 @@ stages:
         downloadType: 'single'
         artifactName: 'build_number'
         downloadPath: '$(Build.SourcesDirectory)'
+    - script: |
+        export ETHEOS_BUILD_NUMBER=$(cat build_number/BUILD_NUMBER)
+        echo "##vso[task.setvariable variable=ETHEOS_BUILD_NUMBER;]$ETHEOS_BUILD_NUMBER"
+        echo "ETHEOS_BUILD_NUMBER=$(ETHEOS_BUILD_NUMBER)"
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: Set ETHEOS_BUILD_NUMBER variable from downloaded artifact
 
     - task: Docker@2
       inputs:
@@ -44,10 +50,8 @@ stages:
     - script: |
         docker pull etheos.azurecr.io/etheos/dev
         docker tag etheos.azurecr.io/etheos/dev etheos.azurecr.io/etheos/test
-        export BUILD_NUMBER=$(cat build_number/BUILD_NUMBER)
-        docker tag etheos.azurecr.io/etheos/dev etheos.azurecr.io/etheos/test:$BUILD_NUMBER
-      workingDirectory: $(Build.SourcesDirectory)
-      displayName: 'Pull etheos:dev image'
+        docker tag etheos.azurecr.io/etheos/dev etheos.azurecr.io/etheos/test:$(ETHEOS_BUILD_NUMBER)
+      displayName: 'Pull etheos:dev image and tag as test'
     - task: Docker@2
       condition: succeeded()
       displayName: 'Push etheos:test image'
@@ -55,7 +59,7 @@ stages:
         command: push
         repository: etheos/test
         tags: |
-          $(Build.BuildNumber)
+          $(ETHEOS_BUILD_NUMBER)
           latest
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e test
       condition: succeeded()
