@@ -30,7 +30,7 @@ stages:
         project: '1f2fe263-7869-4749-8f35-303d29c536e2'
         pipeline: '13'
         buildVersionToDownload: 'latestFromBranch'
-        branchName: '$(Build.SourceBranchName)'
+        branchName: '$(Build.SourceBranch)'
         downloadType: 'single'
         artifactName: 'build_number'
         downloadPath: '$(Build.SourcesDirectory)'
