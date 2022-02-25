@@ -54,7 +54,7 @@ void Welcome_Request(Player *player, PacketReader &reader)
 		114 + player->character->paperdoll.size() * 2 + player->character->SourceName().length() + player->character->title.length()
 		+ guild_str.length() + guild_rank.length());
 
-	reply.AddShort(1); // REPLY_WELCOME sub-id
+	reply.AddShort(WELCOME_GRANTED); // REPLY_WELCOME sub-id
 	reply.AddShort(player->id);
 	reply.AddInt(player->character->id);
 	reply.AddShort(player->character->mapid); // Map ID
@@ -207,8 +207,18 @@ void Welcome_Request(Player *player, PacketReader &reader)
 // Welcome message after you login.
 void Welcome_Msg(Player *player, PacketReader &reader)
 {
-	reader.GetThree(); // ??
-	/*unsigned int id =*/ reader.GetInt(); // Character ID
+	auto playerId = reader.GetThree();
+	auto characterId = reader.GetInt();
+
+	if (playerId != player->id)
+	{
+		PacketBuilder builder = PacketBuilder(PACKET_WELCOME, PACKET_REPLY, 4)
+			.AddShort(WELCOME_ERROR)
+			.AddString("NO");
+		player->client->Send(builder);
+		player->client->Close();
+		return;
+	}
 
 	if (!player->character->world->GetMap(player->character->mapid)->exists)
 	{
@@ -259,7 +269,7 @@ void Welcome_Msg(Player *player, PacketReader &reader)
 
 	PacketBuilder reply(PACKET_WELCOME, PACKET_REPLY, 3 + 9);
 
-	reply.AddShort(2); // REPLY_WELCOME sub-id
+	reply.AddShort(WELCOME_COMPLETED);
 	// MotDs
 	reply.AddByte(255);
 
@@ -379,15 +389,32 @@ void Welcome_Msg(Player *player, PacketReader &reader)
 void Welcome_Agree(Player *player, PacketReader &reader)
 {
 	FileType file = FileType(reader.GetChar());
+
+	auto playerId = reader.GetShort();
+	if (playerId != player->id)
+	{
+		player->client->Close();
+		return;
+	}
+
+	short id = reader.Remaining() == 1
+		? reader.GetChar()
+		: reader.GetShort();
+
 	bool result = false;
 
 	switch (file)
 	{
-		case FILE_MAP: result = player->client->Upload(FILE_MAP, player->character->mapid, INIT_FILE_MAP); break;
-		case FILE_ITEM: result = player->client->Upload(FILE_ITEM, 1, INIT_FILE_EIF); break;
-		case FILE_NPC: result = player->client->Upload(FILE_NPC, 1, INIT_FILE_ENF); break;
-		case FILE_SPELL: result = player->client->Upload(FILE_SPELL, 1, INIT_FILE_ESF); break;
-		case FILE_CLASS: result = player->client->Upload(FILE_CLASS, 1, INIT_FILE_ECF); break;
+		case FILE_MAP:
+			result = player->client->Upload(FILE_MAP, id, INIT_FILE_MAP); break;
+		case FILE_ITEM:
+			result = player->client->Upload(FILE_ITEM, id, INIT_FILE_EIF); break;
+		case FILE_NPC:
+			result = player->client->Upload(FILE_NPC, id, INIT_FILE_ENF); break;
+		case FILE_SPELL:
+			result = player->client->Upload(FILE_SPELL, id, INIT_FILE_ESF); break;
+		case FILE_CLASS:
+			result = player->client->Upload(FILE_CLASS, id, INIT_FILE_ECF); break;
 		default: return;
 	}
 
