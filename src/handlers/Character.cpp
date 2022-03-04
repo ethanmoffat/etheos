@@ -108,11 +108,10 @@ void Character_Create(Player *player, PacketReader &reader)
 
 			reply.AddByte(255);
 		}
-
-		player->char_op_id = 0;
 	}
 
 	player->Send(reply);
+	player->char_op_id = 0;
 }
 
 // Delete a character from an account
