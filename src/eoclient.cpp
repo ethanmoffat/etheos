@@ -48,7 +48,8 @@ void EOClient::Initialize()
 	this->seq_start = 0;
 	this->upcoming_seq_start = -1;
 	this->seq = 0;
-	this->id = this->server()->world->GeneratePlayerID();
+	this->id = this->server()->world->GenerateClientID();
+	this->create_id = 0;
 	this->length = 0;
 	this->packet_state = EOClient::ReadLen1;
 	this->state = EOClient::Uninitialized;
@@ -272,6 +273,11 @@ int EOClient::GenUpcomingSequence()
 	return result;
 }
 
+void EOClient::NewCreateID()
+{
+	this->create_id = this->server()->world->GeneratePlayerID([](const EOClient* c) { return c->create_id; });
+}
+
 void EOClient::Execute(const std::string &data)
 {
 	if (data.length() < 2)
@@ -429,7 +435,7 @@ void EOClient::Send(const PacketBuilder &builder)
 	}
 	else
 	{
-		Client::Send(this->processor.Encode(builder));
+		Client::Send(data);
 	}
 }
 
