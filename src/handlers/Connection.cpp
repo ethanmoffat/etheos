@@ -14,14 +14,26 @@ namespace Handlers
 // Confirmation of initialization data
 void Connection_Accept(EOClient *client, PacketReader &reader)
 {
-	(void)client;
-	(void)reader;
+	auto emulti_d = reader.GetShort();
+	auto emulti_e = reader.GetShort();
+	auto client_id = reader.GetShort();
+
+	auto multis = client->processor.GetEMulti();
+	if (multis.first != emulti_e || multis.second != emulti_d || client->id != client_id)
+	{
+		client->Close();
+		return;
+	}
 }
 
 // Ping reply
 void Connection_Ping(EOClient *client, PacketReader &reader)
 {
-	(void)reader;
+	if (reader.GetEndString() != "k")
+	{
+		client->Close();
+		return;
+	}
 
 	if (client->needpong)
 	{
