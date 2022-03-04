@@ -22,4 +22,11 @@ enum CharacterReply : short
 	CHARACTER_DELETED = 6,
 };
 
+enum WelcomeReply : short
+{
+	WELCOME_GRANTED = 1,
+	WELCOME_COMPLETED = 2,
+	WELCOME_ERROR = 3
+};
+
 #endif // FWD_PLAYER_HPP_INCLUDED

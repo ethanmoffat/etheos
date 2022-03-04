@@ -64,7 +64,8 @@ class PacketProcessor
 		std::string DickWinderE(const std::string &);
 		std::string DickWinderD(const std::string &);
 
-		void SetEMulti(unsigned char, unsigned char);
+		void SetEMulti(unsigned char emulti_e, unsigned char emulti_d);
+		std::pair<unsigned char, unsigned char> GetEMulti() const { return std::make_pair(this->emulti_e, this->emulti_d); }
 
 		static unsigned int Number(unsigned char, unsigned char = 254, unsigned char = 254, unsigned char = 254);
 		static std::array<unsigned char, 4> ENumber(unsigned int);

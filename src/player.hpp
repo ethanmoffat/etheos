@@ -70,6 +70,7 @@ class Player
 		int login_time;
 		bool online;
 		unsigned int id;
+		unsigned short char_op_id;
 		std::string username;
 
 		std::string dutylast;
@@ -82,6 +83,8 @@ class Player
 
 		static bool ValidName(std::string username);
 		bool AddCharacter(std::string name, Gender gender, int hairstyle, int haircolor, Skin race);
+
+		void NewCharacterOp();
 
 		AdminLevel Admin() const;
 

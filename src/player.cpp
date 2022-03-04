@@ -31,6 +31,7 @@ Player::Player(const std::string& username)
 	this->character = nullptr;
 	this->client = nullptr;
 	this->login_time = static_cast<int>(std::time(0));
+	this->char_op_id = 0;
 }
 
 Player::Player(const std::string& username, World * world, Database * database)
@@ -63,6 +64,7 @@ Player::Player(const std::string& username, World * world, Database * database)
 	}
 
 	this->client = nullptr;
+	this->char_op_id = 0;
 }
 
 bool Player::ValidName(std::string username)
@@ -104,6 +106,11 @@ bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int ha
 	this->characters.push_back(newchar);
 
 	return true;
+}
+
+void Player::NewCharacterOp()
+{
+	this->char_op_id = this->world->GeneratePlayerID([](const EOClient * c) { return c->player ? c->player->char_op_id : 0; });
 }
 
 AdminLevel Player::Admin() const
