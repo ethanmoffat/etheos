@@ -25,10 +25,17 @@ namespace Handlers
 
 void Character_Request(Player *player, PacketReader &reader)
 {
-	(void)reader;
+	auto content = reader.GetBreakString();
+	if (content != "NEW" || player->char_op_id != 0)
+	{
+		player->client->Close();
+		return;
+	}
+
+	player->NewCharacterOp();
 
 	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 4);
-	reply.AddShort(1000); // CreateID?
+	reply.AddShort(player->char_op_id);
 	reply.AddString("OK");
 
 	player->Send(reply);
@@ -36,7 +43,12 @@ void Character_Request(Player *player, PacketReader &reader)
 
 void Character_Create(Player *player, PacketReader &reader)
 {
-	reader.GetShort(); // CreateID?
+	auto create_id = reader.GetShort();
+	if (create_id != player->char_op_id)
+	{
+		player->client->Close();
+		return;
+	}
 
 	Gender gender = static_cast<Gender>(reader.GetShort());
 	int hairstyle = reader.GetShort();
@@ -47,13 +59,16 @@ void Character_Create(Player *player, PacketReader &reader)
 	name = util::lowercase(name);
 
 	if ((gender != GENDER_MALE && gender != GENDER_FEMALE)
-	 || hairstyle < static_cast<int>(player->world->config["CreateMinHairStyle"])
-	 || hairstyle > static_cast<int>(player->world->config["CreateMaxHairStyle"])
-	 || haircolor < static_cast<int>(player->world->config["CreateMinHairColor"])
-	 || haircolor > static_cast<int>(player->world->config["CreateMaxHairColor"])
-	 || race < static_cast<int>(player->world->config["CreateMinSkin"])
-	 || race > static_cast<int>(player->world->config["CreateMaxSkin"]))
-	return;
+		|| hairstyle < static_cast<int>(player->world->config["CreateMinHairStyle"])
+		|| hairstyle > static_cast<int>(player->world->config["CreateMaxHairStyle"])
+		|| haircolor < static_cast<int>(player->world->config["CreateMinHairColor"])
+		|| haircolor > static_cast<int>(player->world->config["CreateMaxHairColor"])
+		|| race < static_cast<int>(player->world->config["CreateMinSkin"])
+		|| race > static_cast<int>(player->world->config["CreateMaxSkin"]))
+	 {
+		player->client->Close();
+		return;
+	 }
 
 	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 2);
 
@@ -93,6 +108,8 @@ void Character_Create(Player *player, PacketReader &reader)
 
 			reply.AddByte(255);
 		}
+
+		player->char_op_id = 0;
 	}
 
 	player->Send(reply);
@@ -101,7 +118,7 @@ void Character_Create(Player *player, PacketReader &reader)
 // Delete a character from an account
 void Character_Remove(Player *player, PacketReader &reader)
 {
-	/*int deleteid = */reader.GetShort();
+	int deleteid = reader.GetShort();
 	unsigned int id = reader.GetInt();
 
 	auto it = std::find_if(UTIL_RANGE(player->characters), [&](Character *c) -> bool
@@ -109,8 +126,11 @@ void Character_Remove(Player *player, PacketReader &reader)
 		return (c->id == id);
 	});
 
-	if (it == player->characters.end())
+	if (deleteid != player->char_op_id || it == player->characters.end())
+	{
+		player->client->Close();
 		return;
+	}
 
 	player->world->DeleteCharacter((*it)->real_name);
 	Console::Out("Deleted character: %s (%s)", (*it)->real_name.c_str(), player->username.c_str());
@@ -141,6 +161,7 @@ void Character_Remove(Player *player, PacketReader &reader)
 	}
 
 	player->Send(reply);
+	player->char_op_id = 0;
 }
 
 // Request to delete a character from an account
@@ -153,11 +174,16 @@ void Character_Take(Player *player, PacketReader &reader)
 		return (c->id == id);
 	});
 
-	if (it == player->characters.end())
+	if (it == player->characters.end() || player->char_op_id != 0)
+	{
+		player->client->Close();
 		return;
+	}
+
+	player->NewCharacterOp();
 
 	PacketBuilder reply(PACKET_CHARACTER, PACKET_PLAYER, 6);
-	reply.AddShort(1000); // Delete req ID
+	reply.AddShort(player->char_op_id);
 	reply.AddInt(id);
 
 	player->Send(reply);

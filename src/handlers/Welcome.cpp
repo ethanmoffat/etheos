@@ -207,10 +207,10 @@ void Welcome_Request(Player *player, PacketReader &reader)
 // Welcome message after you login.
 void Welcome_Msg(Player *player, PacketReader &reader)
 {
-	auto playerId = reader.GetThree();
-	auto characterId = reader.GetInt();
+	auto player_id = reader.GetThree();
+	auto character_id = reader.GetInt();
 
-	if (playerId != player->id)
+	if (player_id != player->id || player->character == nullptr || player->character->id != character_id)
 	{
 		PacketBuilder builder = PacketBuilder(PACKET_WELCOME, PACKET_REPLY, 4)
 			.AddShort(WELCOME_ERROR)
