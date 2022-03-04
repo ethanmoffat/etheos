@@ -51,7 +51,9 @@ void Account_Request(EOClient *client, PacketReader &reader)
 		if (client->GetSeqStart() > 240)
 			client->AccountReplyNewSequence();
 
-		reply.AddShort(ACCOUNT_CONTINUE);
+		client->NewCreateID();
+
+		reply.AddShort(client->create_id);
 		reply.AddChar(client->GetSeqStart());
 		reply.AddString("OK");
 	}
@@ -62,8 +64,14 @@ void Account_Request(EOClient *client, PacketReader &reader)
 // Account creation
 void Account_Create(EOClient *client, PacketReader &reader)
 {
-	reader.GetShort(); // Account creation "session ID"
-	reader.GetByte(); // ?
+	unsigned short create_id = reader.GetShort(); // Account creation "session ID"
+	unsigned char byte255 = reader.GetByte();
+
+	if (create_id != client->create_id || byte255 != 255)
+	{
+		client->Close();
+		return;
+	}
 
 	AccountCreateInfo accountInfo;
 
@@ -128,6 +136,8 @@ void Account_Create(EOClient *client, PacketReader &reader)
 				succeededReply.AddString("OK");
 
 				c->Send(succeededReply);
+
+				c->create_id = 0;
 			}
 
 			Console::Out("New account: %s", username.c_str());

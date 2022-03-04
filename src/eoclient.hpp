@@ -105,6 +105,7 @@ class EOClient : public Client
 		int version;
 		Player *player;
 		unsigned int id;
+		unsigned short create_id;
 		bool needpong;
 		int hdid;
 		ClientState state;
@@ -142,6 +143,7 @@ class EOClient : public Client
 		std::pair<unsigned short, unsigned char> GetSeqUpdateBytes();
 		int GenSequence();
 		int GenUpcomingSequence();
+		void NewCreateID();
 
 		void Execute(const std::string &data);
 
