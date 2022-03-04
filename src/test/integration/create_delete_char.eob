@@ -1,0 +1,49 @@
+$version = 28
+
+$account_name = "botacc" + $botindex
+$account_pass = "BotP@ssw0rd" + $botindex
+
+$LOGIN_OK = 3
+$CHARACTER_OK = 5
+$CHARACTER_DELETE = 6
+
+print ("SERVER=" + $host + ":" + $port + " Logging in " + $account_name)
+sleep(600 * $botindex)
+
+$loginRes = Login($account_name, $account_pass)
+if ($loginRes != $LOGIN_OK) {
+    if ($loginRes == 1)
+        $errorReason = "Wrong user"
+    else if ($loginRes == 2)
+        $errorReason = "Wrong password"
+    else if ($loginRes == 4)
+        $errorReason = "Account is banned"
+    else if ($loginRes == 5)
+        $errorReason = "Account is logged in"
+    else if ($loginRes == 6)
+        $errorReason = "Server is busy"
+
+    error("Bot " + $botindex + " login failed! Reason: " + $errorReason)
+}
+
+if ($botindex == 0) $suffix = "zero"
+else if ($botindex == 1) $suffix = "one"
+else if ($botindex == 2) $suffix = "two"
+else if ($botindex == 3) $suffix = "three"
+else if ($botindex == 4) $suffix = "four"
+else if ($botindex == 5) $suffix = "five"
+else error("This script is dumb and only supports 6 concurrent bots")
+
+$charname = "botacc" + $suffix
+
+print ("SERVER=" + $host + ":" + $port + " Creating character for " + $account_name)
+$createRes = CreateCharacter($charname)
+if ($createRes != $CHARACTER_OK) {
+    error("Bot " + $botindex + " character create failed! Result: " + $createRes)
+}
+
+print ("SERVER=" + $host + ":" + $port + " Deleting character " + $charname)
+$deleteRes = DeleteCharacter($charname, true)
+if ($deleteRes != $CHARACTER_DELETE) {
+    error("Bot " + $botindex + " character delete failed! Result: " + $deleteRes)
+}
