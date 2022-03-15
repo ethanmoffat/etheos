@@ -142,7 +142,7 @@ class World
 		void LoadHome();
 
 		int GenerateCharacterID();
-		unsigned short GeneratePlayerID(std::function<unsigned short(const EOClient *)> get_id) const;
+		unsigned short GenerateOperationID(std::function<unsigned short(const EOClient *)> get_id) const;
 		int GenerateClientID();
 
 		void Login(Character *);

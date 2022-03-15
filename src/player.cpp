@@ -110,7 +110,7 @@ bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int ha
 
 void Player::NewCharacterOp()
 {
-	this->char_op_id = this->world->GeneratePlayerID([](const EOClient * c) { return c->player ? c->player->char_op_id : 0; });
+	this->char_op_id = this->world->GenerateOperationID([](const EOClient * c) { return c->player ? c->player->char_op_id : 0; });
 }
 
 AdminLevel Player::Admin() const
