@@ -105,7 +105,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		}
 		else
 		{
-			c->player->id = c->server()->world->GeneratePlayerID([](const EOClient* cli) { return cli->player ? cli->player->id : 0; });
+			c->player->id = c->id;
 			c->player->client = c;
 			c->state = EOClient::LoggedIn;
 

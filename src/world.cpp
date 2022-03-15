@@ -982,7 +982,7 @@ int World::GenerateCharacterID()
 	return ++this->last_character_id;
 }
 
-unsigned short World::GeneratePlayerID(std::function<unsigned short(const EOClient *)> get_id) const
+unsigned short World::GenerateOperationID(std::function<unsigned short(const EOClient *)> get_id) const
 {
 	unsigned short candidate_id = static_cast<unsigned int>(util::rand(20000, 60000)) - 1;
 	std::list<Client*>::const_iterator matching_client;

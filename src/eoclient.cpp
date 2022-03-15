@@ -275,7 +275,7 @@ int EOClient::GenUpcomingSequence()
 
 void EOClient::NewCreateID()
 {
-	this->create_id = this->server()->world->GeneratePlayerID([](const EOClient* c) { return c->create_id; });
+	this->create_id = this->server()->world->GenerateOperationID([](const EOClient* c) { return c->create_id; });
 }
 
 void EOClient::Execute(const std::string &data)
