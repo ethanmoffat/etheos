@@ -44,7 +44,7 @@ stages:
   - job: build_windows
     displayName: 'Build - Release - Windows (MariaDB + SQL Server + Sqlite)'
     pool:
-      vmImage: 'windows-latest'
+      vmImage: 'windows-2019'
     steps:
     - checkout: self
       lfs: true
@@ -52,7 +52,7 @@ stages:
       displayName: 'Install build dependencies'
       inputs:
         filePath: '.\scripts\install-deps.ps1'
-        arguments: '-SkipCMake' # CMake is installed on the windows-latest image
+        arguments: '-SkipCMake' # CMake is installed on the windows-2019 image
     - task: PowerShell@2
       displayName: 'Build'
       inputs:
