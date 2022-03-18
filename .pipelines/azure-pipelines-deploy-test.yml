@@ -21,7 +21,7 @@ stages:
   - job: deploy_test_image
     displayName: 'Deploy to test environment'
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-20.04'
     steps:
     - checkout: self
       lfs: true
