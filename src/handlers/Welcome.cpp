@@ -191,9 +191,9 @@ void Welcome_Request(Player *player, PacketReader &reader)
 	}
 
 	reply.AddShort(static_cast<int>(player->world->config["JailMap"]));
-	reply.AddShort(4); // ?
-	reply.AddChar(24); // ?
-	reply.AddChar(24); // ?
+	reply.AddShort(4); // Recover map
+	reply.AddChar(24); // Recover map x
+	reply.AddChar(24); // Recover map y
 	reply.AddShort(0); // Light guide admin command flood rate
 	reply.AddShort(0); // Guardian admin command flood rate
 	reply.AddShort(0); // GM/HGM admin command flood rate
