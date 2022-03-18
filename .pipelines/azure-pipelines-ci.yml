@@ -21,7 +21,7 @@ stages:
   - job: deploy
     displayName: 'Deploy to ci-test environment'
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-20.04'
     steps:
     - checkout: self
       lfs: true
@@ -36,7 +36,7 @@ stages:
     displayName: 'Run integration tests against ci-test environment'
     dependsOn: [ 'deploy' ]
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-20.04'
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
@@ -62,7 +62,7 @@ stages:
     dependsOn: [ 'test' ]
     condition: succeededOrFailed()
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-20.04'
     steps:
     - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       displayName: 'Delete ci-test environment'
