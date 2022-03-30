@@ -806,6 +806,17 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 				builder.AddShort(character->maxhp);
 				builder.AddShort(character->maxtp);
 				builder.AddShort(character->maxsp);
+
+				PacketBuilder builder2(PACKET_ITEM, PACKET_ACCEPT);
+				builder2.AddShort(character->PlayerID());
+
+				for (const auto c : this->map->characters)
+				{
+					if (c == character || !c->InRange(character))
+						continue;
+
+					c->Send(builder2);
+				}
 			}
 
 			character->Send(builder);
