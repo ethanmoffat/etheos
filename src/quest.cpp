@@ -706,18 +706,26 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	else if (function_name == "settitle")
 	{
 		this->character->title = std::string(action.expr.args[0]);
+		if (this->character->title.length() > 32)
+			this->character->title = this->character->title.substr(0, 32);
 	}
 	else if (function_name == "setfiance")
 	{
 		this->character->fiance = std::string(action.expr.args[0]);
+		if (this->character->fiance.length() > 16)
+			this->character->fiance = this->character->fiance.substr(0, 16);
 	}
 	else if (function_name == "setpartner")
 	{
 		this->character->partner = std::string(action.expr.args[0]);
+		if (this->character->partner.length() > 16)
+			this->character->partner = this->character->partner.substr(0, 16);
 	}
 	else if (function_name == "sethome")
 	{
 		this->character->home = std::string(action.expr.args[0]);
+		if (this->character->home.length() > 32)
+			this->character->home = this->character->home.substr(0, 32);
 	}
 	else if (function_name == "setstat")
 	{

@@ -24,7 +24,7 @@
 namespace Commands
 {
 
-void SetX(const std::vector<std::string>& arguments, Command_Source* from, std::string set)
+void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from, std::string set, std::size_t argLength)
 {
 	Character *victim = from->SourceWorld()->GetCharacter(arguments[0]);
 	Character *from_character = from->SourceCharacter();
@@ -51,6 +51,14 @@ void SetX(const std::vector<std::string>& arguments, Command_Source* from, std::
 
 			if (i < arguments.size() - 1)
 				title_string += " ";
+		}
+
+		std::string limit_string = arguments.size() > 1 ? arguments[1] : "";
+
+		if (argLength > 0)
+		{
+			if (title_string.length() > argLength) title_string = title_string.substr(0, argLength);
+			if (limit_string.length() > argLength) limit_string = limit_string.substr(0, argLength);
 		}
 
 		bool appearance = false;
@@ -108,9 +116,9 @@ void SetX(const std::vector<std::string>& arguments, Command_Source* from, std::
 			}
 		}
 		else if (set == "title") victim->title = title_string;
-		else if (set == "fiance") victim->fiance = (arguments.size() > 1) ? arguments[1] : "";
-		else if (set == "partner") victim->partner = (arguments.size() > 1) ? arguments[1] : "";
-		else if (set == "home") victim->home = (arguments.size() > 1) ? arguments[1] : "";
+		else if (set == "fiance") victim->fiance = limit_string;
+		else if (set == "partner") victim->partner = limit_string;
+		else if (set == "home") victim->home = limit_string;
 		else if (set == "gender") (appearance = true, victim->gender) = Gender(std::min(std::max(util::to_int(arguments[1]), 0), 1));
 		else if (set == "hairstyle") (appearance = true, victim->hairstyle) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxHairStyle"]));
 		else if (set == "haircolor") (appearance = true, victim->haircolor) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxHairColor"]));
@@ -182,6 +190,11 @@ void SetX(const std::vector<std::string>& arguments, Command_Source* from, std::
 			}
 		}
 	}
+}
+
+void SetX(const std::vector<std::string>& arguments, Command_Source* from, std::string set)
+{
+	SetXLimited(arguments, from, set, 0);
 }
 
 void Strip(const std::vector<std::string>& arguments, Command_Source* from)
@@ -383,10 +396,10 @@ COMMAND_HANDLER_REGISTER(char_mod)
 	Register({"setstatpoints", {"victim", "value"}, {}, 7}, std::bind(SetX, _1, _2, "statpoints"), CMD_FLAG_DUTY_RESTRICT);
 	Register({"setskillpoints", {"victim", "value"}, {}, 8}, std::bind(SetX, _1, _2, "skillpoints"), CMD_FLAG_DUTY_RESTRICT);
 	Register({"setadmin", {"victim", "value"}, {}, 8}, std::bind(SetX, _1, _2, "admin"));
-	Register({"settitle", {"victim", "value"}, {}, 4}, std::bind(SetX, _1, _2, "title"));
-	Register({"setfiance", {"victim", "value"}, {}, 4}, std::bind(SetX, _1, _2, "fiance"));
-	Register({"setpartner", {"victim", "value"}, {}, 4}, std::bind(SetX, _1, _2, "partner"));
-	Register({"sethome", {"victim", "value"}, {}, 4}, std::bind(SetX, _1, _2, "home"), CMD_FLAG_DUTY_RESTRICT);
+	Register({"settitle", {"victim", "value"}, {}, 4}, std::bind(SetXLimited, _1, _2, "title", 32));
+	Register({"setfiance", {"victim", "value"}, {}, 4}, std::bind(SetXLimited, _1, _2, "fiance", 16));
+	Register({"setpartner", {"victim", "value"}, {}, 4}, std::bind(SetXLimited, _1, _2, "partner", 16));
+	Register({"sethome", {"victim", "value"}, {}, 4}, std::bind(SetXLimited, _1, _2, "home", 32), CMD_FLAG_DUTY_RESTRICT);
 	Register({"setgender", {"victim", "value"}, {}, 4}, std::bind(SetX, _1, _2, "gender"), CMD_FLAG_DUTY_RESTRICT);
 	Register({"sethairstyle", {"victim", "value"}, {}, 8}, std::bind(SetX, _1, _2, "hairstyle"), CMD_FLAG_DUTY_RESTRICT);
 	Register({"sethaircolor", {"victim", "value"}, {}, 8}, std::bind(SetX, _1, _2, "haircolor"), CMD_FLAG_DUTY_RESTRICT);
