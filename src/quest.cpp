@@ -259,9 +259,6 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 	if (appearance)
 		victim->Warp(victim->map->id, victim->x, victim->y);
 
-	// TODO: Good way of updating skillpoints
-	(void)skillpoints;
-
 	if (stats || statpoints)
 	{
 		victim->CalculateStats();
@@ -295,8 +292,18 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 		builder.AddShort(victim->armor);
 		victim->Send(builder);
 	}
+	else if (skillpoints)
+	{
+		victim->CalculateStats();
 
-	if (karma || level)
+		PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
+		builder.AddShort(victim->skillpoints);
+		builder.AddShort(0);
+		builder.AddShort(0);
+
+		victim->Send(builder);
+	}
+	else if (karma || level)
 	{
 		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
 		builder.AddInt(victim->exp);
