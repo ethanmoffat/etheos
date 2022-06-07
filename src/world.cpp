@@ -743,7 +743,7 @@ void World::RestoreFromDump(const std::string& fileName)
 			// if the database entry is older than the character data in the dump, update the database with the dump's character data
 			else if (exists.front()["usage"].GetInt() <= c["usage"].get<int>())
 			{
-				dbRes = this->db->Query("UPDATE `characters` SET `title` = $, `class` = #, `gender` = #, `race` = #, "
+				dbRes = this->db->Query("UPDATE `characters` SET `title` = '$', `class` = #, `gender` = #, `race` = #, "
 					"`hairstyle` = #, `haircolor` = #, `map` = #, `x` = #, `y` = #, `direction` = #, `level` = #, `admin` = #, `exp` = #, `hp` = #, `tp` = #, "
 					"`str` = #, `int` = #, `wis` = #, `agi` = #, `con` = #, `cha` = #, `statpoints` = #, `skillpoints` = #, `karma` = #, `sitting` = #, `hidden` = #, "
 					"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "
