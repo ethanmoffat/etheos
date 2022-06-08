@@ -813,7 +813,7 @@ int Character::CanHoldItem(short itemid, int max_amount)
 	int amount = max_amount;
 
 	if (int(this->world->config["EnforceWeight"]) >= 2
-	 && SourceDutyAccess() < static_cast<int>(world->config["unlimitedweight"]))
+	 && SourceDutyAccess() < static_cast<int>(world->admin_config["unlimitedweight"]))
 	{
 		const EIF_Data &item = this->world->eif->Get(itemid);
 

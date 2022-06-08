@@ -259,9 +259,6 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 	if (appearance)
 		victim->Warp(victim->map->id, victim->x, victim->y);
 
-	// TODO: Good way of updating skillpoints
-	(void)skillpoints;
-
 	if (stats || statpoints)
 	{
 		victim->CalculateStats();
@@ -295,8 +292,18 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 		builder.AddShort(victim->armor);
 		victim->Send(builder);
 	}
+	else if (skillpoints)
+	{
+		victim->CalculateStats();
 
-	if (karma || level)
+		PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
+		builder.AddShort(victim->skillpoints);
+		builder.AddShort(0);
+		builder.AddShort(0);
+
+		victim->Send(builder);
+	}
+	else if (karma || level)
 	{
 		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
 		builder.AddInt(victim->exp);
@@ -706,18 +713,22 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	else if (function_name == "settitle")
 	{
 		this->character->title = std::string(action.expr.args[0]);
+		this->character->title = this->character->title.substr(0, 32);
 	}
 	else if (function_name == "setfiance")
 	{
 		this->character->fiance = std::string(action.expr.args[0]);
+		this->character->fiance = this->character->fiance.substr(0, 16);
 	}
 	else if (function_name == "setpartner")
 	{
 		this->character->partner = std::string(action.expr.args[0]);
+		this->character->partner = this->character->partner.substr(0, 16);
 	}
 	else if (function_name == "sethome")
 	{
 		this->character->home = std::string(action.expr.args[0]);
+		this->character->home = this->character->home.substr(0, 32);
 	}
 	else if (function_name == "setstat")
 	{

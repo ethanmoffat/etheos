@@ -693,6 +693,8 @@ void Map::Unload()
 				opponent->attacker->unregister_npc.end()
 			);
 		}
+
+		delete npc;
 	}
 
 	this->npcs.clear();

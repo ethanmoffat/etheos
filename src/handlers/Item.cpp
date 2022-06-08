@@ -315,20 +315,14 @@ void Item_Use(Character *character, PacketReader &reader)
 
 				if (level_up)
 				{
-					PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 9);
-					builder.AddInt(character->exp);
-					builder.AddShort(character->karma);
-					builder.AddChar(character->level);
-					builder.AddShort(character->statpoints);
-					builder.AddShort(character->skillpoints);
+					PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
+					builder.AddShort(character->PlayerID());
 
 					UTIL_FOREACH(character->map->characters, check)
 					{
-						if (character != check && character->InRange(check))
+						if (character->InRange(check))
 						{
-							PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
-							builder.AddShort(character->PlayerID());
-							character->Send(builder);
+							check->Send(builder);
 						}
 					}
 				}
