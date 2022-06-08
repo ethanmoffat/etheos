@@ -26,7 +26,7 @@ namespace Handlers
 void Character_Request(Player *player, PacketReader &reader)
 {
 	auto content = reader.GetBreakString();
-	if (content != "NEW" || player->char_op_id != 0)
+	if (content != "NEW")
 	{
 		player->client->Close();
 		return;
@@ -173,7 +173,7 @@ void Character_Take(Player *player, PacketReader &reader)
 		return (c->id == id);
 	});
 
-	if (it == player->characters.end() || player->char_op_id != 0)
+	if (it == player->characters.end())
 	{
 		player->client->Close();
 		return;

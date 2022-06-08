@@ -22,6 +22,7 @@ void Trade_Request(Character *character, PacketReader &reader)
 {
 	if (character->trading) return;
 	if (!character->CanInteractItems()) return;
+	if (character->mapid == int(character->world->config["JailMap"])) return;
 
 	int something = reader.GetChar(); // ?
 	int victimid = reader.GetShort();
@@ -50,6 +51,7 @@ void Trade_Accept(Character *character, PacketReader &reader)
 {
 	if (character->trading) return;
 	if (!character->CanInteractItems()) return;
+	if (character->mapid == int(character->world->config["JailMap"])) return;
 
 	/*int accept =*/ reader.GetChar();
 	int victimid = reader.GetShort();
