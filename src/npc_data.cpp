@@ -18,7 +18,7 @@ NPC_Data::NPC_Data(World* world, short id)
 	, drops_chance_total(0.0)
 	, world(world)
 {
-	this->LoadShopDrop();
+	this->Load();
 }
 
 const ENF_Data& NPC_Data::ENF() const
@@ -26,7 +26,7 @@ const ENF_Data& NPC_Data::ENF() const
 	return this->world->enf->Get(this->id);
 }
 
-void NPC_Data::UnloadShopDrop()
+void NPC_Data::Unload()
 {
 	this->drops.clear();
 	this->shop_trade.clear();
@@ -37,12 +37,14 @@ void NPC_Data::UnloadShopDrop()
 
 	this->citizenship.reset();
 
-	this->speech.clear();
+	this->talk_speed = 0.0;
+	this->talk_chance = 0.0;
+	this->talk_phrases.clear();
 }
 
-void NPC_Data::LoadShopDrop()
+void NPC_Data::Load()
 {
-	this->UnloadShopDrop();
+	this->Unload();
 
 	Config::iterator drops = this->world->drops_config.find(util::to_string(this->id));
 	if (drops != this->world->drops_config.end())
@@ -293,18 +295,18 @@ void NPC_Data::LoadShopDrop()
 		}
 	}
 
-	Config::iterator iter_speech = world->speech_config.find(util::to_string(id) + ".speech");
-	if (iter_speech != world->speech_config.end())
+	this->talk_speed = static_cast<double>(world->speech_config[std::to_string(this->id) + ".frequency"]);
+	this->talk_chance = static_cast<double>(world->speech_config[std::to_string(this->id) + ".chance"]);
+
+	int i = 0;
+	Config::iterator speech;
+	auto next_speech = [this, &i]() {
+		return world->speech_config.find(std::to_string(id) + ".speech." + std::to_string(++i));
+	};
+
+	while ((speech = next_speech()) != world->speech_config.end())
 	{
-		std::string freq_str = util::trim(static_cast<std::string>(world->speech_config[util::to_string(this->id) + ".freq"]));
-		this->talk_speed = util::to_float(freq_str);
-
-		std::string chance_str = util::trim(static_cast<std::string>(world->speech_config[util::to_string(this->id) + ".chance"]));
-		this->talk_chance = util::to_float(chance_str);
-
-		auto parts = util::explode(',', static_cast<std::string>(iter_speech->second));
-		for (auto part : parts)
-			this->speech.push_back(util::trim(part));
+		this->talk_phrases.push_back(static_cast<std::string>((*speech).second));
 	}
 }
 
