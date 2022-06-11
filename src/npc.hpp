@@ -69,6 +69,9 @@ class NPC
 
 		void Spawn(NPC *parent = 0);
 		void Act();
+		void Talk();
+
+		bool InCharacterRange();
 
 		bool Walk(Direction);
 		void Damage(Character *from, int amount, int spell_id = -1);

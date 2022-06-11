@@ -78,33 +78,26 @@ void world_act_npcs(void *world_void)
 	{
 		UTIL_FOREACH(map->npcs, npc)
 		{
-			const auto& data = npc->Data();
-
-			if (npc->alive)
+			if (npc->alive && npc->last_act + npc->act_speed < current_time)
 			{
-				if (npc->last_act + npc->act_speed < current_time)
-				{
-					npc->Act();
-				}
+				npc->Act();
+			}
+		}
+	}
+}
 
-				int chance = util::rand(0, 99);
-				if (npc->last_talk + data.talk_speed < current_time &&
-					chance < data.talk_chance &&
-					data.speech.size() > 0)
-				{
-					int ndx = util::rand(0, data.speech.size() - 1);
-					std::string speech = data.speech[ndx];
-					npc->map->Msg(npc, speech);
-					npc->last_talk += data.talk_speed;
+void world_talk_npcs(void *world_void)
+{
+	World *world(static_cast<World *>(world_void));
 
-					UTIL_FOREACH(npc->map->npcs, npciter)
-					{
-						if (npciter->spawn_x == npc->spawn_x && npciter->spawn_y == npc->spawn_y)
-						{
-							npciter->last_talk = npc->last_talk;
-						}
-					}
-				}
+	double current_time = Timer::GetTime();
+	UTIL_FOREACH(world->maps, map)
+	{
+		UTIL_FOREACH(map->npcs, npc)
+		{
+			if (npc->alive && npc->last_talk + npc->Data().talk_speed < current_time)
+			{
+				npc->Talk();
 			}
 		}
 	}
@@ -427,7 +420,7 @@ void World::Initialize()
 		auto& npc = this->npc_data[i];
 		npc.reset(new NPC_Data(this, static_cast<short>(i)));
 		if (npc->id != 0)
-			npc->LoadShopDrop();
+			npc->Load();
 	}
 
 	this->maps.resize(static_cast<int>(this->config["Maps"]));
@@ -468,6 +461,9 @@ void World::Initialize()
 	this->timer.Register(event);
 
 	event = new TimeEvent(world_act_npcs, this, 0.05, Timer::FOREVER);
+	this->timer.Register(event);
+
+	event = new TimeEvent(world_talk_npcs, this, 1.0, Timer::FOREVER);
 	this->timer.Register(event);
 
 	if (int(this->config["RecoverSpeed"]) > 0)
@@ -1290,7 +1286,7 @@ void World::Rehash()
 	UTIL_FOREACH_CREF(this->npc_data, npc)
 	{
 		if (npc->id != 0)
-			npc->LoadShopDrop();
+			npc->Load();
 	}
 }
 
@@ -1325,7 +1321,7 @@ void World::ReloadPub(bool quiet)
 
 	for (std::size_t i = current_npcs; i < new_npcs; ++i)
 	{
-		npc_data[i]->LoadShopDrop();
+		npc_data[i]->Load();
 	}
 }
 
