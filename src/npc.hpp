@@ -70,6 +70,8 @@ class NPC
 		void Spawn(NPC *parent = 0);
 		void Act();
 
+		bool InCharacterRange();
+
 		bool Walk(Direction);
 		void Damage(Character *from, int amount, int spell_id = -1);
 		void RemoveFromView(Character *target);

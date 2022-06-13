@@ -69,6 +69,50 @@ void world_spawn_npcs(void *world_void)
 	}
 }
 
+void world_npc_speech(NPC* from)
+{
+	const auto& data = from->Data();
+
+	if (data.talk_phrases.empty())
+	{
+		return;
+	}
+
+	if (from->last_talk + data.talk_speed > Timer::GetTime())
+	{
+		return;
+	}
+
+	from->last_talk = Timer::GetTime();
+
+	std::vector<NPC*> talk_candidates;
+	talk_candidates.reserve(from->map->npcs.size());
+
+	UTIL_FOREACH(from->map->npcs, npc)
+	{
+		if (npc->id == from->id && npc->spawn_x == from->spawn_x && npc->spawn_y == from->spawn_y)
+		{
+			npc->last_talk = from->last_talk;
+			if (npc->InCharacterRange())
+			{
+				talk_candidates.push_back(npc);
+			}
+		}
+	}
+
+	if (talk_candidates.empty())
+	{
+		return;
+	}
+
+	if (util::rand(0.0, 1.0) <= data.talk_chance)
+	{
+		NPC* talker = talk_candidates[util::rand(0, talk_candidates.size() - 1)];
+		std::string phrase = data.talk_phrases[util::rand(0, data.talk_phrases.size() - 1)];
+		from->map->Msg(talker, phrase);
+	}
+}
+
 void world_act_npcs(void *world_void)
 {
 	World *world(static_cast<World *>(world_void));
@@ -78,8 +122,6 @@ void world_act_npcs(void *world_void)
 	{
 		UTIL_FOREACH(map->npcs, npc)
 		{
-			const auto& data = npc->Data();
-
 			if (npc->alive)
 			{
 				if (npc->last_act + npc->act_speed < current_time)
@@ -87,24 +129,7 @@ void world_act_npcs(void *world_void)
 					npc->Act();
 				}
 
-				int chance = util::rand(0, 99);
-				if (npc->last_talk + data.talk_speed < current_time &&
-					chance < data.talk_chance &&
-					data.speech.size() > 0)
-				{
-					int ndx = util::rand(0, data.speech.size() - 1);
-					std::string speech = data.speech[ndx];
-					npc->map->Msg(npc, speech);
-					npc->last_talk += data.talk_speed;
-
-					UTIL_FOREACH(npc->map->npcs, npciter)
-					{
-						if (npciter->spawn_x == npc->spawn_x && npciter->spawn_y == npc->spawn_y)
-						{
-							npciter->last_talk = npc->last_talk;
-						}
-					}
-				}
+				world_npc_speech(npc);
 			}
 		}
 	}
@@ -427,7 +452,7 @@ void World::Initialize()
 		auto& npc = this->npc_data[i];
 		npc.reset(new NPC_Data(this, static_cast<short>(i)));
 		if (npc->id != 0)
-			npc->LoadShopDrop();
+			npc->Load();
 	}
 
 	this->maps.resize(static_cast<int>(this->config["Maps"]));
@@ -1290,7 +1315,7 @@ void World::Rehash()
 	UTIL_FOREACH_CREF(this->npc_data, npc)
 	{
 		if (npc->id != 0)
-			npc->LoadShopDrop();
+			npc->Load();
 	}
 }
 
@@ -1325,7 +1350,7 @@ void World::ReloadPub(bool quiet)
 
 	for (std::size_t i = current_npcs; i < new_npcs; ++i)
 	{
-		npc_data[i]->LoadShopDrop();
+		npc_data[i]->Load();
 	}
 }
 

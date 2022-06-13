@@ -75,8 +75,8 @@ struct NPC_Learn_Skill
 {
 	unsigned short id;
 	int cost;
-    unsigned char levelreq;
-    unsigned char classreq;
+	unsigned char levelreq;
+	unsigned char classreq;
 	std::array<short, 4> skillreq;
 	short strreq, intreq, wisreq, agireq, conreq, chareq;
 };
@@ -96,14 +96,14 @@ class NPC_Data
 
 		double talk_speed;
 		double talk_chance;
-		std::vector<std::string> speech;
+		std::vector<std::string> talk_phrases;
 
 		World* world;
 
 		const ENF_Data& ENF() const;
 
-		void LoadShopDrop();
-		void UnloadShopDrop();
+		void Load();
+		void Unload();
 
 		NPC_Data(World* world, short id);
 		NPC_Data(const NPC_Data&);

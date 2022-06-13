@@ -374,6 +374,18 @@ void NPC::Act()
 	}
 }
 
+bool NPC::InCharacterRange()
+{
+	UTIL_FOREACH(this->map->characters, character)
+	{
+		if (character->InRange(this))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool NPC::Walk(Direction direction)
 {
 	return this->map->Walk(this, direction);
