@@ -18,6 +18,7 @@
 #include "player.hpp"
 #include "quest.hpp"
 #include "timer.hpp"
+#include "wedding.hpp"
 #include "world.hpp"
 
 #include "console.hpp"
@@ -343,6 +344,7 @@ Map::Map(int id, World *world)
 	this->arena = 0;
 	this->evacuate_lock = false;
 	this->has_timed_spikes = false;
+	this->wedding = nullptr;
 
 	this->LoadArena();
 
@@ -352,6 +354,15 @@ Map::Map(int id, World *world)
 	{
 		TimeEvent *event = new TimeEvent(map_spawn_chests, this, 60.0, Timer::FOREVER);
 		this->world->timer.Register(event);
+	}
+
+	for (NPC* npc : this->npcs)
+	{
+		if (npc->ENF().type == ENF::Priest)
+		{
+			this->wedding = new Wedding(this, npc->index);
+			break;
+		}
 	}
 
 	this->currentQuakeTick = 0;
@@ -814,6 +825,11 @@ void Map::Leave(Character *character, WarpAnimation animation, bool silent)
 
 			checkcharacter->Send(builder);
 		}
+	}
+
+	if (this->wedding)
+	{
+		this->wedding->CancelWeddingRequest(character);
 	}
 
 	this->characters.erase(
@@ -2413,6 +2429,21 @@ void Map::Effect(MapEffect effect, unsigned char param)
 	UTIL_FOREACH(this->characters, character)
 	{
 		character->Send(builder);
+	}
+}
+
+void Map::TileEffect(unsigned char x, unsigned char y, unsigned short effect)
+{
+	PacketBuilder builder;
+	builder.SetID(PACKET_EFFECT, PACKET_AGREE);
+	builder.AddChar(x);
+	builder.AddChar(y);
+	builder.AddShort(effect);
+
+	UTIL_FOREACH(this->characters, character)
+	{
+		if (character->InRange(x, y))
+			character->Send(builder);
 	}
 }
 

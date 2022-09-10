@@ -12,6 +12,7 @@
 #include "fwd/arena.hpp"
 #include "fwd/character.hpp"
 #include "fwd/npc.hpp"
+#include "fwd/wedding.hpp"
 #include "fwd/world.hpp"
 
 #include <list>
@@ -254,6 +255,7 @@ class Map
 
 		int currentQuakeTick, nextQuakeTick;
 
+		Wedding *wedding;
 		Arena *arena;
 
 		Map(int id, World *world);
@@ -305,6 +307,8 @@ class Map
 		std::vector<NPC *> NPCsInRange(unsigned char x, unsigned char y, unsigned char range);
 
 		void Effect(MapEffect effect, unsigned char param);
+
+		void TileEffect(unsigned char x, unsigned char y, unsigned short effect);
 
 		bool Evacuate();
 
