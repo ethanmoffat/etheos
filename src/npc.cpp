@@ -374,6 +374,57 @@ void NPC::Act()
 	}
 }
 
+void NPC::Talk()
+{
+	const auto& data = this->Data();
+
+	if (data.talk_phrases.empty())
+	{
+		return;
+	}
+
+	this->last_talk = Timer::GetTime();
+
+	std::vector<NPC*> talk_candidates;
+	talk_candidates.reserve(this->map->npcs.size());
+
+	UTIL_FOREACH(this->map->npcs, npc)
+	{
+		if (npc->id == this->id && npc->spawn_x == this->spawn_x && npc->spawn_y == this->spawn_y)
+		{
+			npc->last_talk = this->last_talk;
+			if (npc->alive && npc->InCharacterRange())
+			{
+				talk_candidates.push_back(npc);
+			}
+		}
+	}
+
+	if (talk_candidates.empty())
+	{
+		return;
+	}
+
+	if (util::rand(0.0, 1.0) <= data.talk_chance)
+	{
+		NPC* talker = talk_candidates[util::rand(0, talk_candidates.size() - 1)];
+		std::string phrase = data.talk_phrases[util::rand(0, data.talk_phrases.size() - 1)];
+		this->map->Msg(talker, phrase);
+	}
+}
+
+bool NPC::InCharacterRange()
+{
+	UTIL_FOREACH(this->map->characters, character)
+	{
+		if (character->InRange(this))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool NPC::Walk(Direction direction)
 {
 	return this->map->Walk(this, direction);
