@@ -196,6 +196,10 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "StartSpells"        , "");
 	eoserv_config_default(config, "StartEquipMale"     , "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,");
 	eoserv_config_default(config, "StartEquipFemale"   , "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,");
+	eoserv_config_default(config, "WeddingRing"        , 374);
+	eoserv_config_default(config, "WeddingMinLevel"    , 5);
+	eoserv_config_default(config, "WeddingOutfitMale"  , 133);
+	eoserv_config_default(config, "WeddingOutfitFemale", 163);
 	eoserv_config_default(config, "MaxHairStyle"       , 20);
 	eoserv_config_default(config, "MaxHairColor"       , 9);
 	eoserv_config_default(config, "MaxSkin"            , 6);
