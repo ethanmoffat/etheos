@@ -57,7 +57,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 		{
 			if (!character->partner.empty())
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_ALREADY_HAVE_PARTNER);
 				character->Send(builder);
 				return;
@@ -67,7 +67,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			if (!character->HasItem(1, marriage_price))
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_NOT_ENOUGH_GP);
 				character->Send(builder);
 				return;
@@ -77,7 +77,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			character->fiance = name;
 
-			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 5);
+			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
 			builder.AddShort(MARRIAGE_SUCCESS);
 			builder.AddInt(character->HasItem(1));
 			character->Send(builder);
@@ -86,7 +86,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 		{
 			if (character->partner.empty())
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_DIVORCE_NOT_MARRIED);
 				character->Send(builder);
 				return;
@@ -96,7 +96,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			if (!character->HasItem(1, divorce_price))
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_NOT_ENOUGH_GP);
 				character->Send(builder);
 				return;
@@ -104,7 +104,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			if (character->partner != name)
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_DIVORCE_WRONG_NAME);
 				character->Send(builder);
 				return;
@@ -116,7 +116,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 			{
 				partner->partner.clear();
 
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 1);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
 				builder.AddShort(MARRIAGE_DIVORCE_NOTIFICATION);
 				partner->Send(builder);
 			}
@@ -133,7 +133,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			character->DelItem(1, divorce_price);
 
-			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 5);
+			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
 			builder.AddShort(MARRIAGE_SUCCESS);
 			builder.AddInt(character->HasItem(1));
 			character->Send(builder);

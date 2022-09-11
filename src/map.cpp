@@ -2434,8 +2434,7 @@ void Map::Effect(MapEffect effect, unsigned char param)
 
 void Map::TileEffect(unsigned char x, unsigned char y, unsigned short effect)
 {
-	PacketBuilder builder;
-	builder.SetID(PACKET_EFFECT, PACKET_AGREE);
+	PacketBuilder builder(PACKET_EFFECT, PACKET_AGREE, 4);
 	builder.AddChar(x);
 	builder.AddChar(y);
 	builder.AddShort(effect);
