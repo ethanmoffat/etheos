@@ -47,7 +47,7 @@ void Marriage_Open(Character *character, PacketReader &reader)
 void Marriage_Request(Character *character, PacketReader &reader)
 {
 	unsigned char request_type = reader.GetChar();
-	int session_id = reader.GetInt();
+	/*int session_id = */reader.GetInt();
 	reader.GetByte();
 	std::string name = reader.GetEndString();
 
