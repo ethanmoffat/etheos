@@ -409,7 +409,7 @@ void NPC::Talk()
 	{
 		NPC* talker = talk_candidates[util::rand(0, talk_candidates.size() - 1)];
 		std::string phrase = data.talk_phrases[util::rand(0, data.talk_phrases.size() - 1)];
-		this->map->Msg(talker, phrase);
+		talker->Say(phrase);
 	}
 }
 
@@ -1100,6 +1100,11 @@ void NPC::Attack(Character *target)
 	builder.AddShort(target->tp);
 
 	target->Send(builder);
+}
+
+void NPC::Say(const std::string& message)
+{
+	this->map->Msg(this, message);
 }
 
 #define v(x) vars[prefix + #x] = x;

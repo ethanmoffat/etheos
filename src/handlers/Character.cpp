@@ -131,6 +131,22 @@ void Character_Remove(Player *player, PacketReader &reader)
 		return;
 	}
 
+	std::string partner_name = (*it)->partner;
+	Character* partner = player->world->GetCharacter(partner_name);
+
+	if (partner)
+	{
+		partner->partner.clear();
+	}
+	else
+	{
+		player->world->db->Query(
+			"UPDATE `characters` SET `partner` = '' WHERE `name` = '$' AND partner = '$'",
+			partner_name.c_str(),
+			(*it)->SourceName().c_str()
+		);
+	}
+
 	player->world->DeleteCharacter((*it)->real_name);
 	Console::Out("Deleted character: %s (%s)", (*it)->real_name.c_str(), player->username.c_str());
 
