@@ -43,17 +43,26 @@ void Marriage_Open(Character *character, PacketReader &reader)
 	}
 }
 
+enum MarriageRequestType : unsigned char
+{
+	MarriageApproval = 0,
+	Divorce = 1,
+};
+
 // Requesting marriage approval
 void Marriage_Request(Character *character, PacketReader &reader)
 {
-	unsigned char request_type = reader.GetChar();
+	MarriageRequestType request_type = static_cast<MarriageRequestType>(reader.GetChar());
 	/*int session_id = */reader.GetInt();
 	reader.GetByte();
 	std::string name = reader.GetEndString();
 
-	if (character->npc_type == ENF::Law)
+	if (character->npc_type != ENF::Law)
+		return;
+
+	switch (request_type)
 	{
-		if (request_type == 1) // Marriage approval
+		case MarriageApproval:
 		{
 			if (!character->partner.empty())
 			{
@@ -81,8 +90,10 @@ void Marriage_Request(Character *character, PacketReader &reader)
 			builder.AddShort(MARRIAGE_SUCCESS);
 			builder.AddInt(character->HasItem(1));
 			character->Send(builder);
+			break;
 		}
-		else if (request_type == 2) // Divorce
+
+		case Divorce:
 		{
 			if (character->partner.empty())
 			{
@@ -137,6 +148,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 			builder.AddShort(MARRIAGE_SUCCESS);
 			builder.AddInt(character->HasItem(1));
 			character->Send(builder);
+			break;
 		}
 	}
 }
