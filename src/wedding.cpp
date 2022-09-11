@@ -174,7 +174,7 @@ void Wedding::Tick()
 			{
 				if (this->Check())
 				{
-					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 4);
+					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 2);
 					builder.AddShort(PRIEST_DO_YOU);
 					this->GetPartner1()->Send(builder);
 				}
@@ -206,7 +206,7 @@ void Wedding::Tick()
 			{
 				if (this->Check())
 				{
-					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 4);
+					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 2);
 					builder.AddShort(PRIEST_DO_YOU);
 					this->GetPartner2()->Send(builder);
 				}
