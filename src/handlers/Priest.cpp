@@ -25,7 +25,6 @@ namespace Handlers
 // Accepting a marriage request
 void Priest_Accept(Character *character, PacketReader &reader)
 {
-	(void) character;
 	(void) reader;
 
 	if (!character->partner.empty())
