@@ -341,28 +341,20 @@ Map::Map(int id, World *world)
 	this->world = world;
 	this->exists = false;
 	this->jukebox_protect = 0.0;
-	this->arena = 0;
+	this->arena = nullptr;
+	this->wedding = nullptr;
 	this->evacuate_lock = false;
 	this->has_timed_spikes = false;
-	this->wedding = nullptr;
-
-	this->LoadArena();
 
 	this->Load();
+
+	this->LoadArena();
+	this->LoadWedding();
 
 	if (!this->chests.empty())
 	{
 		TimeEvent *event = new TimeEvent(map_spawn_chests, this, 60.0, Timer::FOREVER);
 		this->world->timer.Register(event);
-	}
-
-	for (NPC* npc : this->npcs)
-	{
-		if (npc->ENF().type == ENF::Priest)
-		{
-			this->wedding = new Wedding(this, npc->index);
-			break;
-		}
 	}
 
 	this->currentQuakeTick = 0;
@@ -451,6 +443,18 @@ void Map::LoadArena()
 		if (!this->arena)
 		{
 			character->Warp(character->map->id, character->map->relog_x, character->map->relog_y);
+		}
+	}
+}
+
+void Map::LoadWedding()
+{
+	for (NPC* npc : this->npcs)
+	{
+		if (npc->ENF().type == ENF::Priest)
+		{
+			this->wedding = new Wedding(this, npc->index);
+			break;
 		}
 	}
 }
@@ -716,9 +720,14 @@ void Map::Unload()
 			delete spawn;
 
 		delete this->arena;
+		this->arena = nullptr;
 	}
 
-	this->arena = nullptr;
+	if (this->wedding)
+	{
+		delete this->wedding;
+		this->wedding = nullptr;
+	}
 
 	this->chests.clear();
 	this->tiles.clear();
@@ -2505,6 +2514,9 @@ bool Map::Reload()
 	{
 		return false;
 	}
+
+	this->LoadArena();
+	this->LoadWedding();
 
 	this->characters = temp;
 
