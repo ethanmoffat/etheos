@@ -255,11 +255,12 @@ class Map
 
 		int currentQuakeTick, nextQuakeTick;
 
-		Wedding *wedding;
 		Arena *arena;
+		Wedding *wedding;
 
 		Map(int id, World *world);
 		void LoadArena();
+		void LoadWedding();
 
 		int GenerateItemID() const;
 		unsigned char GenerateNPCIndex() const;
