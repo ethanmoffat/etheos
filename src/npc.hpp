@@ -81,6 +81,8 @@ class NPC
 
 		void Attack(Character *target);
 
+		void Say(const std::string& message);
+
 		void FormulaVars(std::unordered_map<std::string, double> &vars, std::string prefix = "");
 
 		~NPC();
