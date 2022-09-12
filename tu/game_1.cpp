@@ -11,4 +11,5 @@
 #include "../src/npc_data.cpp"
 #include "../src/party.cpp"
 #include "../src/player.cpp"
+#include "../src/wedding.cpp"
 #include "../src/world.cpp"
