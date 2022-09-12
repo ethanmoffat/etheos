@@ -55,7 +55,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 	MarriageRequestType request_type = static_cast<MarriageRequestType>(reader.GetChar());
 	/*int session_id = */reader.GetInt();
 	reader.GetByte();
-	std::string name = reader.GetEndString();
+	std::string name = util::lowercase(reader.GetEndString());
 
 	if (character->npc_type != ENF::Law)
 		return;

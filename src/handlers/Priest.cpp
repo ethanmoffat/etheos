@@ -98,7 +98,7 @@ void Priest_Request(Character *character, PacketReader &reader)
 {
 	/*int session_id = */reader.GetInt();
 	reader.GetByte();
-	std::string name = reader.GetEndString();
+	std::string name = util::lowercase(reader.GetEndString());
 
 	if (character->npc_type == ENF::Priest)
 	{
