@@ -104,11 +104,11 @@ void Wedding::ErrorOut()
 }
 
 Wedding::Wedding(Map *map, unsigned char priest_idx)
-	: priest_idx(priest_idx)
+	: map(map)
+	, priest_idx(priest_idx)
 	, state(0)
 	, tick(0)
 	, tick_timer(nullptr)
-	, map(map)
 { }
 
 void Wedding::Tick()

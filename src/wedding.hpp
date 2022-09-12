@@ -26,10 +26,10 @@ class Wedding
 		int state;
 		int tick;
 
+		TimeEvent* tick_timer;
+
 		std::string partner1;
 		std::string partner2;
-
-		TimeEvent* tick_timer;
 
 		std::set<Character*> requests;
 
