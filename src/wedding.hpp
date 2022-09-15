@@ -42,6 +42,7 @@ class Wedding
 		void StartTimer();
 		void StopTimer();
 
+		void ChangeState(int state);
 		void NextState();
 
 		bool Check();

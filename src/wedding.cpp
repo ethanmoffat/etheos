@@ -66,21 +66,35 @@ void Wedding::StopTimer()
 	}
 }
 
+void Wedding::ChangeState(int state)
+{
+	this->state = state;
+	this->tick = -1;
+	this->Tick();
+}
+
 void Wedding::NextState()
 {
 	if (!this->Check())
 		return;
 
-	++this->state;
-	this->tick = -1;
-	this->Tick();
+	this->ChangeState(this->state + 1);
 }
 
 bool Wedding::Check()
 {
 	if (!this->GetPartner1() || !this->GetPartner2() || !this->GetPriest())
 	{
-		this->ErrorOut();
+		if (this->state < 8)
+		{
+			this->ErrorOut();
+		}
+		else
+		{
+			// The wedding is already effectively over at this stage, and can't be restarted.
+			// Just skip to the last state and let the priest gracefully end the ceremony.
+			this->ChangeState(13);
+		}
 		return false;
 	}
 
