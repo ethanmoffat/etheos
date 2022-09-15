@@ -186,7 +186,18 @@ void Wedding::Tick()
 			break;
 
 		case 5:
-			if (this->tick == 6)
+			if (this->tick == 1)
+			{
+				if (this->Check())
+				{
+					this->map->Msg(
+						this->GetPartner1(),
+						this->map->world->i18n.Format("wedding_ido"),
+						true
+					);
+				}
+			}
+			if (this->tick == 7)
 			{
 				this->NextState();
 			}
@@ -218,6 +229,21 @@ void Wedding::Tick()
 			break;
 
 		case 7:
+			if (this->tick == 1)
+			{
+				if (this->Check())
+				{
+					this->map->Msg(
+						this->GetPartner2(),
+						this->map->world->i18n.Format("wedding_ido"),
+						true
+					);
+					this->NextState();
+				}
+			}
+			break;
+
+		case 8:
 			// This is called directly after players are checked for validity already
 			if (this->tick == 0)
 			{
@@ -263,7 +289,7 @@ void Wedding::Tick()
 			}
 			break;
 
-		case 8:
+		case 9:
 			if (this->tick == 0)
 			{
 				this->PriestSay(this->map->world->i18n.Format("wedding_ring1"));
@@ -274,7 +300,7 @@ void Wedding::Tick()
 			}
 			break;
 
-		case 9:
+		case 10:
 			if (this->tick == 0)
 			{
 				this->PriestSay(this->map->world->i18n.Format("wedding_ring2"));
@@ -285,7 +311,7 @@ void Wedding::Tick()
 			}
 			break;
 
-		case 10:
+		case 11:
 			// This is called directly after players are checked for validity already
 			if (this->tick == 0)
 			{
@@ -301,7 +327,7 @@ void Wedding::Tick()
 			}
 			break;
 
-		case 11:
+		case 12:
 			// This is called directly after players are checked for validity already
 			if (this->tick == 0)
 			{
@@ -323,7 +349,7 @@ void Wedding::Tick()
 			}
 			break;
 
-		case 12:
+		case 13:
 			if (this->tick == 0)
 			{
 				this->PriestSay(this->map->world->i18n.Format("wedding_finish2"));
@@ -387,8 +413,6 @@ void Wedding::IDo(Character* character)
 
 	if (character->map != this->map)
 		return;
-
-	character->map->Msg(character, this->map->world->i18n.Format("wedding_ido"), true);
 
 	this->NextState();
 }
