@@ -329,11 +329,8 @@ void Wedding::Tick()
 			// This is called directly after players are checked for validity already
 			if (this->tick == 0)
 			{
-				Character* p1 = this->GetPartner1();
-				Character* p2 = this->GetPartner2();
-
-				if (p1) p1->Effect(1); // hearts
-				if (p2) p2->Effect(1); // hearts
+				this->GetPartner1()->Effect(1); // hearts
+				this->GetPartner2()->Effect(1); // hearts
 			}
 			else if (this->tick == 1)
 			{
