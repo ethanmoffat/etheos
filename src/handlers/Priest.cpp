@@ -93,6 +93,28 @@ void Priest_Open(Character *character, PacketReader &reader)
 	}
 }
 
+static bool is_dressed(Character* character)
+{
+	std::string config_value = character->world->config[
+		(character->gender == GENDER_MALE) ? "WeddingOutfitMale" : "WeddingOutfitFemale"
+	];
+
+	if (config_value == "0")
+	{
+		return true;
+	}
+
+	for (const std::string& part : util::explode(',', config_value))
+	{
+		if (util::to_int(part) == character->paperdoll[Character::EquipLocation::Armor])
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 // Requesting marriage at a priest
 void Priest_Request(Character *character, PacketReader &reader)
 {
@@ -143,14 +165,8 @@ void Priest_Request(Character *character, PacketReader &reader)
 			return;
 		}
 
-		int armor = character->paperdoll[Character::EquipLocation::Armor];
-		int partner_armor = partner->paperdoll[Character::EquipLocation::Armor];
 
-		int male_outfit = character->world->config["WeddingOutfitMale"];
-		int female_outfit = character->world->config["WeddingOutfitFemale"];
-
-		if ((character->gender == GENDER_MALE && male_outfit != 0 && armor != male_outfit)
-		 || (character->gender == GENDER_FEMALE && female_outfit != 0 && armor != female_outfit))
+		if (!is_dressed(character))
 		{
 			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
 			reply.AddShort(PRIEST_NOT_DRESSED);
@@ -158,8 +174,7 @@ void Priest_Request(Character *character, PacketReader &reader)
 			return;
 		}
 
-		if ((partner->gender == GENDER_MALE && male_outfit != 0 && partner_armor != male_outfit)
-		 || (partner->gender == GENDER_FEMALE && female_outfit != 0 && partner_armor != female_outfit))
+		if (!is_dressed(partner))
 		{
 			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
 			reply.AddShort(PRIEST_PARTNER_NOT_DRESSED);
