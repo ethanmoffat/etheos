@@ -80,6 +80,7 @@ set(eoserv_ALL_SOURCE_FILES
 	src/fwd/sln.hpp
 	src/fwd/socket.hpp
 	src/fwd/timer.hpp
+	src/fwd/wedding.hpp
 	src/fwd/world.hpp
 	src/guild.cpp
 	src/guild.hpp
@@ -130,6 +131,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/variant.cpp
 	src/util/variant.hpp
 	src/version.h
+	src/wedding.cpp
+	src/wedding.hpp
 	src/world.cpp
 	src/world.hpp
 )
@@ -166,10 +169,12 @@ set(eoserv_ALL_HANDLER_FILES
 	src/handlers/Jukebox.cpp
 	src/handlers/Locker.cpp
 	src/handlers/Login.cpp
+	src/handlers/Marriage.cpp
 	src/handlers/Message.cpp
 	src/handlers/Paperdoll.cpp
 	src/handlers/Party.cpp
 	src/handlers/Players.cpp
+	src/handlers/Priest.cpp
 	src/handlers/Quest.cpp
 	src/handlers/Refresh.cpp
 	src/handlers/Shop.cpp
