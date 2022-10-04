@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 
 		if (eoserv_sig_reload && shutdown_timer != nullptr)
 		{
-			// shutdown_timer must be set to nullptr. it is deleted in the world timer destructor.
+			// shutdown_timer must be set to nullptr. It is deleted as part of Timer::Tick.
 			shutdown_timer = nullptr;
 		}
 
