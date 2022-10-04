@@ -158,6 +158,8 @@ void Reload(const std::vector<std::string>& arguments, Command_Source* from)
 
 void Cancel(const std::vector<std::string>& arguments, Command_Source* from)
 {
+	(void)arguments;
+
 	if (shutdown_timer == nullptr)
 	{
 		from->ServerMsg("No shutdown/reload is in progress. Use $shutdown [timeout_seconds] or $reload [timeout_seconds] to schedule.");
