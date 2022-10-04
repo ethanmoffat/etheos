@@ -34,6 +34,10 @@
 #endif // WIN32
 
 extern volatile std::sig_atomic_t eoserv_sig_abort;
+extern volatile std::sig_atomic_t eoserv_sig_reload;
+
+extern TimeEvent* shutdown_timer;
+
 volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
@@ -118,7 +122,21 @@ int eoserv_main(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
-	eoserv_main(argc, argv);
+	int exit_code = 0;
+	do
+	{
+		eoserv_sig_reload = false;
+		exit_code = eoserv_main(argc, argv);
+
+		if (eoserv_sig_reload && shutdown_timer != nullptr)
+		{
+			// shutdown_timer must be set to nullptr. It is deleted as part of Timer::Tick.
+			shutdown_timer = nullptr;
+		}
+
+	} while (exit_code == 0 && eoserv_sig_reload);
+
+	return exit_code;
 }
 
 int eoserv_main(int argc, char *argv[])
@@ -416,9 +434,9 @@ int eoserv_main(int argc, char *argv[])
 
 		while (eoserv_running)
 		{
-			if (eoserv_sig_abort)
+			if (eoserv_sig_abort || eoserv_sig_reload)
 			{
-				Console::Out("Exiting EOSERV");
+				Console::Out(eoserv_sig_abort ? "Exiting EOSERV" : "Reloading EOSERV");
 				eoserv_sig_abort = false;
 				break;
 			}
@@ -533,8 +551,13 @@ int eoserv_main(int argc, char *argv[])
 	DumpWorld(server);
 
 #ifdef WIN32
-	::SetEvent(eoserv_close_event);
+	if (!eoserv_sig_reload)
+	{
+		::SetEvent(eoserv_close_event);
+	}
 #endif // WIN32
+
+	server.reset();
 
 	return 0;
 }

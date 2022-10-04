@@ -287,4 +287,6 @@ EOServer::~EOServer()
 
 	delete this->sln;
 	delete this->world;
+
+	Close();
 }

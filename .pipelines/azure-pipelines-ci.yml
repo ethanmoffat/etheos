@@ -51,10 +51,10 @@ stages:
       condition: succeeded()
       displayName: 'Run integration test scripts - mssql instance'
     - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 9078 -b $(System.ArtifactsDirectory)/eobot/net6.0
-      condition: succeeded()
+      condition: succeededOrFailed()
       displayName: 'Run integration test scripts - mysql instance'
     - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 10078 -b $(System.ArtifactsDirectory)/eobot/net6.0
-      condition: succeeded()
+      condition: succeededOrFailed()
       displayName: 'Run integration test scripts - sqlite instance'
 
   - job: undeploy
