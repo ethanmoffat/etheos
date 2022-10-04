@@ -673,7 +673,11 @@ void Server::Listen(int maxconn, int backlog)
 
 void Server::Close()
 {
+#ifdef WIN32
 	if (closesocket(this->impl->sock) != SOCKET_ERROR)
+#else
+	if (close(this->impl->sock) != SOCKET_ERROR)
+#endif
 	{
 		this->state = Created;
 		return;
