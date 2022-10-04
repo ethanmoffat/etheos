@@ -339,6 +339,7 @@ void Client::Bind(const IPAddress &addr, uint16_t port)
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
 #else
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
 #endif
 
 	std::memset(&sin, 0, sizeof(sin));
@@ -644,6 +645,14 @@ void Server::Bind(const IPAddress &addr, uint16_t port)
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = htonl(this->address);
 	sin.sin_port = this->portn;
+
+	int yes = 1;
+#ifdef WIN32
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+#else
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
+#endif
 
 	if (bind(this->impl->sock, reinterpret_cast<sockaddr *>(&sin), sizeof(sin)) == SOCKET_ERROR)
 	{
