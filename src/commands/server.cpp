@@ -26,6 +26,58 @@ volatile std::sig_atomic_t eoserv_sig_reload = false;
 
 TimeEvent* shutdown_timer = nullptr;
 
+static void schedule_shutdown(const std::vector<std::string>& arguments, Command_Source* from, bool is_shutdown)
+{
+	if (shutdown_timer != nullptr)
+	{
+		from->ServerMsg("Shutdown/reload is already scheduled. Use $cancel to cancel pending shutdown/reload.");
+		return;
+	}
+
+	int timeout = 0;
+	if (arguments.size() >= 1)
+	{
+		if (util::lowercase(arguments[0]) != "now")
+		{
+			timeout = util::variant(arguments[0]).GetInt();
+			if (timeout > 0)
+			{
+				char printBuf[250] = {0};
+				snprintf(printBuf, 250, "Attention!! Server will be %s in %d seconds", is_shutdown ? "shut down" : "reloaded", timeout);
+				from->SourceWorld()->ServerMsg(std::string(printBuf));
+			}
+			else
+			{
+				timeout = 0;
+			}
+		}
+	}
+
+	// capturing lambdas cannot be passed as function pointers, therefore is_shutdown cannot be captured
+	TimerCallback shutdown_callback = nullptr;
+	if (is_shutdown)
+	{
+		shutdown_callback = [](void * input)
+		{
+			Command_Source* input_from = static_cast<Command_Source*>(input);
+			Console::Wrn("Server shut down by %s", input_from->SourceName().c_str());
+			eoserv_sig_abort = true;
+		};
+	}
+	else
+	{
+		shutdown_callback = [](void * input)
+		{
+			Command_Source* input_from = static_cast<Command_Source*>(input);
+			Console::Wrn("Server reloaded by %s", input_from->SourceName().c_str());
+			eoserv_sig_reload = true;
+		};
+	}
+
+	shutdown_timer = new TimeEvent(shutdown_callback, from, timeout);
+	from->SourceWorld()->timer.Register(shutdown_timer);
+}
+
 namespace Commands
 {
 
@@ -96,72 +148,12 @@ void ReloadQuest(const std::vector<std::string>& arguments, Command_Source* from
 
 void Shutdown(const std::vector<std::string>& arguments, Command_Source* from)
 {
-	if (shutdown_timer != nullptr)
-	{
-		from->ServerMsg("Shutdown/reload is already in progress. Use $cancel to cancel pending shutdown/reload.");
-		return;
-	}
-
-	int timeout = 0;
-	if (arguments.size() >= 1)
-	{
-		if (util::lowercase(arguments[0]) != "now")
-		{
-			timeout = util::variant(arguments[0]).GetInt();
-			if (timeout > 0)
-			{
-				from->SourceWorld()->ServerMsg(std::string("Attention!! Server will be shut down in ") + util::to_string(timeout) + std::string(" seconds"));
-			}
-			else
-			{
-				timeout = 0;
-			}
-		}
-	}
-
-	shutdown_timer = new TimeEvent([](void * input)
-	{
-		Command_Source* input_from = static_cast<Command_Source*>(input);
-		Console::Wrn("Server shut down by %s", input_from->SourceName().c_str());
-		eoserv_sig_abort = true;
-	}, from, timeout);
-
-	from->SourceWorld()->timer.Register(shutdown_timer);
+	schedule_shutdown(arguments, from, true);
 }
 
 void Reload(const std::vector<std::string>& arguments, Command_Source* from)
 {
-	if (shutdown_timer != nullptr)
-	{
-		from->ServerMsg("Shutdown/reload is already in progress. Use $cancel to cancel pending shutdown/reload.");
-		return;
-	}
-
-	int timeout = 0;
-	if (arguments.size() >= 1)
-	{
-		if (util::lowercase(arguments[0]) != "now")
-		{
-			timeout = util::variant(arguments[0]).GetInt();
-			if (timeout > 0)
-			{
-				from->SourceWorld()->ServerMsg(std::string("Attention!! Server will be reloaded in ") + util::to_string(timeout) + std::string(" seconds"));
-			}
-			else
-			{
-				timeout = 0;
-			}
-		}
-	}
-
-	shutdown_timer = new TimeEvent([](void * input)
-	{
-		Command_Source* input_from = static_cast<Command_Source*>(input);
-		Console::Wrn("Server reloaded by %s", input_from->SourceName().c_str());
-		eoserv_sig_reload = true;
-	}, from, timeout * 1000.0);
-
-	from->SourceWorld()->timer.Register(shutdown_timer);
+	schedule_shutdown(arguments, from, false);
 }
 
 void Cancel(const std::vector<std::string>& arguments, Command_Source* from)
