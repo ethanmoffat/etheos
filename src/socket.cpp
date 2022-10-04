@@ -334,9 +334,12 @@ void Client::Bind(const IPAddress &addr, uint16_t port)
 	sockaddr_in sin;
 	uint16_t portn = htons(port);
 
-#ifndef WIN32
 	int yes = 1;
+#ifdef WIN32
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+#else
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
 #endif
 
 	std::memset(&sin, 0, sizeof(sin));
@@ -643,6 +646,14 @@ void Server::Bind(const IPAddress &addr, uint16_t port)
 	sin.sin_addr.s_addr = htonl(this->address);
 	sin.sin_port = this->portn;
 
+	int yes = 1;
+#ifdef WIN32
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+#else
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
+#endif
+
 	if (bind(this->impl->sock, reinterpret_cast<sockaddr *>(&sin), sizeof(sin)) == SOCKET_ERROR)
 	{
 		this->state = Invalid;
@@ -667,6 +678,22 @@ void Server::Listen(int maxconn, int backlog)
 
 	this->state = Invalid;
 	throw Socket_ListenFailed(OSErrorString());
+}
+
+void Server::Close()
+{
+#ifdef WIN32
+	if (closesocket(this->impl->sock) != SOCKET_ERROR)
+#else
+	if (close(this->impl->sock) != SOCKET_ERROR)
+#endif
+	{
+		this->state = Created;
+		return;
+	}
+
+	this->state = Invalid;
+	throw Socket_Exception(OSErrorString());
 }
 
 Client *Server::Poll()

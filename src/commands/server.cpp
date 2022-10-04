@@ -22,6 +22,59 @@
 #include <vector>
 
 volatile std::sig_atomic_t eoserv_sig_abort = false;
+volatile std::sig_atomic_t eoserv_sig_reload = false;
+
+TimeEvent* shutdown_timer = nullptr;
+
+static void schedule_shutdown(const std::vector<std::string>& arguments, Command_Source* from, bool is_reload)
+{
+	if (shutdown_timer != nullptr)
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("server_shutdown_in_progress"));
+		return;
+	}
+
+	int timeout = 0;
+	if (arguments.size() >= 1)
+	{
+		if (util::lowercase(arguments[0]) != "now")
+		{
+			timeout = util::variant(arguments[0]).GetInt();
+			if (timeout > 0)
+			{
+				from->SourceWorld()->ServerMsg(from->SourceWorld()->i18n.Format("server_shutdown_scheduled", is_reload ? "reloaded" : "shut down", timeout));
+			}
+			else
+			{
+				timeout = 0;
+			}
+		}
+	}
+
+	// capturing lambdas cannot be passed as function pointers, therefore is_shutdown cannot be captured
+	TimerCallback shutdown_callback = nullptr;
+	if (is_reload)
+	{
+		shutdown_callback = [](void * input)
+		{
+			Command_Source* input_from = static_cast<Command_Source*>(input);
+			Console::Out("Server reloaded by %s", input_from->SourceName().c_str());
+			eoserv_sig_reload = true;
+		};
+	}
+	else
+	{
+		shutdown_callback = [](void * input)
+		{
+			Command_Source* input_from = static_cast<Command_Source*>(input);
+			Console::Out("Server shut down by %s", input_from->SourceName().c_str());
+			eoserv_sig_abort = true;
+		};
+	}
+
+	shutdown_timer = new TimeEvent(shutdown_callback, from, timeout);
+	from->SourceWorld()->timer.Register(shutdown_timer);
+}
 
 namespace Commands
 {
@@ -93,10 +146,29 @@ void ReloadQuest(const std::vector<std::string>& arguments, Command_Source* from
 
 void Shutdown(const std::vector<std::string>& arguments, Command_Source* from)
 {
+	schedule_shutdown(arguments, from, false);
+}
+
+void Reload(const std::vector<std::string>& arguments, Command_Source* from)
+{
+	schedule_shutdown(arguments, from, true);
+}
+
+void Cancel(const std::vector<std::string>& arguments, Command_Source* from)
+{
 	(void)arguments;
 
-	Console::Wrn("Server shut down by %s", from->SourceName().c_str());
-	eoserv_sig_abort = true;
+	if (shutdown_timer == nullptr)
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("server_no_shutdown_in_progress"));
+		return;
+	}
+
+	from->SourceWorld()->timer.Unregister(shutdown_timer);
+	delete shutdown_timer;
+	shutdown_timer = nullptr;
+
+	from->SourceWorld()->ServerMsg(from->SourceWorld()->i18n.Format("server_shutdown_cancelled"));
 }
 
 void Uptime(const std::vector<std::string>& arguments, Command_Source* from)
@@ -114,6 +186,8 @@ COMMAND_HANDLER_REGISTER(server)
 	Register({"rehash"}, ReloadConfig);
 	Register({"request", {}, {}, 3}, ReloadQuest);
 	Register({"shutdown", {}, {}, 8}, Shutdown);
+	Register({"reload", {}, {}, 6}, Reload);
+	Register({"cancel", {}, {}, 6}, Cancel);
 	Register({"uptime"}, Uptime);
 COMMAND_HANDLER_REGISTER_END(server)
 
