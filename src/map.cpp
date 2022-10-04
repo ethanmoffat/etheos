@@ -18,6 +18,7 @@
 #include "player.hpp"
 #include "quest.hpp"
 #include "timer.hpp"
+#include "wedding.hpp"
 #include "world.hpp"
 
 #include "console.hpp"
@@ -340,13 +341,15 @@ Map::Map(int id, World *world)
 	this->world = world;
 	this->exists = false;
 	this->jukebox_protect = 0.0;
-	this->arena = 0;
+	this->arena = nullptr;
+	this->wedding = nullptr;
 	this->evacuate_lock = false;
 	this->has_timed_spikes = false;
 
-	this->LoadArena();
-
 	this->Load();
+
+	this->LoadArena();
+	this->LoadWedding();
 
 	if (!this->chests.empty())
 	{
@@ -440,6 +443,18 @@ void Map::LoadArena()
 		if (!this->arena)
 		{
 			character->Warp(character->map->id, character->map->relog_x, character->map->relog_y);
+		}
+	}
+}
+
+void Map::LoadWedding()
+{
+	for (NPC* npc : this->npcs)
+	{
+		if (npc->ENF().type == ENF::Priest)
+		{
+			this->wedding = new Wedding(this, npc->index);
+			break;
 		}
 	}
 }
@@ -705,9 +720,14 @@ void Map::Unload()
 			delete spawn;
 
 		delete this->arena;
+		this->arena = nullptr;
 	}
 
-	this->arena = nullptr;
+	if (this->wedding)
+	{
+		delete this->wedding;
+		this->wedding = nullptr;
+	}
 
 	this->chests.clear();
 	this->tiles.clear();
@@ -814,6 +834,11 @@ void Map::Leave(Character *character, WarpAnimation animation, bool silent)
 
 			checkcharacter->Send(builder);
 		}
+	}
+
+	if (this->wedding)
+	{
+		this->wedding->CancelWeddingRequest(character);
 	}
 
 	this->characters.erase(
@@ -2416,6 +2441,20 @@ void Map::Effect(MapEffect effect, unsigned char param)
 	}
 }
 
+void Map::TileEffect(unsigned char x, unsigned char y, unsigned short effect)
+{
+	PacketBuilder builder(PACKET_EFFECT, PACKET_AGREE, 4);
+	builder.AddChar(x);
+	builder.AddChar(y);
+	builder.AddShort(effect);
+
+	UTIL_FOREACH(this->characters, character)
+	{
+		if (character->InRange(x, y))
+			character->Send(builder);
+	}
+}
+
 bool Map::Evacuate()
 {
 	if (!this->evacuate_lock)
@@ -2475,6 +2514,9 @@ bool Map::Reload()
 	{
 		return false;
 	}
+
+	this->LoadArena();
+	this->LoadWedding();
 
 	this->characters = temp;
 
