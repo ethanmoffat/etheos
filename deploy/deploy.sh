@@ -124,11 +124,9 @@ function main() {
     az deployment group create --resource-group "${resource_group}" --template-file "${template_file}" --parameters "${parameter_file}"
   fi
 
-  if [[ "${operation}" == "DELETE" ]]; then
-    echo ""
-    echo "******Deleting existing DNS A record for ${environment_name}******"
-    az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
-  fi
+  echo ""
+  echo "******Deleting existing DNS A record for ${environment_name}******"
+  az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
 
   if [[ "${operation}" == "CREATE" ]]; then
     echo ""

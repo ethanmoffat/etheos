@@ -319,6 +319,8 @@ void eoserv_config_validate_admin(Config& config)
 	eoserv_config_default(config, "rehash"        , 4);
 	eoserv_config_default(config, "repub"         , 4);
 	eoserv_config_default(config, "request"       , 4);
+	eoserv_config_default(config, "reload"        , 4);
+	eoserv_config_default(config, "cancel"        , 4);
 	eoserv_config_default(config, "sitem"         , 3);
 	eoserv_config_default(config, "ditem"         , 3);
 	eoserv_config_default(config, "snpc"          , 3);

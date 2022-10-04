@@ -392,6 +392,11 @@ class Server
 		void Listen(int maxconn, int backlog = 10);
 
 		/**
+		 * Close the server socket (previously bound with Bind)
+		 */
+		void Close();
+
+		/**
 		 * Check for new connection requests.
 		 * @return NULL if there are no pending connections, a pointer to the Client otherwise.
 		 */

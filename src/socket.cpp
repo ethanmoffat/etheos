@@ -334,8 +334,10 @@ void Client::Bind(const IPAddress &addr, uint16_t port)
 	sockaddr_in sin;
 	uint16_t portn = htons(port);
 
-#ifndef WIN32
 	int yes = 1;
+#ifdef WIN32
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+#else
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 #endif
 
@@ -667,6 +669,22 @@ void Server::Listen(int maxconn, int backlog)
 
 	this->state = Invalid;
 	throw Socket_ListenFailed(OSErrorString());
+}
+
+void Server::Close()
+{
+#ifdef WIN32
+	if (closesocket(this->impl->sock) != SOCKET_ERROR)
+#else
+	if (close(this->impl->sock) != SOCKET_ERROR)
+#endif
+	{
+		this->state = Created;
+		return;
+	}
+
+	this->state = Invalid;
+	throw Socket_Exception(OSErrorString());
 }
 
 Client *Server::Poll()
