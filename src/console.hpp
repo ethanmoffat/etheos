@@ -40,6 +40,7 @@ private:
 		size_t bytes_per_file;
 		unsigned interval_in_seconds;
 		std::string target_directory;
+		size_t file_limit;
 	} rotation_properties;
 
 	static size_t bytes_written[2];
@@ -52,6 +53,8 @@ private:
 
 	static inline void GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args);
 
+	static inline void DeleteOldestIfNeeded(Stream stream);
+
 public:
 	static bool Styled[2];
 
@@ -63,8 +66,7 @@ public:
 	static void SuppressOutput(bool suppress);
 
 	static void SetLog(Stream stream, const std::string& fileName);
-	static void SetRotation(size_t bytesPerFile, unsigned interval, const std::string& format);
-	static bool TryGetLatestRotatedLogFileName(Stream stream, std::string& file_name);
+	static void SetRotation(size_t bytesPerFile, unsigned interval, const std::string& directory, size_t fileLimit);
 	static bool TryGetNextRotatedLogFileName(Stream stream, std::string& file_name);
 };
 

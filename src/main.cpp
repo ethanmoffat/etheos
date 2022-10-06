@@ -293,11 +293,15 @@ int eoserv_main(int argc, char *argv[])
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
 #endif
 
+		auto outFile = config["LogOut"].GetString();
+		auto errFile = config["LogErr"].GetString();
+
 		if (config["EnableLogRotation"])
 		{
 			auto sizeInBytes = static_cast<size_t>(std::max(0, config["LogRotationSize"].GetInt()));
 			auto interval = static_cast<unsigned>(std::max(0, config["LogRotationInterval"].GetInt()));
 			auto directory = config["LogFileDirectory"].GetString();
+			auto fileLimit = config["LogFileLimit"].GetInt();
 
 			if (sizeInBytes == 0 && interval == 0)
 			{
@@ -305,18 +309,30 @@ int eoserv_main(int argc, char *argv[])
 			}
 			else
 			{
-				Console::SetRotation(sizeInBytes, interval, directory);
+				if (fileLimit <= 0)
+				{
+					Console::Wrn("Log rotation is enabled, but file limit is disabled. Disk usage may be impacted.");
+				}
+
+				Console::SetRotation(sizeInBytes, interval, directory, fileLimit);
 
 				std::string tmp;
-				if (Console::TryGetLatestRotatedLogFileName(Console::STREAM_OUT, tmp))
-					config["LogOut"] = tmp;
-				if (Console::TryGetLatestRotatedLogFileName(Console::STREAM_ERR, tmp))
-					config["LogErr"] = tmp;
+				if (Console::TryGetNextRotatedLogFileName(Console::STREAM_OUT, tmp))
+				{
+					Console::Out("Redirecting stdout to '%s'...", tmp.c_str());
+					outFile = tmp;
+				}
+
+				if (Console::TryGetNextRotatedLogFileName(Console::STREAM_ERR, tmp))
+				{
+					Console::Out("Redirecting stderr to '%s'...", tmp.c_str());
+					errFile = tmp;
+				}
 			}
 		}
 
-		Console::SetLog(Console::STREAM_OUT, config["LogOut"].GetString());
-		Console::SetLog(Console::STREAM_ERR, config["LogErr"].GetString());
+		Console::SetLog(Console::STREAM_OUT, outFile);
+		Console::SetLog(Console::STREAM_ERR, errFile);
 
 		const auto threadPoolThreads = static_cast<int>(config["ThreadPoolThreads"]);
 		if (threadPoolThreads <= 0)

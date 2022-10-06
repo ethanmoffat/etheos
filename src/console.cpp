@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
-#include <map>
+#include <vector>
 #include <string>
 
 #include "platform.h"
@@ -199,7 +199,6 @@ void Console::SetLog(Stream stream, const std::string& fileName)
 	if (!fileName.empty() && fileName.compare("-") != 0)
 	{
 		const char * targetStreamName = (stream == STREAM_OUT ? "stdout" : "stderr");
-		Console::Out("Redirecting %s to '%s'...", targetStreamName, fileName.c_str());
 		if (!std::freopen(fileName.c_str(), "a", outStream))
 		{
 			Console::Err("Failed to redirect %s.", targetStreamName);
@@ -214,15 +213,18 @@ void Console::SetLog(Stream stream, const std::string& fileName)
 		{
 			Console::Wrn("Failed to change %s buffer settings", targetStreamName);
 		}
+
+		DeleteOldestIfNeeded(stream);
 	}
 }
 
-void Console::SetRotation(size_t bytesPerFile, unsigned interval, const std::string& directory)
+void Console::SetRotation(size_t bytesPerFile, unsigned interval, const std::string& directory, size_t fileLimit)
 {
 	rotation_properties.enabled = true;
 	rotation_properties.bytes_per_file = bytesPerFile;
 	rotation_properties.interval_in_seconds = interval;
 	rotation_properties.target_directory = directory;
+	rotation_properties.file_limit = fileLimit;
 
 	std::filesystem::create_directories(rotation_properties.target_directory);
 }
@@ -235,29 +237,33 @@ time_t to_time_t(TP tp) {
   return system_clock::to_time_t(sctp);
 }
 
-bool Console::TryGetLatestRotatedLogFileName(Stream stream, std::string& file_name)
+void Console::DeleteOldestIfNeeded(Stream stream)
 {
 	if (!rotation_properties.enabled)
-		return false;
+		return;
 
 	auto pathComponent = stream == STREAM_OUT ? "stdout" : "stderr";
 
-	std::map<time_t, fs::directory_entry> filesByWriteTime;
+	std::vector<std::pair<time_t, fs::directory_entry>> filesByWriteTime;
 	for (const auto& entry : fs::directory_iterator(rotation_properties.target_directory))
 	{
 		auto fileName = entry.path().filename().string();
 		if (entry.is_regular_file() && fileName.find(pathComponent) != std::string::npos)
 		{
 			auto time = to_time_t(entry.last_write_time());
-			filesByWriteTime[time] = entry;
+			filesByWriteTime.push_back(std::make_pair(time, entry));
 		}
 	}
 
-	if (filesByWriteTime.empty())
-		return TryGetNextRotatedLogFileName(stream, file_name);
-
-	file_name = filesByWriteTime.rbegin()->second.path().string();
-	return true;
+	if (filesByWriteTime.size() > rotation_properties.file_limit)
+	{
+		std::sort(filesByWriteTime.begin(), filesByWriteTime.end(),
+			[] (std::pair<time_t, fs::directory_entry> a, std::pair<time_t, fs::directory_entry> b)
+			{
+				return a.first < b.first;
+			});
+		fs::remove(filesByWriteTime.front().second);
+	}
 }
 
 bool Console::TryGetNextRotatedLogFileName(Stream stream, std::string& file_name)
