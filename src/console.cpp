@@ -14,6 +14,8 @@
 #include <vector>
 #include <string>
 
+#include "string.h"
+
 #include "platform.h"
 
 #ifdef WIN32
@@ -29,7 +31,7 @@ double Console::first_write_time[2] = { Timer::GetTime(), Timer::GetTime() };
 
 bool Console::OutputSuppressed = false;
 
-Console::RotationProperties Console::rotation_properties = { 0 };
+Console::RotationProperties Console::rotation_properties = {};
 
 #ifdef WIN32
 
@@ -95,9 +97,14 @@ void Console::GenericOut(const std::string& prefix, Stream stream, Color color, 
 
 	static char formatted[BUFFER_SIZE] = {0};
 	std::vsnprintf(formatted, BUFFER_SIZE, (std::string("[" + prefix + "] ") + format + "\n").c_str(), args);
-	bytes_written[stream] += strnlen_s(formatted, BUFFER_SIZE);
 
-	std::fprintf((stream == STREAM_OUT) ? stdout : stderr, formatted);
+#ifdef WIN32
+	bytes_written[stream] += strnlen_s(formatted, BUFFER_SIZE);
+#else
+	bytes_written[stream] += strnlen(formatted, BUFFER_SIZE);
+#endif
+
+	std::fprintf((stream == STREAM_OUT) ? stdout : stderr, "%s", formatted);
 
 	if (Styled[stream])
 		ResetTextColor(stream);
@@ -193,7 +200,7 @@ void Console::SetLog(Stream stream, const std::string& fileName)
 			outStream = stderr;
 			break;
 		default:
-			throw std::exception("Invalid stream for setting log");
+			throw std::runtime_error("Invalid stream for setting log");
 	}
 
 	if (!fileName.empty() && fileName.compare("-") != 0)
@@ -226,7 +233,7 @@ void Console::SetRotation(size_t bytesPerFile, unsigned interval, const std::str
 	rotation_properties.target_directory = directory;
 	rotation_properties.file_limit = fileLimit;
 
-	std::filesystem::create_directories(rotation_properties.target_directory);
+	fs::create_directories(rotation_properties.target_directory);
 }
 
 // https://stackoverflow.com/a/62412605/2562283
