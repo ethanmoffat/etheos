@@ -1,5 +1,6 @@
 name: 0.7.1_$(Year:yyyy).$(Month).$(DayOfMonth)_$(SourceBranchName)
 
+pr: none
 trigger: none
 
 resources:
