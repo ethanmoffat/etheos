@@ -34,14 +34,23 @@ public:
 	};
 
 private:
-	static size_t BytesWritten[2];
+	static struct RotationProperties
+	{
+		bool enabled;
+		size_t bytes_per_file;
+		unsigned interval_in_seconds;
+		std::string target_directory;
+	} rotation_properties;
+
+	static size_t bytes_written[2];
+	static double first_write_time[2];
 	static bool OutputSuppressed;
 
 	static inline void Init(Stream i);
 	static inline void SetTextColor(Stream stream, Color color, bool bold);
 	static inline void ResetTextColor(Stream stream);
 
-	static inline size_t GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args);
+	static inline void GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args);
 
 public:
 	static bool Styled[2];
@@ -54,7 +63,9 @@ public:
 	static void SuppressOutput(bool suppress);
 
 	static void SetLog(Stream stream, const std::string& fileName);
-	static void SetRollover(size_t bytesPerFile, time_t interval, const std::string& format);
+	static void SetRotation(size_t bytesPerFile, unsigned interval, const std::string& format);
+	static bool TryGetLatestRotatedLogFileName(Stream stream, std::string& file_name);
+	static bool TryGetNextRotatedLogFileName(Stream stream, std::string& file_name);
 };
 
 #endif // CONSOLE_HPP_INCLUDED

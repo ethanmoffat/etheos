@@ -293,6 +293,28 @@ int eoserv_main(int argc, char *argv[])
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
 #endif
 
+		if (config["EnableLogRotation"])
+		{
+			auto sizeInBytes = static_cast<size_t>(std::max(0, config["LogRotationSize"].GetInt()));
+			auto interval = static_cast<unsigned>(std::max(0, config["LogRotationInterval"].GetInt()));
+			auto directory = config["LogFileDirectory"].GetString();
+
+			if (sizeInBytes == 0 && interval == 0)
+			{
+				Console::Wrn("Log rotation by size and time interval are both unset. Log files will not be rotated.");
+			}
+			else
+			{
+				Console::SetRotation(sizeInBytes, interval, directory);
+
+				std::string tmp;
+				if (Console::TryGetLatestRotatedLogFileName(Console::STREAM_OUT, tmp))
+					config["LogOut"] = tmp;
+				if (Console::TryGetLatestRotatedLogFileName(Console::STREAM_ERR, tmp))
+					config["LogErr"] = tmp;
+			}
+		}
+
 		Console::SetLog(Console::STREAM_OUT, config["LogOut"].GetString());
 		Console::SetLog(Console::STREAM_ERR, config["LogErr"].GetString());
 
