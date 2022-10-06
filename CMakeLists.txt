@@ -2,7 +2,7 @@
 # EOSERV is released under the zlib license.
 # See LICENSE.txt for more info.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.9)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0054 NEW)
 
@@ -117,9 +117,11 @@ if(eoserv_GCC OR eoserv_CLANG)
 		if(eoserv_CXX1Y)
 			set(eoserv_STDFLAG "-std=c++1y")
 		else()
-			set(eoserv_STDFLAG "-std=c++14")
+			set(eoserv_STDFLAG "-std=c++17")
 		endif()
 	endif()
+else()
+	set(eoserv_STDFLAG "/std:c++17")
 endif()
 
 if(eoserv_STDFLAG)

@@ -21,7 +21,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -48,7 +48,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -74,7 +74,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -98,7 +98,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -123,7 +123,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -147,7 +147,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -173,7 +173,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -201,7 +201,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -228,7 +228,7 @@
             ],
             "compilerPath": "\"${myCompilerPath}cl.exe\"",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -253,7 +253,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -279,7 +279,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
@@ -304,7 +304,7 @@
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cppStandard": "c++17",
             "browse": {
                 "path": [
                     "${workspaceFolder}"
