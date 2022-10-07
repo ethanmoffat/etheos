@@ -6,6 +6,7 @@
 
 #include "console.hpp"
 #include "timer.hpp"
+#include "util.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -262,14 +263,17 @@ void Console::DeleteOldestIfNeeded(Stream stream)
 		}
 	}
 
-	if (filesByWriteTime.size() > rotation_properties.file_limit)
+	std::sort(filesByWriteTime.begin(), filesByWriteTime.end(),
+		[] (std::pair<time_t, fs::directory_entry> a, std::pair<time_t, fs::directory_entry> b)
+		{
+			return a.first < b.first;
+		});
+
+	while (rotation_properties.file_limit && filesByWriteTime.size() > rotation_properties.file_limit)
 	{
-		std::sort(filesByWriteTime.begin(), filesByWriteTime.end(),
-			[] (std::pair<time_t, fs::directory_entry> a, std::pair<time_t, fs::directory_entry> b)
-			{
-				return a.first < b.first;
-			});
-		fs::remove(filesByWriteTime.front().second);
+		auto front = filesByWriteTime.begin();
+		fs::remove(front->second);
+		filesByWriteTime.erase(front);
 	}
 }
 
@@ -285,7 +289,7 @@ bool Console::TryGetNextRotatedLogFileName(Stream stream, std::string& file_name
 	std::string stream_text(stream == STREAM_OUT ? "stdout" : "stderr");
 
 	char buf[256] = { 0 };
-	snprintf(buf, 256, "%s/%s-%04d.%02d.%02d-%02d.%02d.%02d.log",
+	snprintf(buf, 256, "%s/%s-%04d.%02d.%02d-%02d.%02d.%02d.",
 		rotation_properties.target_directory.c_str(),
 		stream_text.c_str(),
 		time_info->tm_year + 1900,
@@ -296,5 +300,13 @@ bool Console::TryGetNextRotatedLogFileName(Stream stream, std::string& file_name
 		time_info->tm_sec);
 
 	file_name = std::string(buf);
+
+	int i = 1;
+	std::string extra = "0.";
+	while (fs::exists(file_name + extra + "log"))
+		extra = util::to_string(i++) + ".";
+
+	file_name += extra + "log";
+
 	return true;
 }
