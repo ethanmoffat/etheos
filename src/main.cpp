@@ -293,52 +293,46 @@ int eoserv_main(int argc, char *argv[])
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
 #endif
 
+		auto outFile = config["LogOut"].GetString();
+		auto errFile = config["LogErr"].GetString();
+
+		if (config["EnableLogRotation"])
 		{
-			std::time_t rawtime;
-			char timestr[256];
-			std::time(&rawtime);
-			std::strftime(timestr, 256, "%c", std::localtime(&rawtime));
+			auto sizeInBytes = static_cast<size_t>(std::max(0, config["LogRotationSize"].GetInt()));
+			auto interval = static_cast<unsigned>(std::max(0, config["LogRotationInterval"].GetInt()));
+			auto directory = config["LogFileDirectory"].GetString();
+			auto fileLimit = config["LogFileLimit"].GetInt();
 
-			std::string logerr = config["LogErr"];
-			if (!logerr.empty() && logerr.compare("-") != 0)
+			if (sizeInBytes == 0 && interval == 0)
 			{
-				Console::Out("Redirecting errors to '%s'...", logerr.c_str());
-				if (!std::freopen(logerr.c_str(), "a", stderr))
-				{
-					Console::Err("Failed to redirect errors.");
-				}
-				else
-				{
-					Console::Styled[Console::STREAM_ERR] = false;
-					std::fprintf(stderr, "\n\n--- %s ---\n\n", timestr);
-				}
-
-				if (std::setvbuf(stderr, 0, _IONBF, 0) != 0)
-				{
-					Console::Wrn("Failed to change stderr buffer settings");
-				}
+				Console::Wrn("Log rotation by size and time interval are both unset. Log files will not be rotated.");
 			}
-
-			std::string logout = config["LogOut"];
-			if (!logout.empty() && logout.compare("-") != 0)
+			else
 			{
-				Console::Out("Redirecting output to '%s'...", logout.c_str());
-				if (!std::freopen(logout.c_str(), "a", stdout))
+				if (fileLimit <= 0)
 				{
-					Console::Err("Failed to redirect output.");
-				}
-				else
-				{
-					Console::Styled[Console::STREAM_OUT] = false;
-					std::printf("\n\n--- %s ---\n\n", timestr);
+					Console::Wrn("Log rotation is enabled, but file limit is disabled. Disk usage may be impacted.");
 				}
 
-				if (std::setvbuf(stdout, 0, _IONBF, 0) != 0)
+				Console::SetRotation(sizeInBytes, interval, directory, fileLimit);
+
+				std::string tmp;
+				if (Console::TryGetNextRotatedLogFileName(Console::STREAM_OUT, tmp))
 				{
-					Console::Wrn("Failed to change stdout buffer settings");
+					Console::Out("Redirecting stdout to '%s'...", tmp.c_str());
+					outFile = tmp;
+				}
+
+				if (Console::TryGetNextRotatedLogFileName(Console::STREAM_ERR, tmp))
+				{
+					Console::Out("Redirecting stderr to '%s'...", tmp.c_str());
+					errFile = tmp;
 				}
 			}
 		}
+
+		Console::SetLog(Console::STREAM_OUT, outFile);
+		Console::SetLog(Console::STREAM_ERR, errFile);
 
 		const auto threadPoolThreads = static_cast<int>(config["ThreadPoolThreads"]);
 		if (threadPoolThreads <= 0)

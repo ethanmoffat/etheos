@@ -27,8 +27,13 @@ static void eoserv_config_default(Config& config, const char* key, T value)
 
 void eoserv_config_validate_config(Config& config)
 {
+	eoserv_config_default(config, "EnableLogRotation"  , false);
 	eoserv_config_default(config, "LogOut"             , "-");
 	eoserv_config_default(config, "LogErr"             , "error.log");
+	eoserv_config_default(config, "LogRotationSize"    , 0);
+	eoserv_config_default(config, "LogRotationInterval", 0);
+	eoserv_config_default(config, "LogFileLimit"       , 10);
+	eoserv_config_default(config, "LogFileDirectory"   , "logs");
 	eoserv_config_default(config, "StyleConsole"       , true);
 	eoserv_config_default(config, "LogCommands"        , true);
 	eoserv_config_default(config, "LogConnection"      , 0);
