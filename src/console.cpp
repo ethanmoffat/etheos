@@ -25,6 +25,9 @@
 
 namespace fs = std::filesystem;
 
+std::mutex Console::output_lock = std::mutex();
+std::mutex Console::error_lock = std::mutex();
+
 bool Console::Styled[2] = { true, true };
 
 size_t Console::bytes_written[2] = { 0, 0 };
@@ -133,6 +136,8 @@ void Console::Out(const char* f, ...)
 {
 	if (OutputSuppressed) return;
 
+	std::lock_guard<std::mutex> queueGuard(output_lock);
+
 	va_list args;
 	va_start(args, f);
 	GenericOut("   ", STREAM_OUT, COLOR_GREY, true, f, args);
@@ -142,6 +147,8 @@ void Console::Out(const char* f, ...)
 void Console::Wrn(const char* f, ...)
 {
 	if (OutputSuppressed) return;
+
+	std::lock_guard<std::mutex> queueGuard(output_lock);
 
 	va_list args;
 	va_start(args, f);
@@ -153,6 +160,8 @@ void Console::Err(const char* f, ...)
 {
 	if (OutputSuppressed)
 		return;
+
+	std::lock_guard<std::mutex> queueGuard(error_lock);
 
 	if (!Styled[STREAM_ERR])
 	{
@@ -172,6 +181,8 @@ void Console::Dbg(const char* f, ...)
 {
 	if (OutputSuppressed) return;
 
+	std::lock_guard<std::mutex> queueGuard(output_lock);
+
 	va_list args;
 	va_start(args, f);
 	GenericOut("DBG", STREAM_OUT, COLOR_GREY, true, f, args);
@@ -185,27 +196,21 @@ void Console::SuppressOutput(bool suppress)
 
 void Console::SetLog(Stream stream, const std::string& fileName)
 {
-	const size_t TIME_BUF_SIZE = 256;
-	std::time_t rawtime;
-	char timestr[TIME_BUF_SIZE];
-	std::time(&rawtime);
-	std::strftime(timestr, TIME_BUF_SIZE, "%c", std::localtime(&rawtime));
-
-	FILE * outStream = nullptr;
-	switch (stream)
-	{
-		case STREAM_OUT:
-			outStream = stdout;
-			break;
-		case STREAM_ERR:
-			outStream = stderr;
-			break;
-		default:
-			throw std::runtime_error("Invalid stream for setting log");
-	}
-
 	if (!fileName.empty() && fileName.compare("-") != 0)
 	{
+		FILE * outStream = nullptr;
+		switch (stream)
+		{
+			case STREAM_OUT:
+				outStream = stdout;
+				break;
+			case STREAM_ERR:
+				outStream = stderr;
+				break;
+			default:
+				throw std::runtime_error("Invalid stream for setting log");
+		}
+
 		const char * targetStreamName = (stream == STREAM_OUT ? "stdout" : "stderr");
 		if (!std::freopen(fileName.c_str(), "a", outStream))
 		{
@@ -213,6 +218,12 @@ void Console::SetLog(Stream stream, const std::string& fileName)
 		}
 		else
 		{
+			const size_t TIME_BUF_SIZE = 256;
+			std::time_t rawtime;
+			char timestr[TIME_BUF_SIZE];
+			std::time(&rawtime);
+			std::strftime(timestr, TIME_BUF_SIZE, "%c", std::localtime(&rawtime));
+
 			Console::Styled[stream] = false;
 			std::fprintf(outStream, "\n\n--- %s ---\n\n", timestr);
 		}

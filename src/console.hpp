@@ -11,6 +11,7 @@
 
 #include <cstdarg>
 #include <string>
+#include <mutex>
 
 class Console
 {
@@ -42,6 +43,8 @@ private:
 		std::string target_directory;
 		size_t file_limit;
 	} rotation_properties;
+
+	static std::mutex output_lock, error_lock;
 
 	static size_t bytes_written[2];
 	static double first_write_time[2];
