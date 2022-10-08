@@ -94,13 +94,15 @@ void Console::ResetTextColor(Stream stream)
 
 void Console::GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args)
 {
-	const size_t BUFFER_SIZE = 4096;
+	static const size_t BUFFER_SIZE = 4096;
 
 	if (Styled[stream])
 		SetTextColor(stream, color, bold);
 
-	static char formatted[BUFFER_SIZE] = {0};
-	std::vsnprintf(formatted, BUFFER_SIZE, (std::string("[" + prefix + "] ") + format + "\n").c_str(), args);
+	std::string output = "[" + prefix + "] [" + GetTimeString("-", ".", ":") + "] " + format + "\n";
+
+	static char formatted[BUFFER_SIZE] = { 0 };
+	std::vsnprintf(formatted, BUFFER_SIZE, output.c_str(), args);
 
 #ifdef WIN32
 	bytes_written[stream] += strnlen_s(formatted, BUFFER_SIZE);
@@ -216,17 +218,6 @@ void Console::SetLog(Stream stream, const std::string& fileName)
 		{
 			Console::Err("Failed to redirect %s.", targetStreamName);
 		}
-		else
-		{
-			const size_t TIME_BUF_SIZE = 256;
-			std::time_t rawtime;
-			char timestr[TIME_BUF_SIZE];
-			std::time(&rawtime);
-			std::strftime(timestr, TIME_BUF_SIZE, "%c", std::localtime(&rawtime));
-
-			Console::Styled[stream] = false;
-			std::fprintf(outStream, "\n\n--- %s ---\n\n", timestr);
-		}
 
 		if (std::setvbuf(outStream, 0, _IONBF, 0) != 0)
 		{
@@ -246,6 +237,31 @@ void Console::SetRotation(size_t bytesPerFile, unsigned interval, const std::str
 	rotation_properties.file_limit = fileLimit;
 
 	fs::create_directories(rotation_properties.target_directory);
+}
+
+std::string Console::GetTimeString(const std::string& date_sep, const std::string& split_sep, const std::string& time_sep)
+{
+	static const size_t TIMEBUFFER_SIZE = 256;
+
+	std::time_t raw_time;
+	std::time(&raw_time);
+	const std::tm * time_info = localtime(&raw_time);
+
+	char buf[TIMEBUFFER_SIZE] = { 0 };
+	snprintf(buf, TIMEBUFFER_SIZE, "%04d%s%02d%s%02d%s%02d%s%02d%s%02d",
+		time_info->tm_year + 1900,
+		date_sep.c_str(),
+		time_info->tm_mon + 1,
+		date_sep.c_str(),
+		time_info->tm_mday,
+		split_sep.c_str(),
+		time_info->tm_hour,
+		time_sep.c_str(),
+		time_info->tm_min,
+		time_sep.c_str(),
+		time_info->tm_sec);
+
+	return std::move(std::string(buf));
 }
 
 // https://stackoverflow.com/a/62412605/2562283
@@ -293,31 +309,23 @@ bool Console::TryGetNextRotatedLogFileName(Stream stream, std::string& file_name
 	if (!rotation_properties.enabled)
 		return false;
 
-	time_t raw_time;
-	time(&raw_time);
-	const tm * time_info = localtime(&raw_time);
-
+	// target file name is concat'd {log_dir}/{stdout|stderr}-{time}.{extra}.log
+	// time is yyyy.MM.dd-hh.mm.ss
+	std::string time_str = GetTimeString(".", "-", ".");
 	std::string stream_text(stream == STREAM_OUT ? "stdout" : "stderr");
 
-	char buf[256] = { 0 };
-	snprintf(buf, 256, "%s/%s-%04d.%02d.%02d-%02d.%02d.%02d.",
-		rotation_properties.target_directory.c_str(),
-		stream_text.c_str(),
-		time_info->tm_year + 1900,
-		time_info->tm_mon + 1,
-		time_info->tm_mday,
-		time_info->tm_hour,
-		time_info->tm_min,
-		time_info->tm_sec);
+	auto target_path = fs::path(rotation_properties.target_directory);
+	target_path /= stream_text + "-" + time_str;
 
-	file_name = std::string(buf);
+	file_name = target_path.string();
 
+	// 'extra' ensures that the same filename isn't generated for flushes that happen in < 1 second (minimum resolution for log file names)
 	int i = 1;
-	std::string extra = "0.";
-	while (fs::exists(file_name + extra + "log"))
-		extra = util::to_string(i++) + ".";
+	std::string extra = ".0";
+	while (fs::exists(file_name + extra + ".log"))
+		extra = "." + util::to_string(i++);
 
-	file_name += extra + "log";
+	file_name += extra + ".log";
 
 	return true;
 }

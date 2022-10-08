@@ -56,6 +56,8 @@ private:
 
 	static inline void GenericOut(const std::string& prefix, Stream stream, Color color, bool bold, const char * format, va_list args);
 
+	static inline std::string GetTimeString(const std::string& date_sep, const std::string& split_sep, const std::string& time_sep);
+
 	static inline void DeleteOldestIfNeeded(Stream stream);
 
 public:
