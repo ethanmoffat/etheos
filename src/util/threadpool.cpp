@@ -15,7 +15,11 @@ namespace util
 {
     // These are initialized here to allow tests to compile on Ubuntu Linux (g++ 7.4.0)
     // Otherwise, they aren't in the object file in unity build mode and test linking fails
+
+    // Maximum number of threadpool threads is arbitrarily defined at 32 because it is highly unlikely there will be more than 32 cores in a system running etheos
     const size_t ThreadPool::MAX_THREADS = 32;
+
+    // Default number of threads is arbitrarily defined at 4 because it is highly unlikely there will be more than 4 concurrent ThreadPool operations on most setups
     const size_t ThreadPool::DEFAULT_THREADS = 4;
 
     // There should really only be a single thread pool per application

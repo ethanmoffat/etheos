@@ -80,12 +80,24 @@
                   "secureValue": "[parameters('sqlDbPass')]"
                 },
                 {
-                  "name": "ETHEOS_LOGOUT",
-                  "value": "[concat('/logs/', parameters('environmentName'), '/stdout')]"
+                  "name": "ETHEOS_ENABLELOGROTATION",
+                  "value": "true"
                 },
                 {
-                  "name": "ETHEOS_LOGERR",
-                  "value": "[concat('/logs/', parameters('environmentName'), '/stderr')]"
+                  "name": "ETHEOS_LOGROTATIONINTERVAL",
+                  "value": "1d"
+                },
+                {
+                  "name": "ETHEOS_LOGFILELIMIT",
+                  "value": "7"
+                },
+                {
+                  "name": "ETHEOS_LOGFILEDIRECTORY",
+                  "value": "[concat('/logs/', parameters('environmentName'))]"
+                },
+                {
+                  "name": "ETHEOS_LOGCONNECTION",
+                  "value": "1"
                 },
                 {
                   "name": "ETHEOS_WORLDDUMPFILE",
@@ -110,10 +122,6 @@
                 {
                   "name": "ETHEOS_THREADPOOLTHREADS",
                   "value": "4"
-                },
-                {
-                  "name": "ETHEOS_LOGCONNECTION",
-                  "value": "1"
                 }
               ]
             }
