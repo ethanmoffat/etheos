@@ -25,8 +25,8 @@
 
 namespace fs = std::filesystem;
 
-std::mutex Console::output_lock = std::mutex();
-std::mutex Console::error_lock = std::mutex();
+// std::mutex Console::output_lock = std::mutex();
+// std::mutex Console::error_lock = std::mutex();
 
 bool Console::Styled[2] = { true, true };
 
@@ -138,7 +138,7 @@ void Console::Out(const char* f, ...)
 {
 	if (OutputSuppressed) return;
 
-	std::lock_guard<std::mutex> queueGuard(output_lock);
+	// std::lock_guard<std::mutex> queueGuard(output_lock);
 
 	va_list args;
 	va_start(args, f);
@@ -150,7 +150,7 @@ void Console::Wrn(const char* f, ...)
 {
 	if (OutputSuppressed) return;
 
-	std::lock_guard<std::mutex> queueGuard(output_lock);
+	// std::lock_guard<std::mutex> queueGuard(output_lock);
 
 	va_list args;
 	va_start(args, f);
@@ -163,7 +163,7 @@ void Console::Err(const char* f, ...)
 	if (OutputSuppressed)
 		return;
 
-	std::lock_guard<std::mutex> queueGuard(error_lock);
+	// std::lock_guard<std::mutex> queueGuard(error_lock);
 
 	if (!Styled[STREAM_ERR])
 	{
@@ -183,7 +183,7 @@ void Console::Dbg(const char* f, ...)
 {
 	if (OutputSuppressed) return;
 
-	std::lock_guard<std::mutex> queueGuard(output_lock);
+	// std::lock_guard<std::mutex> queueGuard(output_lock);
 
 	va_list args;
 	va_start(args, f);
