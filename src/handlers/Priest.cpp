@@ -41,7 +41,7 @@ void Priest_Accept(Character *character, PacketReader &reader)
 		reply.AddShort(PRIEST_BUSY);
 		character->Send(reply);
 	}
-	
+
 	Character* partner = character->world->GetCharacter(character->fiance);
 
 	if (!partner || partner->map != character->map)

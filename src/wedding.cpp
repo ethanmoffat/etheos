@@ -141,6 +141,16 @@ void Wedding::Tick()
 			{
 				this->PriestSay(this->map->world->i18n.Format("wedding_wait"));
 			}
+			else if (this->tick == 1)
+			{
+				PacketBuilder builder(PACKET_JUKEBOX, PACKET_PLAYER);
+				builder.AddChar(static_cast<unsigned char>(this->map->world->config["WeddingMusic"].GetInt()));
+
+				for (auto& character : this->map->characters)
+				{
+					character->Send(builder);
+				}
+			}
 			else if (this->tick == 20)
 			{
 				this->NextState();
