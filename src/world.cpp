@@ -560,6 +560,9 @@ void World::DumpToFile(const std::string& fileName)
 		nextC["account"] = c->player->username;
 		nextC["title"] = c->title;
 		nextC["class"] = c->clas;
+		nextC["home"] = c->home;
+		nextC["fiance"] = c->fiance;
+		nextC["partner"] = c->partner;
 		nextC["gender"] = c->gender;
 		nextC["race"] = c->race;
 		nextC["hairstyle"] = c->hairstyle;
@@ -721,11 +724,12 @@ void World::RestoreFromDump(const std::string& fileName)
 			Database_Result dbRes;
 			if (exists.empty())
 			{
-				dbRes = this->db->Query("INSERT INTO `characters` (`name`, `title`, `account`, `class`, `gender`, `race`, "
+				dbRes = this->db->Query("INSERT INTO `characters` (`name`, `title`, `account`, `home`, `fiance`, `partner`, `class`, `gender`, `race`, "
 					"`hairstyle`, `haircolor`, `map`, `x`, `y`, `direction`, `level`, `admin`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, `karma`, `sitting`, `hidden`, "
 					"`nointeract`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`) "
-					"VALUES ('$', '$', '$', #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, '$', '$', '$', '$', '$', #, '$', '$')",
+					"VALUES ('$', '$', '$', '$', '$', '$', #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, #, '$', '$', '$', '$', '$', #, '$', '$')",
 					charName.c_str(), c["title"].get<std::string>().c_str(), c["account"].get<std::string>().c_str(),
+					c["home"].get<std::string>().c_str(), c["fiance"].get<std::string>().c_str(), c["partner"].get<std::string>().c_str(),
 					c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
 					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
 					c["level"].get<int>(), c["admin"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
@@ -739,13 +743,14 @@ void World::RestoreFromDump(const std::string& fileName)
 			// if the database entry is older than the character data in the dump, update the database with the dump's character data
 			else if (exists.front()["usage"].GetInt() <= c["usage"].get<int>())
 			{
-				dbRes = this->db->Query("UPDATE `characters` SET `title` = '$', `class` = #, `gender` = #, `race` = #, "
+				dbRes = this->db->Query("UPDATE `characters` SET `title` = '$', `home` = '$', `fiance` = '$', `partner` = '$', `class` = #, `gender` = #, `race` = #, "
 					"`hairstyle` = #, `haircolor` = #, `map` = #, `x` = #, `y` = #, `direction` = #, `level` = #, `admin` = #, `exp` = #, `hp` = #, `tp` = #, "
 					"`str` = #, `int` = #, `wis` = #, `agi` = #, `con` = #, `cha` = #, `statpoints` = #, `skillpoints` = #, `karma` = #, `sitting` = #, `hidden` = #, "
 					"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "
 					"`spells` = '$', `guild` = '$', `guild_rank` = #, `guild_rank_string` = '$', `quest` = '$' "
 					"WHERE `name` = '$'",
-					c["title"].get<std::string>().c_str(), c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
+					c["title"].get<std::string>().c_str(), c["home"].get<std::string>().c_str(), c["fiance"].get<std::string>().c_str(), c["partner"].get<std::string>().c_str(),
+					c["class"].get<int>(), c["gender"].get<int>(), c["race"].get<int>(),
 					c["hairstyle"].get<int>(), c["haircolor"].get<int>(), c["map"].get<int>(), c["x"].get<int>(), c["y"].get<int>(), c["direction"].get<int>(),
 					c["level"].get<int>(), c["admin"].get<int>(), c["exp"].get<int>(), c["hp"].get<int>(), c["tp"].get<int>(),
 					c["str"].get<int>(), c["intl"].get<int>(), c["wis"].get<int>(), c["agi"].get<int>(), c["con"].get<int>(), c["cha"].get<int>(),

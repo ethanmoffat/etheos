@@ -175,6 +175,9 @@ protected:
         character["name"] = c->real_name;
         character["account"] = c->player->username;
         character["title"] = c->title;
+        character["home"] = c->home;
+        character["fiance"] = c->fiance;
+        character["partner"] = c->partner;
         character["class"] = c->clas;
         character["gender"] = c->gender;
         character["race"] = c->race;
