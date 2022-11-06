@@ -76,7 +76,7 @@ class Quest_Context : public EOPlus::Context
 		std::string::const_iterator UnserializeProgress(std::string::const_iterator it, std::string::const_iterator begin);
 
 		bool DialogInput(char link_id);
-		bool TalkedNPC(char vendor_id);
+		bool TalkedNPC(short vendor_id);
 
 		void UsedItem(short id);
 		void UsedSpell(short id);
