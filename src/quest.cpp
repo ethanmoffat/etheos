@@ -1054,7 +1054,7 @@ bool Quest_Context::DialogInput(char link_id)
 	return this->TriggerRule("inputnpc", [link_id](const std::deque<util::variant>& args) { return int(args[0]) == link_id; });
 }
 
-bool Quest_Context::TalkedNPC(char vendor_id)
+bool Quest_Context::TalkedNPC(short vendor_id)
 {
 	if (this->quest->Disabled())
 		return false;
