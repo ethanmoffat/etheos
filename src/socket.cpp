@@ -334,9 +334,10 @@ void Client::Bind(const IPAddress &addr, uint16_t port)
 	sockaddr_in sin;
 	uint16_t portn = htons(port);
 
-	int yes = 1;
+	const int yes = 1;
 #ifdef WIN32
-	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&yes), sizeof(int));
 #else
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
@@ -646,9 +647,10 @@ void Server::Bind(const IPAddress &addr, uint16_t port)
 	sin.sin_addr.s_addr = htonl(this->address);
 	sin.sin_port = this->portn;
 
-	int yes = 1;
+	const int yes = 1;
 #ifdef WIN32
-	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)yes, sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(int));
+	setsockopt(this->impl->sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&yes), sizeof(int));
 #else
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	setsockopt(this->impl->sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));

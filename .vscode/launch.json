@@ -9,7 +9,7 @@
             "preLaunchTask": "Build (Windows) - Debug",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/install/etheos",
+            "program": "${workspaceFolder}/install/etheos.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install",
@@ -21,7 +21,7 @@
             "preLaunchTask": "Build (Windows) - Debug",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/install/test/eoserv_test",
+            "program": "${workspaceFolder}/install/test/eoserv_test.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install/test",
@@ -31,14 +31,14 @@
         {
             "name": "Debug - Linux",
             "preLaunchTask": "Build (Linux) - Debug",
-            "type": "cppvsdbg",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/install/etheos",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install",
             "environment": [],
-            "console": "internalConsole"
+            "externalConsole": false
         }
     ]
 }

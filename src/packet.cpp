@@ -399,9 +399,10 @@ unsigned int PacketReader::GetNumber(std::size_t length)
 {
 	std::array<unsigned char, 4> bytes{{254, 254, 254, 254}};
 
-	std::copy_n(util::cbegin(this->data) + this->pos, std::min(length, this->Remaining()), util::begin(bytes));
+	size_t read_len = std::min(length, this->Remaining());
+	std::copy_n(util::cbegin(this->data) + this->pos, read_len, util::begin(bytes));
 
-	this->pos += length;
+	this->pos += read_len;
 
 	return PacketProcessor::Number(bytes[0], bytes[1], bytes[2], bytes[3]);
 }
