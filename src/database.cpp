@@ -885,6 +885,13 @@ Database::QueryParameterPair Database::ParseQueryArgs(const char * format, va_li
 		{
 			tempc = va_arg(ap,char *);
 			auto tmpStr = static_cast<std::string>(tempc);
+
+			if (this->engine == Database::SqlServer)
+			{
+				// filter backticks on nested insertion for SqlServer driver
+				tmpStr.erase(std::remove(tmpStr.begin(), tmpStr.end(), '`'), tmpStr.end());
+			}
+
 			finalquery += tmpStr;
 		}
 		else if (*p == '$')
