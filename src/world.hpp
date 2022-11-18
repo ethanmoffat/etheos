@@ -65,9 +65,10 @@ struct Home
 	unsigned char x;
 	unsigned char y;
 	int level;
+	int race;
 	int innkeeper_vend;
 
-	Home() : map(1), x(0), y(0), level(-1), innkeeper_vend(0) { }
+	Home() : map(1), x(0), y(0), level(-1), race(-1), innkeeper_vend(0) { }
 };
 
 /**
@@ -116,7 +117,7 @@ class World
 		std::vector<Character *> characters;
 		std::vector<Party *> parties;
 		std::vector<Map *> maps;
-		std::vector<Home *> homes;
+		std::vector<std::shared_ptr<Home>> homes;
 		std::map<short, std::shared_ptr<Quest>> quests;
 
 		std::array<Board *, 8> boards;
@@ -177,8 +178,8 @@ class World
 
 		Map *GetMap(short id);
 		const NPC_Data* GetNpcData(short id) const;
-		Home *GetHome(const Character *) const;
-		Home *GetHome(std::string);
+		std::shared_ptr<Home> GetHome(const Character *) const;
+		std::shared_ptr<Home> GetHome(std::string);
 
 		bool CharacterExists(std::string name);
 		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
