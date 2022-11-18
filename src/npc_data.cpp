@@ -260,7 +260,7 @@ void NPC_Data::Load()
 			{
 				this->citizenship.reset(new NPC_Citizenship);
 				this->citizenship->home = parts[0];
-				Home* home = this->world->GetHome(this->citizenship->home);
+				auto home = this->world->GetHome(this->citizenship->home);
 
 				if (home)
 					home->innkeeper_vend = this->ENF().vendor_id;
