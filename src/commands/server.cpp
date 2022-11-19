@@ -51,28 +51,26 @@ static void schedule_shutdown(const std::vector<std::string>& arguments, Command
 		}
 	}
 
-	// capturing lambdas cannot be passed as function pointers, therefore is_shutdown cannot be captured
+	// capturing lambdas cannot be passed as function pointers, therefore is_reload cannot be captured
 	TimerCallback shutdown_callback = nullptr;
 	if (is_reload)
 	{
-		shutdown_callback = [](void * input)
+		shutdown_callback = [](void*)
 		{
-			Command_Source* input_from = static_cast<Command_Source*>(input);
-			Console::Out("Server reloaded by %s", input_from->SourceName().c_str());
+			Console::Out("Server reloaded");
 			eoserv_sig_reload = true;
 		};
 	}
 	else
 	{
-		shutdown_callback = [](void * input)
+		shutdown_callback = [](void*)
 		{
-			Command_Source* input_from = static_cast<Command_Source*>(input);
-			Console::Out("Server shut down by %s", input_from->SourceName().c_str());
+			Console::Out("Server shut down");
 			eoserv_sig_abort = true;
 		};
 	}
 
-	shutdown_timer = new TimeEvent(shutdown_callback, from, timeout);
+	shutdown_timer = new TimeEvent(shutdown_callback, nullptr, timeout);
 	from->SourceWorld()->timer.Register(shutdown_timer);
 }
 
