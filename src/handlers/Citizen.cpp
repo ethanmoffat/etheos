@@ -106,7 +106,7 @@ void Citizen_Open(Character *character, PacketReader &reader)
 			PacketBuilder reply(PACKET_CITIZEN, PACKET_OPEN,
 				9 + npc->Data().citizenship->questions[0].length() + npc->Data().citizenship->questions[1].length() + npc->Data().citizenship->questions[2].length());
 
-			Home* home = character->world->GetHome(character);
+			auto home = character->world->GetHome(character);
 			int innkeeper_vend = 0;
 
 			if (home)

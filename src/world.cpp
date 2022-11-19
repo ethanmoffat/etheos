@@ -919,7 +919,7 @@ void World::LoadHome()
 {
 	this->homes.clear();
 
-	std::unordered_map<std::string, Home *> temp_homes;
+	std::unordered_map<std::string, std::shared_ptr<Home>> temp_homes;
 
 	UTIL_FOREACH(this->home_config, hc)
 	{
@@ -930,33 +930,51 @@ void World::LoadHome()
 			continue;
 		}
 
-		if (parts[0] == "level")
-		{
-			int level = util::to_int(parts[1]);
+		bool is_level = parts[0] == "level";
+		bool is_race = parts[0] == "race";
 
-			std::unordered_map<std::string, Home *>::iterator home_iter = temp_homes.find(hc.second);
+		if (is_level || is_race)
+		{
+			int value = util::to_int(parts[1]);
+
+			auto home_iter = temp_homes.find(hc.second);
 
 			if (home_iter == temp_homes.end())
 			{
-				Home *home = new Home;
+				auto home = std::make_shared<Home>();
 				home->id = static_cast<std::string>(hc.second);
 				temp_homes[hc.second] = home;
-				home->level = level;
+
+				if (is_level)
+				{
+					home->level = value;
+				}
+				else if (is_race)
+				{
+					home->race = value;
+				}
 			}
-			else
+			else if (is_level)
 			{
-				home_iter->second->level = level;
+				home_iter->second->level = value;
+			}
+			else if (is_race)
+			{
+				home_iter->second->race = value;
 			}
 
 			continue;
 		}
 
-		Home *&home = temp_homes[parts[0]];
-
-		if (!home)
+		std::shared_ptr<Home> home;
+		if (temp_homes.find(parts[0]) == temp_homes.end())
 		{
-			temp_homes[parts[0]] = home = new Home;
+			temp_homes[parts[0]] = home = std::make_shared<Home>();
 			home->id = parts[0];
+		}
+		else
+		{
+			home = temp_homes[parts[0]];
 		}
 
 		if (parts[1] == "name")
@@ -1531,10 +1549,10 @@ const NPC_Data* World::GetNpcData(short id) const
 		return npc_data[0].get();
 }
 
-Home *World::GetHome(const Character *character) const
+std::shared_ptr<Home> World::GetHome(const Character *character) const
 {
-	Home *home = 0;
-	static Home *null_home = new Home;
+	auto home = std::shared_ptr<Home>(nullptr);
+	static std::shared_ptr<Home> null_home = std::make_shared<Home>();
 
 	UTIL_FOREACH(this->homes, h)
 	{
@@ -1547,7 +1565,9 @@ Home *World::GetHome(const Character *character) const
 	int current_home_level = -2;
 	UTIL_FOREACH(this->homes, h)
 	{
-		if (h->level <= character->level && h->level > current_home_level)
+		if (h->level <= character->level &&
+			h->level > current_home_level &&
+			(h->race < 0 || h->race == character->race))
 		{
 			home = h;
 			current_home_level = h->level;
@@ -1562,7 +1582,7 @@ Home *World::GetHome(const Character *character) const
 	return home;
 }
 
-Home *World::GetHome(std::string id)
+std::shared_ptr<Home> World::GetHome(std::string id)
 {
 	UTIL_FOREACH(this->homes, h)
 	{
@@ -1589,9 +1609,24 @@ Character *World::CreateCharacter(Player *player, std::string name, Gender gende
 
 	if (static_cast<int>(this->config["StartMap"]))
 	{
-		using namespace std;
 		startmapinfo = ", `map`, `x`, `y`";
-		snprintf(buffer, 1024, ",%i,%i,%i", static_cast<int>(this->config["StartMap"]), static_cast<int>(this->config["StartX"]), static_cast<int>(this->config["StartY"]));
+		std::snprintf(buffer, 1024, ",%i,%i,%i", static_cast<int>(this->config["StartMap"]), static_cast<int>(this->config["StartX"]), static_cast<int>(this->config["StartY"]));
+		startmapval = buffer;
+	}
+
+	std::shared_ptr<Home> home;
+	UTIL_FOREACH(this->homes, h)
+	{
+		if (h->race == race && h->level <= 0)
+		{
+			home = h;
+		}
+	}
+
+	if (home)
+	{
+		startmapinfo = ", `map`, `x`, `y`";
+		std::snprintf(buffer, 1024, ",%i,%i,%i", home->map, home->x, home->y);
 		startmapval = buffer;
 	}
 
@@ -1833,11 +1868,6 @@ World::~World()
 	UTIL_FOREACH(this->maps, map)
 	{
 		delete map;
-	}
-
-	UTIL_FOREACH(this->homes, home)
-	{
-		delete home;
 	}
 
 	UTIL_FOREACH(this->boards, board)
