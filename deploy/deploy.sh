@@ -9,6 +9,8 @@ function main() {
   local service_principal_password=""
   local environment_name=""
   local resource_group="etheos"
+  local skip_dns="false"
+  local ip_addr_file="IP_ADDR"
   local template_file="${SCRIPT_ROOT}/etheos-container.json"
   local parameter_file=""
   local opt_help="false"
@@ -43,6 +45,13 @@ function main() {
       -g|--resource-group)
         resource_group="$2"
         shift
+        ;;
+      -f|--ip-address-file)
+        ip_addr_file="$2"
+        shift
+        ;;
+      --skip-dns)
+        skip_dns="true"
         ;;
       --template-file)
         template_file="$2"
@@ -124,15 +133,25 @@ function main() {
     az deployment group create --resource-group "${resource_group}" --template-file "${template_file}" --parameters "${parameter_file}"
   fi
 
-  echo ""
-  echo "******Deleting existing DNS A record for ${environment_name}******"
-  az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
-
-  if [[ "${operation}" == "CREATE" ]]; then
+  if [[ "${skip_dns}" == "false" ]]; then
     echo ""
-    echo "******Creating new DNS A record for ${environment_name}******"
-    ipAddr=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
-    az network dns record-set a add-record -a "${ipAddr}" -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
+    echo "******Deleting existing DNS A record for ${environment_name}******"
+    az network dns record-set a show -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null && az network dns record-set a delete -n "${dns_name}" -g moffat.io -z moffat.io -y
+
+    if [[ "${operation}" == "CREATE" ]]; then
+      echo ""
+      echo "******Creating new DNS A record for ${environment_name}******"
+      ipAddr=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
+      az network dns record-set a add-record -a "${ipAddr}" -n "${dns_name}" -g moffat.io -z moffat.io > /dev/null
+    fi
+  else
+    echo ""
+    echo "******Writing IP Address to file: ${ip_addr_file}******"
+
+    CONTAINER_IP_ADDRESS=$(az container show -g "${resource_group}" -n "${container_name}" | jq -r .ipAddress.ip)
+    echo "CONTAINER_IP_ADDRESS=${CONTAINER_IP_ADDRESS//\"}"
+
+    echo ${CONTAINER_IP_ADDRESS//\"} > ${ip_addr_file}
   fi
 
   return 0
@@ -147,6 +166,8 @@ function display_usage() {
   echo "  -p --password          Password for the service principal"
   echo "  -e --environment-name  Environment (one of: dev/test/ci-test/prod)"
   echo "  -g --resource-group    (optional) Resource group to deploy to"
+  echo "  -f --ip-address-file   (optional) Output file to use for the deployed container's IP address"
+  echo "  --skip-dns             (optional) Skip DNS record updates"
   echo "  --template-file        (optional) Path to the template file to use for deployment"
   echo "  --parameter-file       (optional) Path to parameters for deployment. Defaults to deploy/params-{environment}.json"
   echo "  -h --help              Show this help"

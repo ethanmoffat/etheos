@@ -20,23 +20,29 @@ stages:
   jobs:
   - job: deploy
     displayName: 'Deploy to ci-test environment'
-    pool:
-      vmImage: 'ubuntu-20.04'
+    pool: ci-test-agent
     steps:
     - checkout: self
       lfs: true
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+    - script: |
+        $(Build.SourcesDirectory)/deploy/deploy.sh CREATE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --skip-dns --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+        export CONTAINER_IP_ADDRESS=$(cat IP_ADDR)
+        echo "##vso[task.setvariable variable=CONTAINER_IP_ADDRESS;isoutput=true]$CONTAINER_IP_ADDRESS"
       condition: succeeded()
       displayName: 'Deploy to ci-test environment'
-    - script: python3 $(Build.SourcesDirectory)/deploy/test-connection.py ci-test.etheos.moffat.io 8078 9078 10078
+      name: deployscript
+    - script: |
+        echo "Testing connection..."
+        python3 $(Build.SourcesDirectory)/deploy/test-connection.py $(deployscript.CONTAINER_IP_ADDRESS) 10 8078 9078 10078
       condition: succeeded()
       displayName: 'Test connection to server'
 
   - job: test
     displayName: 'Run integration tests against ci-test environment'
     dependsOn: [ 'deploy' ]
-    pool:
-      vmImage: 'ubuntu-20.04'
+    pool: ci-test-agent
+    variables:
+      CONTAINER_IP_ADDRESS: $[ dependencies.deploy.outputs['deployscript.CONTAINER_IP_ADDRESS'] ] # References to variables set across jobs require 'isoutput=true'
     steps:
     - task: DownloadGitHubRelease@0
       inputs:
@@ -47,13 +53,13 @@ stages:
       inputs:
         archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
         destinationFolder: $(System.ArtifactsDirectory)/eobot
-    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 8078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h $(CONTAINER_IP_ADDRESS) -p 8078 -b $(System.ArtifactsDirectory)/eobot/net6.0
       condition: succeeded()
       displayName: 'Run integration test scripts - mssql instance'
-    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 9078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h $(CONTAINER_IP_ADDRESS) -p 9078 -b $(System.ArtifactsDirectory)/eobot/net6.0
       condition: succeededOrFailed()
       displayName: 'Run integration test scripts - mysql instance'
-    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h ci-test.etheos.moffat.io -p 10078 -b $(System.ArtifactsDirectory)/eobot/net6.0
+    - script: $(Build.SourcesDirectory)/deploy/ci-test.sh -h $(CONTAINER_IP_ADDRESS) -p 10078 -b $(System.ArtifactsDirectory)/eobot/net6.0
       condition: succeededOrFailed()
       displayName: 'Run integration test scripts - sqlite instance'
 
@@ -61,8 +67,7 @@ stages:
     displayName: 'Delete ci-test environment (reduce Azure spend)'
     dependsOn: [ 'test' ]
     condition: succeededOrFailed()
-    pool:
-      vmImage: 'ubuntu-20.04'
+    pool: ci-test-agent
     steps:
-    - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
+    - script: $(Build.SourcesDirectory)/deploy/deploy.sh DELETE -u 55d02cce-765c-4364-a5a6-1328ba987d83 -p $(deployAppSecret) -e ci-test -g etheos --skip-dns --template-file $(Build.SourcesDirectory)/deploy/etheos-ci-test.json --parameter-file $(Build.SourcesDirectory)/deploy/params-ci-test.json
       displayName: 'Delete ci-test environment'

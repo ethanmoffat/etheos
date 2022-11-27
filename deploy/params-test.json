@@ -45,7 +45,7 @@
             "value": "etheos-sample-data"
         },
         "cpu": {
-            "value": "2.0"
+            "value": "1.0"
         },
         "memoryInGb": {
             "value": "0.5"
