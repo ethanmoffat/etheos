@@ -82,14 +82,18 @@ void Marriage_Request(Character *character, PacketReader &reader)
 				return;
 			}
 
-			character->DelItem(1, marriage_price);
+			if (Character::ValidName(name))
+			{
+				character->DelItem(1, marriage_price);
 
-			character->fiance = name;
+				character->fiance = name;
 
-			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
-			builder.AddShort(MARRIAGE_SUCCESS);
-			builder.AddInt(character->HasItem(1));
-			character->Send(builder);
+				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
+				builder.AddShort(MARRIAGE_SUCCESS);
+				builder.AddInt(character->HasItem(1));
+				character->Send(builder);
+			}
+
 			break;
 		}
 
