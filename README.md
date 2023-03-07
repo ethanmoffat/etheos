@@ -1,15 +1,12 @@
 # ETHEOS
 
-[![Build + Deployment (env:dev) Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
-
-[![CI test status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos-ci-test?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=17&branchName=master)
-
-[![Deployment (env:test) status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos-deploy-test?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=18&branchName=master)
+[![CI Build Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
 
 ## Table of Contents
 
 - [Getting Started on Windows](#getting-started-on-windows)
 - [Getting Started on Linux](#getting-started-on-linux)
+- [Docker Image](#docker-image)
 - [Running](#running)
 - [Development](#development)
 - [Sample servers](#sample-servers)
@@ -67,7 +64,7 @@ The dependencies for building ETHEOS on Linux are:
 - SQLite
 - MariaDB
 - git (for getting bcrypt/googletest components)
-- OCDB (SQL server) [optional]
+- ODBC (SQL server) [optional]
 
 #### Automatic Dependency Installation
 
@@ -76,6 +73,17 @@ A convenience script has been provided which installs each of the required depen
 ### Build and Install
 
 Run `./build-linux.sh -i` to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
+
+## Docker Image
+
+A docker image is available on docker hub at `darthchungis/etheos`. Environment variables in the form of `ETHEOS_###` (all uppercase, case-sensitive) may be used to set configuration options. These options will override what is set by default in the configuration files.
+
+For example:
+
+```
+docker pull darthchungis/etheos
+docker run -it --rm -e 'ETHEOS_PORT=8079' -p 8079:8079 -v .\install\data:/etheos/data -v .\install\config_local:/etheos/config_local darthchungis/etheos:latest
+```
 
 ## Running
 
@@ -92,13 +100,10 @@ Development within [Visual Studio Code](https://code.visualstudio.com/) (vscode)
 
 ## Sample Servers
 
-A few sample servers are hosted in different environments. These servers use SQL Server as a database backend.
+Sample servers are hosted in different environments. These servers use SQL Server as a database backend. Servers use default assets from EO v28.
 
 1. `moffat.io:8078`
    - ⚠️ This server is not guaranteed to be running the latest version
 
-2. `dev.etheos.moffat.io:8078`
-   - This server is updated on each pull request build
-
-3. `test.etheos.moffat.io:8078`
-   - This server is updated once integration tests pass (triggered by a CI build after a PR is merged)
+2. `etheos.moffat.io:8078`
+   - This server is deployed on completion of successful CI builds
