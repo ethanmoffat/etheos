@@ -92,8 +92,10 @@ stages:
     - task: Docker@2
       displayName: 'Build/push etheos image'
       inputs:
-        command: buildAndPush
-        repository: etheos/dev
+        containerRegistry: 'docker_hub'
+        repository: 'etheos'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
         tags: |
           $(Build.BuildNumber)
           latest
