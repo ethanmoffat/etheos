@@ -1300,6 +1300,7 @@ void World::Rehash()
 
 	this->UpdateConfig();
 	this->LoadHome();
+	this->server->UpdateConfig();
 
 	UTIL_FOREACH(this->maps, map)
 	{
