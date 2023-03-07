@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_ROOT="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 set -e
 
 SKIPCMAKE=false
@@ -141,10 +143,10 @@ fi
 if [ "$SKIPJSON" == "false" ]; then
     echo "Installing json library dependency"
 
-    if [ ! -d ../json ]; then
-        mkdir ../json
+    if [ ! -d "$SCRIPT_ROOT/../json" ]; then
+        mkdir "$SCRIPT_ROOT/../json"
     fi
     JSON_VERSION=3.9.1
     wget -q "https://raw.githubusercontent.com/nlohmann/json/v$JSON_VERSION/single_include/nlohmann/json.hpp"
-    mv json.hpp ../json
+    mv json.hpp "$SCRIPT_ROOT/../json"
 fi

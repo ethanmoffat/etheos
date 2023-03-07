@@ -86,6 +86,7 @@ stages:
     - script: chmod +x install/etheos
       displayName: 'Make etheos binary executable'
     - task: Docker@2
+      displayName: 'Docker login'
       inputs:
         command: login
         containerRegistry: docker_hub
@@ -93,12 +94,14 @@ stages:
       displayName: 'Build/push etheos image'
       inputs:
         containerRegistry: 'docker_hub'
-        repository: 'etheos'
+        repository: 'darthchungis/etheos'
         command: 'buildAndPush'
         Dockerfile: '**/Dockerfile'
         tags: |
           $(Build.BuildNumber)
           latest
+        addPipelineData: false
+        addBaseImageData: false
 
   - job: tag_and_publish
     displayName: 'Tag sources and publish build number'
