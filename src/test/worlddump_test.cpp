@@ -564,7 +564,7 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapItems)
     za_warudo->DumpToFile(dumpFileName);
 
     auto dump = LoadDump();
-    for (const auto item : items)
+    for (const auto& item : items)
         AssertMapItemProperties(dump, item.second->id, item.first);
 }
 
@@ -614,7 +614,7 @@ GTEST_TEST_F(WorldDumpTest, DumpToFile_StoresMapChests)
     za_warudo->DumpToFile(dumpFileName);
 
     auto dump = LoadDump();
-    for (const auto item : chests)
+    for (const auto& item : chests)
         AssertChestItemProperties(dump, item.second->id, item.first);
 }
 
