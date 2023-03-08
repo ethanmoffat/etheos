@@ -23,7 +23,7 @@ stages:
   - job: build_linux
     displayName: 'Build - Release - Ubuntu (MariaDB + SQL Server + Sqlite)'
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-22.04'
     steps:
     - checkout: self
       lfs: true
@@ -72,7 +72,7 @@ stages:
     dependsOn: build_linux
     condition: eq(variables['Build.Reason'], 'IndividualCI')
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-22.04'
     steps:
     - checkout: self
       lfs: true
@@ -108,7 +108,7 @@ stages:
     dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
     condition: eq(variables['Build.Reason'], 'IndividualCI')
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'ubuntu-22.04'
     steps:
     - checkout: self
       lfs: true
