@@ -23,8 +23,21 @@ function exec_selfcontained() {
   local docker_teardown="$4"
 
   if [[ "${docker_setup}" == "true" ]]; then
-    docker pull darthchungis/etheos
-    docker run --name $CONTAINER_NAME -d -p "$port":"$port" -v $SCRIPT_ROOT/../config_local:/etheos/config_local -v $SCRIPT_ROOT/../data:/etheos/data darthchungis/etheos
+    echo "Setting up self-contained docker run..."
+    echo "Pulling image..."
+    docker pull darthchungis/etheos &> /dev/null
+
+    local existing=$(docker ps -af "name=$CONTAINER_NAME" -q)
+    if [[ ! -z "$existing" ]]; then
+      echo "Deleting existing local docker container..."
+      docker stop "$existing" &> /dev/null
+      docker rm -v "$existing" &> /dev/null
+    fi
+
+    docker run --name $CONTAINER_NAME -d \
+-e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -p "$port":"$port" \
+-v $SCRIPT_ROOT/../config_local:/etheos/config_local -v $SCRIPT_ROOT/../data:/etheos/data \
+darthchungis/etheos &> /dev/null
   fi
 
   python3 test-connection.py localhost 5 "${port}"
@@ -32,8 +45,9 @@ function exec_selfcontained() {
   exec_tests "${botdir}" localhost "${port}"
 
   if [[ "${docker_teardown}" == "true" ]]; then
-    docker stop $CONTAINER_NAME
-    docker rm -v $CONTAINER_NAME
+    echo "Cleaning up local docker container..."
+    docker stop $CONTAINER_NAME &> /dev/null
+    docker rm -v $CONTAINER_NAME &> /dev/null
   fi
 }
 
