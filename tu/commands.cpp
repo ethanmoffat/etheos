@@ -12,3 +12,5 @@
 #include "../src/commands/moderation.cpp"
 #include "../src/commands/server.cpp"
 #include "../src/commands/warp.cpp"
+
+#include "../src/player_commands/stat.cpp"

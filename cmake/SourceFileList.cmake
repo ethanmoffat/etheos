@@ -188,6 +188,7 @@ set(eoserv_ALL_HANDLER_FILES
 	src/handlers/Walk.cpp
 	src/handlers/Warp.cpp
 	src/handlers/Welcome.cpp
+	src/player_commands/stat.cpp
 )
 
 set(eoserv_WIN32_SOURCE_FILES
