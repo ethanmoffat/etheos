@@ -35,7 +35,9 @@ function exec_selfcontained() {
     fi
 
     docker run --name $CONTAINER_NAME -d \
--e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -p "$port":"$port" \
+-e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" \
+-e ETHEOS_MAXCONNECTIONSPERIP=0 -e ETHEOS_IPRECONNECTLIMIT=1s -e ETHEOS_MAXCONNECTIONSPERPC=0 \
+-e ETHEOS_LOGINQUEUESIZE=4 -e ETHEOS_THREADPOOLTHREADS=4 -p "$port":"$port" \
 -v $SCRIPT_ROOT/../config_local:/etheos/config_local -v $SCRIPT_ROOT/../data:/etheos/data \
 darthchungis/etheos &> /dev/null
   fi
