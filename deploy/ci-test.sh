@@ -22,13 +22,15 @@ function exec_selfcontained() {
   local docker_setup="$3"
   local docker_teardown="$4"
   local docker_build_local="$5"
+  local config_dir="$6"
+  local data_dir="$7"
 
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
 
     if [[ "${docker_build_local}" == "false" ]]; then
       echo "Pulling image..."
-      docker pull darthchungis/etheos &> /dev/null
+      docker pull darthchungis/etheos
     else
       echo "Building source (may take a while)..."
       pushd "$SCRIPT_ROOT/.." &> /dev/null
@@ -50,11 +52,11 @@ function exec_selfcontained() {
 -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" \
 -e ETHEOS_MAXCONNECTIONSPERIP=0 -e ETHEOS_IPRECONNECTLIMIT=1s -e ETHEOS_MAXCONNECTIONSPERPC=0 \
 -e ETHEOS_LOGINQUEUESIZE=4 -e ETHEOS_THREADPOOLTHREADS=4 -p "$port":"$port" \
--v $SCRIPT_ROOT/../config_local:/etheos/config_local -v $SCRIPT_ROOT/../data:/etheos/data \
+-v "$config_dir":/etheos/config_local -v "$data_dir":/etheos/data \
 darthchungis/etheos &> /dev/null
   fi
 
-  python3 test-connection.py localhost 5 "${port}"
+  python3 $SCRIPT_ROOT/test-connection.py localhost 5 "${port}"
 
   exec_tests "${botdir}" localhost "${port}"
 
@@ -72,6 +74,8 @@ function main() {
   local docker_setup="true"
   local docker_teardown="true"
   local docker_build_local="false"
+  local config_dir="$SCRIPT_ROOT/../config_local"
+  local data_dir="$SCRIPT_ROOT/../data"
 
   local host=""
   local port=""
@@ -95,6 +99,14 @@ function main() {
         ;;
       -l|--use-local)
         docker_build_local="true"
+        ;;
+      -c|--configdir)
+        config_dir="$2"
+        shift
+        ;;
+      -d|--datadir)
+        data_dir="$2"
+        shift
         ;;
       --host)
         host="$2"
@@ -135,7 +147,7 @@ function main() {
       port=8078
     fi
 
-    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}"
+    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}"
   else
     if [[ -z "${host}" ]]; then
       echo "Host is required"
@@ -166,6 +178,10 @@ function display_usage() {
   echo "  -S --no-setup          Do not set up docker containers, assume already running"
   echo "  -T --no-teardown       Set up docker containers, but leave them running"
   echo "  -l --use-local         Build and use local docker image instead of pulling latest"
+  echo "  -c --configdir         Override the default local config_local directory with the specified path"
+  echo "                         NOTE: paths must be absolute. Use $(pwd)/.. for paths relative to the deploy directory"
+  echo "  -d --datadir           Override the default local data directory with the speccified path"
+  echo "                         NOTE: paths must be absolute. Use $(pwd)/.. for paths relative to the deploy directory"
   echo "================================================="
   echo "  --host              Host to connect to"
   echo "  --port              Port to connect to"
