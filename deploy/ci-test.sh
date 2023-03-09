@@ -21,11 +21,23 @@ function exec_selfcontained() {
   local port="$2"
   local docker_setup="$3"
   local docker_teardown="$4"
+  local docker_build_local="$5"
 
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
-    echo "Pulling image..."
-    docker pull darthchungis/etheos &> /dev/null
+
+    if [[ "${docker_build_local}" == "false" ]]; then
+      echo "Pulling image..."
+      docker pull darthchungis/etheos &> /dev/null
+    else
+      echo "Building source (may take a while)..."
+      pushd "$SCRIPT_ROOT/.." &> /dev/null
+      ./build-linux.sh --mariadb ON --sqlite ON --sqlserver ON &> /dev/null
+
+      echo "Building image..."
+      docker build -t darthchungis/etheos .
+      popd &> /dev/null
+    fi
 
     local existing=$(docker ps -af "name=$CONTAINER_NAME" -q)
     if [[ ! -z "$existing" ]]; then
@@ -59,6 +71,7 @@ function main() {
   local self_contained="false"
   local docker_setup="true"
   local docker_teardown="true"
+  local docker_build_local="false"
 
   local host=""
   local port=""
@@ -79,6 +92,9 @@ function main() {
         ;;
       -T|--no-teardown)
         docker_teardown="false"
+        ;;
+      -l|--use-local)
+        docker_build_local="true"
         ;;
       --host)
         host="$2"
@@ -119,7 +135,7 @@ function main() {
       port=8078
     fi
 
-    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}"
+    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}"
   else
     if [[ -z "${host}" ]]; then
       echo "Host is required"
@@ -149,6 +165,7 @@ function display_usage() {
   echo "  -s --self-contained    Run ci tests against auto-setup local docker environment"
   echo "  -S --no-setup          Do not set up docker containers, assume already running"
   echo "  -T --no-teardown       Set up docker containers, but leave them running"
+  echo "  -l --use-local         Build and use local docker image instead of pulling latest"
   echo "================================================="
   echo "  --host              Host to connect to"
   echo "  --port              Port to connect to"
