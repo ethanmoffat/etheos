@@ -9,6 +9,7 @@
 - [Docker Image](#docker-image)
 - [Running](#running)
 - [Development](#development)
+- [Integration Tests](#integration-tests)
 - [Sample servers](#sample-servers)
 
 ## Getting Started on Windows
@@ -97,6 +98,32 @@ Development within [Visual Studio Code](https://code.visualstudio.com/) (vscode)
 
 - [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
 - [CMake](https://marketplace.visualstudio.com/items?itemName=twxs.cmake)
+
+## Integration Tests
+
+Integration tests have been added under `src/test/integration`. These are integration test scripts that are run via [EOBot](https://www.github.com/ethanmoffat/EndlessClient/tree/master/EOBot).
+
+These tests are run as part of the release pipeline that deploys the sample server to `etheos.moffat.io:8078` (see below section). However, they may also be run locally to validate integration scenarios or add more integration test coverage.
+
+Running these integration tests is only supported on Linux. Ubuntu 22.04 is the suggested platform. WSL 2 is supported.
+
+First, download/install the following dependencies (installation instructions are left as an exercise for the user):
+- python3
+- docker cli
+    - Please ensure you add your local user to the `docker` group via `sudo usermod -aG docker <username>` to avoid running the ci-test script with `sudo`
+- EOBot from [the latest EndlessClient release](https://github.com/ethanmoffat/EndlessClient/releases)
+    - You may also clone EndlessClient, build the `EndlessClient.Linux.sln` file, and reference the EOBot output directory
+
+Then, run the script as follows (where `path/to/eobot` is the path to the directory container the EOBot executable file):
+
+```bash
+cd deploy
+./ci-test.sh --self-contained --use-local --botdir path/to/eobot
+```
+
+This script will use a self-contained docker environment based on your local repository, build the source + docker image locally (omit --use-local to use the latest public etheos image), and set up an etheos container with a SQLite database backend on port 8078. Integration tests defined in the `src/test/integration` directory and listed in the `exec_tests()` function in `ci-test.sh` will be executed against the local docker container.
+
+For more information on authoring test scripts, see the output of `EOBot --help`.
 
 ## Sample Servers
 
