@@ -89,7 +89,7 @@ void Update(const std::vector<std::string>& arguments, Character* from)
 
 void Reset(const std::vector<std::string>& arguments, Character* from)
 {
-	from->skillpoints += from->str + from->intl + from->wis + from->agi + from->con + from->cha;
+	from->statpoints += from->str + from->intl + from->wis + from->agi + from->con + from->cha;
 
 	from->str = 0;
 	from->intl = 0;
