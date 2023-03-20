@@ -11,10 +11,6 @@ schedules:
   branches:
     include:
       - master
-  always: true
-
-variables:
-- group: deploy-secrets
 
 stages:
 - stage: build_test
@@ -68,9 +64,9 @@ stages:
         publishLocation: 'Container'
 
   - job: build_docker
-    displayName: 'Docker build'
+    displayName: 'Docker Smoke Test'
     dependsOn: build_linux
-    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
     pool:
       vmImage: 'ubuntu-22.04'
     steps:
@@ -86,27 +82,44 @@ stages:
     - script: chmod +x install/etheos
       displayName: 'Make etheos binary executable'
     - task: Docker@2
-      displayName: 'Docker login'
+      displayName: 'Build etheos image'
       inputs:
-        command: login
-        containerRegistry: docker_hub
-    - task: Docker@2
-      displayName: 'Build/push etheos image'
-      inputs:
-        containerRegistry: 'docker_hub'
         repository: 'darthchungis/etheos'
-        command: 'buildAndPush'
+        command: 'build'
         Dockerfile: '**/Dockerfile'
         tags: |
           $(Build.BuildNumber)
           latest
         addPipelineData: false
         addBaseImageData: false
+    - script: |
+        apt-get update -y
+        apt-get install unzip wget
+        wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
+        unzip sample-data.zip -d .
+        docker run -d --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos
+        sleep 5
+        TESTCONTAINERSTATUS=docker inspect -f '{{.State.Status}}' testcontainer
+        if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
+            EXITCODE=1
+        else
+            EXITCODE=0
+            docker save -o image.tar darthchungis/etheos
+        fi
+        docker stop testcontainer
+        exit $EXITCODE
+      displayName: 'Download sample data and test run container'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish docker image for export'
+      inputs:
+        PathtoPublish: image.tar
+        ArtifactName: image
+        publishLocation: Container
 
   - job: tag_and_publish
     displayName: 'Tag sources and publish build number'
     dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
-    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
     pool:
       vmImage: 'ubuntu-22.04'
     steps:
