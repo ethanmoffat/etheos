@@ -56,7 +56,7 @@ function exec_selfcontained() {
 darthchungis/etheos &> /dev/null
   fi
 
-  python3 $SCRIPT_ROOT/test-connection.py localhost 5 "${port}"
+  python3 $SCRIPT_ROOT/test-connection.py localhost 3 "${port}"
 
   exec_tests "${botdir}" localhost "${port}"
 
