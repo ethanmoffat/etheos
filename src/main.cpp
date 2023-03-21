@@ -122,6 +122,11 @@ int eoserv_main(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
+#ifdef WIN32
+	// Required for the ASCII (UTF8) title text
+	SetConsoleOutputCP(CP_UTF8);
+#endif
+
 	int exit_code = 0;
 	do
 	{
@@ -282,12 +287,13 @@ int eoserv_main(int argc, char *argv[])
 		eoserv_config_validate_admin(aconfig);
 
 		Console::Styled[1] = Console::Styled[0] = config["StyleConsole"];
-
 		std::puts("\
-                          ___ ___  ___ ___ _____   __\n\
-   EOSERV Version " EOSERV_VERSION_STRING "  | __/ _ \\/ __| __| _ \\ \\ / /    http://eoserv.net/\n\
-=========================| _| (_) \\__ \\ _||   /\\ ` /===========================\n\
-                         |___\\___/|___/___|_|_\\ \\_/ Copyright (c) Julian Smythe\n\
+               ███████╗████████╗██╗  ██╗███████╗ ██████╗ ███████╗               \n\
+ v" EOSERV_VERSION_STRING "        ██╔════╝╚══██╔══╝██║  ██║██╔════╝██╔═══██╗██╔════╝               \n\
+===============█████╗     ██║   ███████║█████╗  ██║   ██║███████╗===============\n\
+===============██╔══╝     ██║   ██╔══██║██╔══╝  ██║   ██║╚════██║===============\n\
+ Copyright (c) ███████╗   ██║   ██║  ██║███████╗╚██████╔╝███████║ Modified by   \n\
+Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝ Ethan Moffat  \n\
 \n");
 #ifdef DEBUG
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
