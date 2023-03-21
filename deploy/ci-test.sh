@@ -25,11 +25,12 @@ function exec_selfcontained() {
   local config_dir="$6"
   local data_dir="$7"
   local image_version="$8"
+  local skip_pull="$9"
 
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
 
-    if [[ "${docker_build_local}" == "false" ]]; then
+    if [[ "${docker_build_local}" == "false" && "${skip_pull}" == "false" ]]; then
       echo "Pulling image..."
       docker pull "darthchungis/etheos:$image_version"
     else
@@ -79,6 +80,7 @@ function main() {
   local config_dir="$SCRIPT_ROOT/../config_local"
   local data_dir="$SCRIPT_ROOT/../data"
   local image_version="latest"
+  local skip_pull="false"
 
   local host=""
   local port=""
@@ -94,12 +96,6 @@ function main() {
       -s|--self-contained)
         self_contained="true"
         ;;
-      -S|--no-setup)
-        docker_setup="false"
-        ;;
-      -T|--no-teardown)
-        docker_teardown="false"
-        ;;
       -l|--use-local)
         docker_build_local="true"
         ;;
@@ -114,6 +110,15 @@ function main() {
       -v|--image-version)
         image_version="$2"
         shift
+        ;;
+      -P|--no-pull)
+        skip_pull="true"
+        ;;
+      --no-setup)
+        docker_setup="false"
+        ;;
+      --no-teardown)
+        docker_teardown="false"
         ;;
       --host)
         host="$2"
@@ -154,7 +159,7 @@ function main() {
       port=8078
     fi
 
-    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}" "${image_version}"
+    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}" "${image_version}" "${skip_pull}"
   else
     if [[ -z "${host}" ]]; then
       echo "Host is required"
@@ -182,17 +187,18 @@ function display_usage() {
   echo ""
   echo "Options:"
   echo "  -s --self-contained    Run ci tests against auto-setup local docker environment"
-  echo "  -S --no-setup          Do not set up docker containers, assume already running"
-  echo "  -T --no-teardown       Set up docker containers, but leave them running"
   echo "  -l --use-local         Build and use local docker image instead of pulling latest"
   echo "  -c --configdir         Override the default local config_local directory with the specified path"
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
   echo "  -d --datadir           Override the default local data directory with the speccified path"
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
-  echo "  -v --image-version     Use specified version of Docker image (default: latest)"
+  echo "  -v --image-version     Use specified version of docker image (default: latest)"
+  echo "  --no-setup             Do not set up docker container, assume already running."
+  echo "  --no-teardown          Do not stop/remove docker container after run."
+  echo "  --no-pull              Skip 'docker pull' of specified image version. Ignored when --use-local is specified."
   echo "================================================="
-  echo "  --host              Host to connect to"
-  echo "  --port              Port to connect to"
+  echo "  --host                 Host to connect to"
+  echo "  --port                 Port to connect to"
   echo "Global options:"
   echo "  -b --botdir            Root directory of EOBot"
   echo "  -h --help              Show this help"
