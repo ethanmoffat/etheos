@@ -122,6 +122,11 @@ int eoserv_main(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
+#ifdef WIN32
+	// Required for the ASCII (UTF8) title text
+	SetConsoleOutputCP(CP_UTF8);
+#endif
+
 	int exit_code = 0;
 	do
 	{
