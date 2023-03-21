@@ -109,9 +109,23 @@ stages:
         wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
         unzip sample-data.zip -d .
 
-        /bin/bash deploy/ci-test.sh -s -b $(System.ArtifactsDirectory)/eobot/net6.0 -d $(pwd)/sample-data/ -v $(Build.BuildNumber)
+        docker run --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos &
+        sleep 5
+
+        TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
+        if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
+            EXITCODE=1
+        else
+            EXITCODE=0
+            docker save -o image.tar darthchungis/etheos
+            gzip -1 image.tar
+        fi
+
+        docker stop testcontainer
 
         exit $EXITCODE
+      displayName: 'Download sample data and test run container'
+    - script: deploy/ci-test.sh -s -b $(System.ArtifactsDirectory)/eobot/net6.0 -d $(pwd)/sample-data/ -v $(Build.BuildNumber)
       displayName: 'Run CI tests'
     - task: PublishBuildArtifacts@1
       displayName: 'Publish docker image for export'
