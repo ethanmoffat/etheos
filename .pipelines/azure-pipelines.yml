@@ -99,7 +99,7 @@ stages:
         unzip sample-data.zip -d .
         docker run -d --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos
         sleep 5
-        TESTCONTAINERSTATUS=docker inspect -f '{{.State.Status}}' testcontainer
+        TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
         if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
             EXITCODE=1
         else
