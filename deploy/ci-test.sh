@@ -31,7 +31,7 @@ function exec_selfcontained() {
     echo "Setting up self-contained docker run..."
 
     if [[ "${docker_build_local}" == "false" ]]; then
-      if [[ "${skip_pull}" != "false" ]]; then
+      if [[ "${skip_pull}" == "false" ]]; then
         echo "Pulling image..."
         docker pull "darthchungis/etheos:$image_version"
       fi
