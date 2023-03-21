@@ -125,7 +125,7 @@ stages:
       inputs:
         archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
         destinationFolder: $(System.ArtifactsDirectory)/eobot
-    - script: deploy/ci-test.sh -s -b $(System.ArtifactsDirectory)/eobot/net6.0 -d $(pwd)/sample-data/
+    - script: deploy/ci-test.sh -s -b $(System.ArtifactsDirectory)/eobot/net6.0 -d $(pwd)/sample-data/ -v $(Build.BuildNumber)
       displayName: 'Run CI tests'
     - task: PublishBuildArtifacts@1
       displayName: 'Publish docker image for export'

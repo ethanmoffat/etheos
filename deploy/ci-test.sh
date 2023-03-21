@@ -24,20 +24,22 @@ function exec_selfcontained() {
   local docker_build_local="$5"
   local config_dir="$6"
   local data_dir="$7"
+  local image_version="$8"
 
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
 
     if [[ "${docker_build_local}" == "false" ]]; then
       echo "Pulling image..."
-      docker pull darthchungis/etheos
+      docker pull "darthchungis/etheos:$image_version"
     else
       echo "Building source (may take a while)..."
       pushd "$SCRIPT_ROOT/.." &> /dev/null
       ./build-linux.sh --mariadb ON --sqlite ON --sqlserver ON &> /dev/null
 
       echo "Building image..."
-      docker build -t darthchungis/etheos .
+      image_version="local"
+      docker build -t "darthchungis/etheos:$image_version" .
       popd &> /dev/null
     fi
 
@@ -53,7 +55,7 @@ function exec_selfcontained() {
 -e ETHEOS_MAXCONNECTIONSPERIP=0 -e ETHEOS_IPRECONNECTLIMIT=1s -e ETHEOS_MAXCONNECTIONSPERPC=0 \
 -e ETHEOS_LOGINQUEUESIZE=4 -e ETHEOS_THREADPOOLTHREADS=4 -p "$port":"$port" \
 -v "$config_dir":/etheos/config_local -v "$data_dir":/etheos/data \
-darthchungis/etheos &> /dev/null
+"darthchungis/etheos:$image_version" &> /dev/null
   fi
 
   python3 $SCRIPT_ROOT/test-connection.py localhost 3 "${port}"
@@ -76,6 +78,7 @@ function main() {
   local docker_build_local="false"
   local config_dir="$SCRIPT_ROOT/../config_local"
   local data_dir="$SCRIPT_ROOT/../data"
+  local image_version="latest"
 
   local host=""
   local port=""
@@ -106,6 +109,10 @@ function main() {
         ;;
       -d|--datadir)
         data_dir="$2"
+        shift
+        ;;
+      -v|--image-version)
+        image_version="$2"
         shift
         ;;
       --host)
@@ -147,7 +154,7 @@ function main() {
       port=8078
     fi
 
-    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}"
+    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}" "${image_version}"
   else
     if [[ -z "${host}" ]]; then
       echo "Host is required"
@@ -182,6 +189,7 @@ function display_usage() {
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
   echo "  -d --datadir           Override the default local data directory with the speccified path"
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
+  echo "  -v --image-version     Use specified version of Docker image (default: latest)"
   echo "================================================="
   echo "  --host              Host to connect to"
   echo "  --port              Port to connect to"
