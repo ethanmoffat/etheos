@@ -94,10 +94,10 @@ stages:
         addBaseImageData: false
     - script: |
         apt-get update -y
-        apt-get install unzip wget
+        apt-get install unzip wget gzip
         wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
         unzip sample-data.zip -d .
-        docker run -d --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos
+        docker run --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos &
         sleep 5
         TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
         if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
@@ -105,6 +105,7 @@ stages:
         else
             EXITCODE=0
             docker save -o image.tar darthchungis/etheos
+            gzip -1 image.tar
         fi
         docker stop testcontainer
         exit $EXITCODE
@@ -112,7 +113,7 @@ stages:
     - task: PublishBuildArtifacts@1
       displayName: 'Publish docker image for export'
       inputs:
-        PathtoPublish: image.tar
+        PathtoPublish: image.tar.gz
         ArtifactName: image
         publishLocation: Container
 
