@@ -13,9 +13,6 @@ schedules:
       - master
   always: true
 
-variables:
-- group: deploy-secrets
-
 stages:
 - stage: build_test
   displayName: 'Build + Test'
@@ -68,9 +65,9 @@ stages:
         publishLocation: 'Container'
 
   - job: build_docker
-    displayName: 'Docker build'
+    displayName: 'Docker Smoke Test'
     dependsOn: build_linux
-    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
     pool:
       vmImage: 'ubuntu-22.04'
     steps:
@@ -81,32 +78,66 @@ stages:
         downloadType: 'single'
         artifactName: 'linux'
         downloadPath: '$(Build.SourcesDirectory)'
+    - task: DownloadGitHubRelease@0
+      inputs:
+        connection: github_oauth
+        userRepository: ethanmoffat/EndlessClient
+        itemPattern: '**/EOBot.Linux.zip'
     - script: mv linux install
       displayName: 'Rename linux dir -> install'
     - script: chmod +x install/etheos
       displayName: 'Make etheos binary executable'
-    - task: Docker@2
-      displayName: 'Docker login'
+    - task: ExtractFiles@1
       inputs:
-        command: login
-        containerRegistry: docker_hub
+        archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
+        destinationFolder: $(System.ArtifactsDirectory)/eobot
     - task: Docker@2
-      displayName: 'Build/push etheos image'
+      displayName: 'Build etheos image'
       inputs:
-        containerRegistry: 'docker_hub'
         repository: 'darthchungis/etheos'
-        command: 'buildAndPush'
+        command: 'build'
         Dockerfile: '**/Dockerfile'
         tags: |
           $(Build.BuildNumber)
           latest
         addPipelineData: false
         addBaseImageData: false
+    - script: |
+        apt-get update -y
+        apt-get install unzip wget gzip
+
+        wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
+        unzip sample-data.zip -d .
+
+        docker run --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data -e ETHEOS_DBTYPE=sqlite -e ETHEOS_DBHOST=database.sdb -e "ETHEOS_INSTALLSQL=./install.sql" -e ETHEOS_PORT=8078 -p 8078:8078 darthchungis/etheos &
+        sleep 5
+
+        TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
+        if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
+            EXITCODE=1
+        else
+            EXITCODE=0
+            docker save -o image.tar darthchungis/etheos
+            gzip -1 image.tar
+        fi
+
+        docker stop testcontainer
+
+        exit $EXITCODE
+      displayName: 'Download sample data and test run container'
+    - script: deploy/ci-test.sh --self-contained --botdir $(System.ArtifactsDirectory)/eobot/net6.0 --datadir $(pwd)/sample-data/ --image-version $(Build.BuildNumber) --no-pull
+      displayName: 'Run CI tests'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish docker image for export'
+      inputs:
+        PathtoPublish: image.tar.gz
+        ArtifactName: image
+        publishLocation: Container
 
   - job: tag_and_publish
     displayName: 'Tag sources and publish build number'
     dependsOn: [ 'build_windows', 'build_linux', 'build_docker' ]
-    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
     pool:
       vmImage: 'ubuntu-22.04'
     steps:
