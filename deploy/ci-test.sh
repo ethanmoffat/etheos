@@ -30,9 +30,11 @@ function exec_selfcontained() {
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
 
-    if [[ "${docker_build_local}" == "false" && "${skip_pull}" == "false" ]]; then
-      echo "Pulling image..."
-      docker pull "darthchungis/etheos:$image_version"
+    if [[ "${docker_build_local}" == "false" ]]; then
+      if [[ "${skip_pull}" != "false" ]]; then
+        echo "Pulling image..."
+        docker pull "darthchungis/etheos:$image_version"
+      fi
     else
       echo "Building source (may take a while)..."
       pushd "$SCRIPT_ROOT/.." &> /dev/null
