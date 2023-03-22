@@ -104,8 +104,7 @@ if [ "$SKIPSQLITE" == "false" ]; then
     elif [ "$PLATFORM_NAME" == "rhel" ]; then
         PACKAGES="$PACKAGES sqlite-devel"
     elif [ "$PLATFORM_NAME" == "alpine" ]; then
-        #echo 'http://dl-cdn.alpinelinux.org/alpine/v3.15/main' >> /etc/apk/repositories
-        PACKAGES="$PACKAGES sqlite-dev" #==3.36.0-r0"
+        PACKAGES="$PACKAGES sqlite-dev"
     fi
 fi
 
