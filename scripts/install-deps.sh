@@ -49,20 +49,29 @@ fi
 set +e
 
 PLATFORM_NAME=$(grep -qi ubuntu /etc/os-release && echo 'ubuntu')
-PLATFORM_VERSION=$(grep -oPi 'VERSION_ID=\K"(.+)"' /etc/os-release | sed -e 's/"//g')
 if [ -z "$PLATFORM_NAME" ]; then
     PLATFORM_NAME=$(egrep -qi "(rhel|centos)" /etc/os-release && echo 'rhel')
 
     if [ -z "$PLATFORM_NAME" ]; then
-        >&2 echo "Unsupported platform detected! Use Ubuntu/rhel"
-        exit -1
+        PLATFORM_NAME=$(grep -qi alpine /etc/os-release && echo 'alpine')
+
+        if [ -z "$PLATFORM_NAME" ]; then
+            >&2 echo "Unsupported platform detected! Use Ubuntu/rhel"
+            exit -1
+        else
+            PLATFORM_VERSION=$(cat /etc/alpine-release)
+        fi
     fi
 fi
 
-SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 6 7 8 "
-VERSION_IS_SUPPORTED=$(echo $SUPPORTED_VERSIONS | grep -oP " $PLATFORM_VERSION ")
 if [ -z "$PLATFORM_VERSION" ]; then
-    >&2 echo "Unable to detect platform version! Check that /etc/os-release has a VERSION_ID= set."
+    PLATFORM_VERSION=$(grep -oPi 'VERSION_ID=\K"(.+)"' /etc/os-release | sed -e 's/"//g')
+fi
+
+SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 6 7 8 3.17.2 "
+VERSION_IS_SUPPORTED=$(echo "$SUPPORTED_VERSIONS" | grep -oe " $PLATFORM_VERSION ")
+if [ -z "$PLATFORM_VERSION" ]; then
+    >&2 echo "Unable to detect platform version! Check that /etc/os-release has a VERSION_ID= set (/etc/alpine-release for Alpine Linux)."
     exit -1
 elif [ -z "$VERSION_IS_SUPPORTED" ]; then
     >&2 echo "Platform version is unsupported! Detected version: $PLATFORM_VERSION"
@@ -84,6 +93,8 @@ if [ "$SKIPMARIADB" == "false" ]; then
         PACKAGES="$PACKAGES libmariadb-dev"
     elif [ "$PLATFORM_NAME" == "rhel" ]; then
         PACKAGES="$PACKAGES mariadb-devel"
+    elif [ "$PLATFORM_NAME" == "alpine" ]; then
+        PACKAGES="$PACKAGES mariadb-dev"
     fi
 fi
 
@@ -92,6 +103,9 @@ if [ "$SKIPSQLITE" == "false" ]; then
         PACKAGES="$PACKAGES libsqlite3-dev"
     elif [ "$PLATFORM_NAME" == "rhel" ]; then
         PACKAGES="$PACKAGES sqlite-devel"
+    elif [ "$PLATFORM_NAME" == "alpine" ]; then
+        #echo 'http://dl-cdn.alpinelinux.org/alpine/v3.15/main' >> /etc/apk/repositories
+        PACKAGES="$PACKAGES sqlite-dev" #==3.36.0-r0"
     fi
 fi
 
@@ -109,6 +123,19 @@ if [ "$SKIPSQLSERVER" == "false" ]; then
         fi
         yum remove -y unixODBC-utf16 unixODBC-utf16-devel > /dev/null
         PACKAGES="$PACKAGES msodbcsql17 unixODBC-devel"
+    elif [ "$PLATFORM_NAME" == "alpine" ]; then
+        # From: https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver16&tabs=ubuntu18-install%2Calpine17-install%2Cdebian8-install%2Credhat7-13-install%2Crhel7-offline#17
+
+        # Download the desired package(s)
+        curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.2.1-1_amd64.apk
+
+        # Verify signature
+        curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.2.1-1_amd64.sig
+        curl https://packages.microsoft.com/keys/microsoft.asc  | gpg --import -
+        gpg --verify msodbcsql17_17.10.2.1-1_amd64.sig msodbcsql17_17.10.2.1-1_amd64.apk
+
+        # Install the package(s)
+        apk add --allow-untrusted msodbcsql17_17.10.2.1-1_amd64.apk
     fi
 fi
 
@@ -125,9 +152,14 @@ if [ "$PLATFORM_NAME" == "ubuntu" ]; then
 elif [ "$PLATFORM_NAME" == "rhel" ]; then
     yum makecache fast > /dev/null
     ACCEPT_EULA=Y yum install -y $PACKAGES
+elif [ "$PLATFORM_NAME" == "alpine" ]; then
+    ACCEPT_EULA=Y apk add --no-cache --update $PACKAGES
 fi
 
 if [ "$SKIPCMAKE" == "false" ]; then
+#
+# NOTE: ALPINE SUPPORT WAS NOT ADDED FOR CMAKE
+#
     echo "Installing cmake..."
     if [ "$PLATFORM_NAME" == "ubuntu" ]; then
         apt-get remove -y cmake > /dev/null
