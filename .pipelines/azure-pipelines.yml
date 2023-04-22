@@ -74,11 +74,13 @@ stages:
     - checkout: self
       lfs: true
     - task: DownloadBuildArtifacts@0
+      displayName: 'Download linux build artifact'
       inputs:
         downloadType: 'single'
         artifactName: 'linux'
         downloadPath: '$(Build.SourcesDirectory)'
     - task: DownloadGitHubRelease@0
+      displayName: 'Download EOBot release'
       inputs:
         connection: github_oauth
         userRepository: ethanmoffat/EndlessClient
@@ -88,6 +90,7 @@ stages:
     - script: chmod +x install/etheos
       displayName: 'Make etheos binary executable'
     - task: ExtractFiles@1
+      displayName: 'Extract EOBot release'
       inputs:
         archiveFilePatterns: '$(System.ArtifactsDirectory)/EOBot.Linux.zip'
         destinationFolder: $(System.ArtifactsDirectory)/eobot
