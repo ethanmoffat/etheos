@@ -386,13 +386,24 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 		case SQLite:
 			if (sqlite3_libversion_number() != SQLITE_VERSION_NUMBER)
 			{
-				Console::Err("SQLite library version mismatch! Please recompile EOSERV with the correct SQLite library.");
-				Console::Err("  Expected version: %s", SQLITE_VERSION);
-				Console::Err("  Library version:  %s", sqlite3_libversion());
+				if (sqlite3_libversion_number() > SQLITE_VERSION_NUMBER)
+				{
+					Console::Wrn("SQLite library runtime version is greater than the library version that etheos was compiled with.");
+					Console::Wrn("  Compiled version: %s", SQLITE_VERSION);
+					Console::Wrn("  Runtime version:  %s", sqlite3_libversion());
+					Console::Wrn("This could cause issues if you have modified etheos to use non-stable sqlite3 API calls.");
+				}
+				else
+				{
+					Console::Err("SQLite library runtime version is incompatible with the library version that etheos was compiled with.");
+					Console::Err("  Compiled version: %s", SQLITE_VERSION);
+					Console::Err("  Runtime version:  %s", sqlite3_libversion());
 #ifdef WIN32
-				Console::Err("Make sure EOSERV is using the correct version of sqlite3.dll");
+					Console::Err("Make sure EOSERV is using the correct version of sqlite3.dll");
 #endif // WIN32
-				throw Database_OpenFailed("SQLite library version mismatch");
+
+					throw Database_OpenFailed("SQLite library version mismatch");
+				}
 			}
 
 			if (sqlite3_open(host.c_str(), &this->impl->sqlite_handle) != SQLITE_OK)
