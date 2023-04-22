@@ -157,3 +157,119 @@ stages:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'build_number'
         publishLocation: 'Container'
+
+- stage: release
+  displayName: 'Push docker + deploy sample server'
+  dependsOn: build_test
+  condition: succeeded()
+  jobs:
+  - deployment: deploy_to_test
+    displayName: 'Deploy etheos to test environment'
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual'), eq(variables['Build.Reason'], 'Schedule')))
+    environment: etheos-test-northcentralus.etheos-test
+    workspace:
+      clean: all
+    variables:
+      containerName: etheos_test_deployment
+      configDir: /opt/etheos/config_local
+      dataDir: /opt/etheos/sample-data
+      dataSourceZip: https://etheosstorage.blob.core.windows.net/data/sample-data.zip
+      logDir: /opt/etheos/logs
+      backupRoot: /mnt/etheos-logs/test/backup
+      imageName: darthchungis/etheos
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          # Clone sources
+          - checkout: self
+            lfs: true
+            path: _etheos # this path is relative to $(Agent.BuildDirectory) and must be unrooted
+          - checkout: git://etheos/etheos-config
+            path: _etheos-config  # this path is relative to $(Agent.BuildDirectory) and must be unrooted
+
+          # Download artifacts
+          # Build artifacts are downloaded automatically as part of deploy job
+          - task: AzureKeyVault@2
+            displayName: Download database password
+            inputs:
+              azureSubscription: 3970731b-6a1c-4581-b183-1b1b0e62e33d
+              KeyVaultName: etheos-vault
+              SecretsFilter: sqlDbPass
+
+          # Deploy steps
+          - task: CmdLine@2
+            displayName: 00 Load docker image
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/00_load_image.sh $(Agent.BuildDirectory)/image
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 01 Copy configs to persistent store
+            inputs:
+              script: sudo $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/01_copy_configs.sh $(Agent.BuildDirectory)/_etheos-config $(configDir)
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 02 Download + Extract Sample Data
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/02_get_data.sh $(dataSourceZip) $(dataDir)
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 03 Stop old container
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/03_delete_existing.sh $(containerName)
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 04 Backup old log files
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/04_backup_logs.sh $(logDir) $(configDir) $(backupRoot)
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 05 Store + protect dbpass
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/05_setup_dbpass.sh $(configDir) '$(sqlDbPass)'
+              failOnStderr: true
+          - task: CmdLine@2
+            displayName: 06 Deploy Container
+            inputs:
+              script: $(Agent.BuildDirectory)/_etheos/.pipelines/release/scripts/06_deploy_container.sh $(Build.BuildNumber) $(containerName) $(imageName) $(logDir) $(configDir) $(dataDir)
+              failOnStderr: true
+
+  - job: publish_image
+    displayName: 'Publish etheos image to docker hub'
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
+    pool:
+      vmImage: 'ubuntu-22.04'
+    variables:
+      imageRegistry: docker_hub
+      imageName: darthchungis/etheos
+    steps:
+    - checkout: self
+      lfs: true
+    - task: DownloadBuildArtifacts@1
+      displayName: Download docker image tarball
+      inputs:
+        downloadType: specific
+        buildType: current
+        artifactName: image
+        downloadPath: '$(System.DefaultWorkingDirectory)/_etheos-artifacts'
+    - task: CmdLine@2
+      displayName: Load docker image
+      inputs:
+        script: $(Build.SourcesDirectory)/.pipelines/release/scripts/00_load_image.sh $(System.DefaultWorkingDirectory)/_etheos-artifacts/image
+        failOnStderr: true
+    - task: Docker@2
+      displayName: Docker login
+      inputs:
+        containerRegistry: docker_hub # this is a service connection set up in the project
+        command: login
+        addPipelineData: false
+        addBaseImageData: false
+    - task: Docker@2
+      displayName: Docker push
+      inputs:
+        containerRegistry: docker_hub # this is a service connection set up in the project
+        repository: $(imageName)
+        command: push
+        tags: |
+          $(Build.BuildNumber)
+          latest
