@@ -6,7 +6,7 @@ trigger:
     - master
 
 schedules:
-- cron: 0 0 * * 0 # 0 - hour | 0 - minute | * - any day | * - any month | 0 - sunday
+- cron: 8 0 * * 0 # 8 - hour (UTC) | 0 - minute | * - any day | * - any month | 0 - sunday
   displayName: 'Scheduled Build'
   branches:
     include:
