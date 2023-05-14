@@ -6,7 +6,7 @@ trigger:
     - master
 
 schedules:
-- cron: 0 0 * * 0 # 0 - hour | 0 - minute | * - any day | * - any month | 0 - sunday
+- cron: 8 0 * * 0 # 8 - hour (UTC) | 0 - minute | * - any day | * - any month | 0 - sunday
   displayName: 'Scheduled Build'
   branches:
     include:
@@ -164,11 +164,10 @@ stages:
 - stage: release
   displayName: 'Push docker + deploy sample server'
   dependsOn: build_test
-  condition: succeeded()
+  condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
   jobs:
   - deployment: deploy_to_test
     displayName: 'Deploy etheos to test environment'
-    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual'), eq(variables['Build.Reason'], 'Schedule')))
     environment: etheos-test-northcentralus.etheos-test
     workspace:
       clean: all
@@ -239,7 +238,6 @@ stages:
 
   - job: publish_image
     displayName: 'Publish etheos image to docker hub'
-    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
     pool:
       vmImage: 'ubuntu-22.04'
     variables:
