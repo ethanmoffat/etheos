@@ -13,6 +13,7 @@
 #include "../npc.hpp"
 #include "../npc_data.hpp"
 #include "../packet.hpp"
+#include "../party.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
@@ -67,6 +68,11 @@ void Citizen_Accept(Character *character, PacketReader &reader)
 
 			character->hp = character->maxhp;
 			character->tp = character->maxtp;
+
+			if (character->party)
+			{
+				character->party->UpdateHP(character);
+			}
 
 			PacketBuilder reply(PACKET_CITIZEN, PACKET_ACCEPT, 4);
 			reply.AddInt(character->HasItem(1));
