@@ -988,6 +988,13 @@ void World::LoadHome()
 			home->x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
 			home->y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
 		}
+		else if (parts[1] == "sleep")
+		{
+			std::vector<std::string> locparts = util::explode(',', hc.second);
+			home->sleep_map = locparts.size() >= 1 ? util::to_int(locparts[0]) : 0;
+			home->sleep_x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
+			home->sleep_y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
+		}
 	}
 
 	UTIL_FOREACH(temp_homes, home)
