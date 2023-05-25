@@ -67,8 +67,13 @@ struct Home
 	int level;
 	int race;
 	int innkeeper_vend;
+	short sleep_map;
+	unsigned char sleep_x;
+	unsigned char sleep_y;
 
-	Home() : map(1), x(0), y(0), level(-1), race(-1), innkeeper_vend(0) { }
+	Home() : map(1), x(0), y(0),
+			 level(-1), race(-1), innkeeper_vend(0),
+			 sleep_map(0), sleep_x(0), sleep_y(0) { }
 };
 
 /**

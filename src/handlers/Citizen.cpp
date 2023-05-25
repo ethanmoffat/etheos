@@ -13,6 +13,7 @@
 #include "../npc.hpp"
 #include "../npc_data.hpp"
 #include "../packet.hpp"
+#include "../party.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
@@ -25,9 +26,75 @@ namespace Handlers
 // Sleeping at an inn
 void Citizen_Request(Character *character, PacketReader &reader)
 {
-	// TODO: Sleeping at inns
-	(void)character;
-	(void)reader;
+	/*int session = */reader.GetShort();
+	/*int vendor_id = */reader.GetShort();
+
+	if (character->npc_type == ENF::Inn && (character->hp < character->maxhp || character->tp < character->maxtp))
+	{
+		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
+		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
+
+		unsigned int sleep_cost =
+			static_cast<int>(character->world->config["InnSleepCostBase"]) +
+			missing_hp * static_cast<int>(character->world->config["InnSleepCostPerHP"]) +
+			missing_tp * static_cast<int>(character->world->config["InnSleepCostPerTP"]);
+
+		PacketBuilder reply(PACKET_CITIZEN, PACKET_REQUEST, 4);
+		reply.AddInt(sleep_cost);
+
+		character->Send(reply);
+	}
+}
+
+// Accepting cost to sleep at an inn
+void Citizen_Accept(Character *character, PacketReader &reader)
+{
+	/*int session = */reader.GetShort();
+	/*int vendor_id = */reader.GetShort();
+
+	if (character->npc_type == ENF::Inn)
+	{
+		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
+		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
+
+		unsigned int sleep_cost =
+			static_cast<int>(character->world->config["InnSleepCostBase"]) +
+			missing_hp * static_cast<int>(character->world->config["InnSleepCostPerHP"]) +
+			missing_tp * static_cast<int>(character->world->config["InnSleepCostPerTP"]);
+
+		if (static_cast<unsigned int>(character->HasItem(1)) >= sleep_cost)
+		{
+			character->DelItem(1, sleep_cost);
+
+			character->hp = character->maxhp;
+			character->tp = character->maxtp;
+
+			if (character->party)
+			{
+				character->party->UpdateHP(character);
+			}
+
+			PacketBuilder reply(PACKET_CITIZEN, PACKET_ACCEPT, 4);
+			reply.AddInt(character->HasItem(1));
+
+			character->Send(reply);
+
+			auto home_name = character->npc->Data().citizenship->home;
+			auto home_info = character->world->GetHome(home_name);
+
+			if (home_info)
+			{
+				short map = home_info->sleep_map > 0 ? home_info->sleep_map : home_info->map;
+				unsigned char x = home_info->sleep_x > 0 ? home_info->sleep_x : home_info->x;
+				unsigned char y = home_info->sleep_y > 0 ? home_info->sleep_y : home_info->y;
+
+				character->Warp(map, x, y);
+			}
+
+			character->npc = nullptr;
+			character->npc_type = ENF::NPC;
+		}
+	}
 }
 
 // Player subscribing to a town
@@ -133,7 +200,8 @@ void Citizen_Open(Character *character, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CITIZEN)
-	// Register(PACKET_REQUEST, Citizen_Request, Playing);
+	Register(PACKET_REQUEST, Citizen_Request, Playing);
+	Register(PACKET_ACCEPT, Citizen_Accept, Playing);
 	Register(PACKET_REPLY, Citizen_Reply, Playing);
 	Register(PACKET_REMOVE, Citizen_Remove, Playing);
 	Register(PACKET_OPEN, Citizen_Open, Playing);
