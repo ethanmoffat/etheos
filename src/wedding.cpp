@@ -61,7 +61,7 @@ void Wedding::StopTimer()
 {
 	if (this->tick_timer)
 	{
-		delete this->tick_timer;
+		this->map->world->timer.Unregister(this->tick_timer);
 		this->tick_timer = nullptr;
 	}
 }
