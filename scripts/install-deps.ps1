@@ -5,6 +5,7 @@ param (
 )
 
 Add-Type -Assembly System.IO.Compression.FileSystem
+Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
 
 function CheckPathForDll($DllName, $AdditionalPaths) {
     $splitPaths = $env:PATH.Split(';')
@@ -42,7 +43,8 @@ if (-not (Test-Path $DownloadDir)) {
 
 # Use chocolatey to install dependencies
 #
-if (-not (Get-Command choco 2>&1 > $null)) {
+Get-Command choco -ErrorVariable res 2>&1 > $null
+if ($res) {
     Set-ExecutionPolicy Bypass -Scope Process -Force
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 }
