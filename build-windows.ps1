@@ -60,28 +60,36 @@ if ($Debug) {
 
 $cmakeHelp=$(cmake --help)
 
-# -requires param : ensure that the visual studio installs have the C++ workload
-#
-$vsVersions=$(vswhere -property installationVersion -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64")
-foreach ($vsVersion in $vsVersions) {
-    $versionMajor = [int]$vsVersion.Substring(0, $vsVersion.IndexOf("."))
-    switch($versionMajor) {
-        15 { $generator = "Visual Studio 15 2017" }
-        16 { $generator = "Visual Studio 16 2019" }
-    }
-
-    if ($generator -and -not ($cmakeHelp -match $generator)) {
-        $generator = "" # Installed CMake version does not support the detected VS version
-    }
-
-    $vsInstallPath=$(vswhere -version "[$versionMajor.0,$($versionMajor+1).0)" -property installationPath)
+# Detect Visual Studio installations
+$vsInstances = vswhere -all -format json | ConvertFrom-Json
+$vsInstances | ForEach-Object {
+    Write-Output "Instance: $($_.installationName), Version: $($_.installationVersion), Path: $($_.installationPath)"
 }
 
+# Get major versions
+$vsVersions = $vsInstances | ForEach-Object { $_.installationVersion.Split('.')[0] } | Sort-Object -Unique -Descending
+
+$generator = $null
+
+# Choose generator
+foreach ($versionMajor in $vsVersions) {
+    switch ($versionMajor) {
+        '16' { $generator = "Visual Studio $versionMajor 2019"; break }
+        '15' { $generator = "Visual Studio 15 2017"; break }
+        Default {
+            $generator = "Visual Studio $versionMajor"
+            Write-Output "Generator: $generator for version $versionMajor"
+        }
+    }
+    if ($generator) { break }
+}
+
+# Validate generator
 if (-not $generator) {
-    Write-Error "Unable to determine Visual Studio version. Is Visual Studio installed?"
+    Write-Error "Visual Studio not installed."
     exit -1
 } else {
-    Write-Output "Using generator: $generator"
+    Write-Output "Generator: $generator"
 }
 
 if (-not ($env:PATH -match [System.Text.RegularExpressions.Regex]::Escape($vsInstallPath))) {
