@@ -4,13 +4,23 @@
 
 ## Table of Contents
 
-- [Getting Started on Windows](#getting-started-on-windows)
-- [Getting Started on Linux](#getting-started-on-linux)
-- [Docker Image](#docker-image)
-- [Running](#running)
-- [Development](#development)
-- [Integration Tests](#integration-tests)
-- [Sample servers](#sample-servers)
+- [ETHEOS](#etheos)
+  - [Table of Contents](#table-of-contents)
+  - [Getting Started on Windows](#getting-started-on-windows)
+    - [Getting the source](#getting-the-source)
+    - [Dependencies](#dependencies)
+      - [Automatic Dependency Installation](#automatic-dependency-installation)
+    - [Build and Install](#build-and-install)
+    - [Code Modification](#code-modification)
+  - [Getting Started on Linux](#getting-started-on-linux)
+    - [Dependencies](#dependencies-1)
+      - [Automatic Dependency Installation](#automatic-dependency-installation-1)
+    - [Build and Install](#build-and-install-1)
+  - [Docker Image](#docker-image)
+  - [Running](#running)
+  - [Development](#development)
+  - [Integration Tests](#integration-tests)
+  - [Sample Servers](#sample-servers)
 
 ## Getting Started on Windows
 
@@ -50,7 +60,17 @@ A convenience script has been provided which installs Chocolatey (package manage
 
 ### Build and Install
 
-Run `.\build-windows.ps1` in a new powershell terminal to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root. To compile with support for all database engines, run `.\build-windows.ps1 -SqlServer ON -MariaDB ON -Sqlite ON`. `-Debug` can be added to the command-line arguments to build in debug mode, otherwise, release mode is used.
+Run `.\build-windows.ps1` in a new powershell terminal to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root. To compile with support for all database engines, run `.\build-windows.ps1 -SqlServer ON -MariaDB ON -Sqlite ON` . `-Debug` can be added to the command-line arguments to build in debug mode, otherwise, release mode is used.
+
+### Code Modification
+
+Include <functional> in socket.hpp to fix issues with unary_function, ensuring compatibility with modern C++ standards:
+
+```cpp
+// In socket.hpp
+#include <functional> // Resolve unary_function issues
+
+```
 
 ## Getting Started on Linux
 
