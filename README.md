@@ -64,7 +64,7 @@ Run `.\build-windows.ps1` in a new powershell terminal to build the source with 
 
 ### Code Modification
 
-Include <functional> in socket.hpp to fix issues with unary_function, ensuring compatibility with modern C++ standards:
+If you are experiencing issues related to unary_function and are using C++11 or later, please include the <functional> header in your socket.hpp file.
 
 ```cpp
 // In socket.hpp
