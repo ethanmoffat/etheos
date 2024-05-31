@@ -337,6 +337,12 @@ void Item_Use(Character *character, PacketReader &reader)
 				return;
 		}
 	}
+    else
+    {
+        PacketBuilder reply(PACKET_ITEM, PACKET_AGREE, 3);
+        reply.AddShort(id);
+        character->Send(reply);
+    }
 }
 
 // Drop an item on the ground
