@@ -1663,7 +1663,7 @@ AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient*
 
 	UTIL_FOREACH(this->server->clients, other_client)
 	{
-    	EOClient *eoclient = static_cast<EOClient *>(other_client);
+		EOClient *eoclient = static_cast<EOClient *>(other_client);
 
     	if (eoclient != client && eoclient->login_username == username && eoclient->state == EOClient::LoggedIn) {
 			return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_LOGGEDIN, client, LOGIN_OK);
@@ -1672,11 +1672,11 @@ AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient*
 
 	if (this->loginManager->LoginBusy())
 	{
-        return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
+		return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
 	}
 
-    client->state = EOClient::LoggedIn;
-    return this->loginManager->CheckLoginAsync(client);
+	client->state = EOClient::LoggedIn;
+	return this->loginManager->CheckLoginAsync(client);
 }
 
 AsyncOperation<PasswordChangeInfo, bool>* World::ChangePassword(EOClient* client)
