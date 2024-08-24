@@ -1659,12 +1659,22 @@ Player *World::PlayerFactory(std::string username)
 
 AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient* client)
 {
-	if (this->loginManager->LoginBusy())
-	{
-		return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
+	std::string username = client->login_username;
+
+	UTIL_FOREACH(this->server->clients, other_client) {
+    	EOClient *eoclient = static_cast<EOClient *>(other_client);
+
+    	if (eoclient != client && eoclient->login_username == username && eoclient->state == EOClient::LoggedIn) {
+			return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_LOGGEDIN, client, LOGIN_OK);
+		}
 	}
 
-	return this->loginManager->CheckLoginAsync(client);
+	if (this->loginManager->LoginBusy()) {
+        return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
+	}
+
+    client->state = EOClient::LoggedIn;
+    return this->loginManager->CheckLoginAsync(client);
 }
 
 AsyncOperation<PasswordChangeInfo, bool>* World::ChangePassword(EOClient* client)

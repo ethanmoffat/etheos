@@ -108,6 +108,7 @@ class EOClient : public Client
 		unsigned short create_id;
 		bool needpong;
 		int hdid;
+		std::string login_username;
 		ClientState state;
 		double start;
 		int login_attempts;

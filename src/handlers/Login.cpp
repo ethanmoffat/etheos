@@ -39,6 +39,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 	}
 
 	username = util::lowercase(username);
+	client->login_username = username;
 
 	if (client->server()->world->config["SeoseCompat"])
 		password = std::move(seose_str_hash(password.str(), client->server()->world->config["SeoseCompatKey"]));
@@ -98,6 +99,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 		if (!c->player)
 		{
+			c->state = EOClient::Initialized;
 			// Someone deleted the account between checking it and logging in
 			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
 			reply.AddShort(LOGIN_WRONG_USER);
@@ -136,6 +138,8 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	auto failureCallback = [](EOClient* c, int failureReason)
 	{
+		c->state = EOClient::Initialized;
+		
 		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
 		reply.AddShort(failureReason);
 		c->Send(reply);
