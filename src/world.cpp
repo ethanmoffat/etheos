@@ -1661,7 +1661,8 @@ AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient*
 {
 	std::string username = client->login_username;
 
-	UTIL_FOREACH(this->server->clients, other_client) {
+	UTIL_FOREACH(this->server->clients, other_client)
+	{
     	EOClient *eoclient = static_cast<EOClient *>(other_client);
 
     	if (eoclient != client && eoclient->login_username == username && eoclient->state == EOClient::LoggedIn) {
@@ -1669,7 +1670,8 @@ AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient*
 		}
 	}
 
-	if (this->loginManager->LoginBusy()) {
+	if (this->loginManager->LoginBusy())
+	{
         return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
 	}
 
