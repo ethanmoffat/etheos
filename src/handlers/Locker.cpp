@@ -84,9 +84,9 @@ void Locker_Add(Character *character, PacketReader &reader)
 
 			if (character->bank.size() >= lockermax)
 			{
-                PacketBuilder reply(PACKET_LOCKER, PACKET_SPEC);
-                reply.AddChar(static_cast<int>(lockermax));
-                character->Send(reply);
+				PacketBuilder reply(PACKET_LOCKER, PACKET_SPEC);
+				reply.AddChar(static_cast<unsigned char>(lockermax));
+				character->Send(reply);
 				return;
 			}
 
