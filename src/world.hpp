@@ -87,6 +87,8 @@ class World
 		std::unique_ptr<LoginManager> loginManager;
 		std::shared_ptr<DatabaseFactory> databaseFactory;
 
+		std::map<std::string, bool> pending_logins;
+		std::mutex pending_logins_mutex;
 	protected:
 		int last_character_id;
 
@@ -198,6 +200,8 @@ class World
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);
+		void SetPendingLogin(const std::string& username, bool is_pending);
+		bool GetPendingLogin(const std::string& username);
 
 		bool PKExcept(const Map *map);
 		bool PKExcept(int mapid);

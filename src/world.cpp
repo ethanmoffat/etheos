@@ -1690,6 +1690,11 @@ bool World::PlayerOnline(std::string username)
 		return false;
 	}
 
+	if (this->GetPendingLogin(username))
+	{
+		return true;
+	}
+
 	UTIL_FOREACH(this->server->clients, client)
 	{
 		EOClient *eoclient = static_cast<EOClient *>(client);
@@ -1704,6 +1709,43 @@ bool World::PlayerOnline(std::string username)
 	}
 
 	return false;
+}
+
+void World::SetPendingLogin(const std::string& username, bool is_pending)
+{
+	this->pending_logins_mutex.lock();
+
+	try
+	{
+		this->pending_logins.insert_or_assign(username, is_pending);
+	}
+	catch (...)
+	{
+		this->pending_logins_mutex.unlock();
+		throw;
+	}
+
+	this->pending_logins_mutex.unlock();
+}
+
+bool World::GetPendingLogin(const std::string& username)
+{
+	this->pending_logins_mutex.lock();
+
+	bool result = false;
+	try
+	{
+		result = this->pending_logins.find(username) != this->pending_logins.end()
+			  && this->pending_logins[username];
+	}
+	catch (...)
+	{
+		this->pending_logins_mutex.unlock();
+		throw;
+	}
+
+	this->pending_logins_mutex.unlock();
+	return result;
 }
 
 void World::Kick(Command_Source *from, Character *victim, bool announce)

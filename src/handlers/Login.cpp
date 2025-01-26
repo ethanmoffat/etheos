@@ -90,6 +90,8 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	auto successCallback = [username](EOClient* c)
 	{
+		c->server()->world->SetPendingLogin(username, false);
+
 		c->player = c->server()->world->PlayerFactory(username);
 
 		// The client may disconnect if the password generation takes too long
@@ -134,8 +136,10 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		}
 	};
 
-	auto failureCallback = [](EOClient* c, int failureReason)
+	auto failureCallback = [username](EOClient* c, int failureReason)
 	{
+		c->server()->world->SetPendingLogin(username, false);
+
 		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
 		reply.AddShort(failureReason);
 		c->Send(reply);
@@ -155,6 +159,8 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		failureCallback(client, LOGIN_LOGGEDIN);
 		return;
 	}
+
+	client->server()->world->SetPendingLogin(username, true);
 
 	client->server()->world->CheckCredential(client)
 		->OnSuccess(successCallback)
