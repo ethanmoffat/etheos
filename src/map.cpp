@@ -653,6 +653,7 @@ bool Map::Load()
 		SAFE_READ(buf, sizeof(char), 12, fh);
 		unsigned char x = PacketProcessor::Number(buf[0]);
 		unsigned char y = PacketProcessor::Number(buf[1]);
+		short key = PacketProcessor::Number(buf[2], buf[3]);
 		short slot = PacketProcessor::Number(buf[4]);
 		short itemid = PacketProcessor::Number(buf[5], buf[6]);
 		short time = PacketProcessor::Number(buf[7], buf[8]);
@@ -674,6 +675,8 @@ bool Map::Load()
 				spawn.last_taken = Timer::GetTime();
 				spawn.item.id = itemid;
 				spawn.item.amount = amount;
+
+				chest->key = key > 0 ? key : chest->key;
 
 				chest->spawns.push_back(spawn);
 				chest->slots = std::max(chest->slots, slot+1);
@@ -1853,9 +1856,13 @@ bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
 
 		if (from && warp.spec > Map_Warp::Door)
 		{
-			if (!from->CanInteractDoors()
-			 || !from->HasItem(this->world->eif->GetKey(warp.spec - static_cast<int>(Map_Warp::Door) + 1)))
+			unsigned int key_item = this->world->eif->GetKey(warp.spec - static_cast<int>(Map_Warp::Door) + 1);
+			if (!from->CanInteractDoors() || !from->HasItem(key_item))
 			{
+				PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 3);
+				builder.AddChar(key_item);
+				from->Send(builder);
+
 				return false;
 			}
 		}

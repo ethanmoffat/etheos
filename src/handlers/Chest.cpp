@@ -142,6 +142,19 @@ void Chest_Open(Character *character, PacketReader &reader)
 			{
 				if (chest->x == x && chest->y == y)
 				{
+					if (chest->key > 0)
+					{
+						unsigned int key_item = character->world->eif->GetKey(key_item);
+						if (!character->HasItem(key_item))
+						{
+							PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 4);
+							builder.AddChar(key_item);
+							character->Send(builder);
+
+							break;
+						}
+					}
+
 					reply.ReserveMore(chest->items.size() * 5);
 
 					UTIL_CIFOREACH(chest->items, item)
