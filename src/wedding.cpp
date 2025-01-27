@@ -301,8 +301,8 @@ void Wedding::Tick()
 						reply.AddShort(0); // UID
 						reply.AddShort(ring_id);
 						reply.AddThree(1);
-						reply.AddChar(static_cast<unsigned char>(p1->weight));
-						reply.AddChar(static_cast<unsigned char>(p1->maxweight));
+						reply.AddChar(static_cast<unsigned char>(p2->weight));
+						reply.AddChar(static_cast<unsigned char>(p2->maxweight));
 						p2->Send(reply);
 					}
 				}
