@@ -1856,11 +1856,11 @@ bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
 
 		if (from && warp.spec > Map_Warp::Door)
 		{
-			unsigned int key_item = this->world->eif->GetKey(warp.spec - static_cast<int>(Map_Warp::Door) + 1);
-			if (!from->CanInteractDoors() || !from->HasItem(key_item))
+			int keynum = warp.spec - static_cast<int>(Map_Warp::Door) + 1;
+			if (!from->CanInteractDoors() || !from->HasItem(this->world->eif->GetKey(keynum)))
 			{
-				PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 3);
-				builder.AddChar(key_item);
+				PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 1);
+				builder.AddChar(keynum);
 				from->Send(builder);
 
 				return false;
