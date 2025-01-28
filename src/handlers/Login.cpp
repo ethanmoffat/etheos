@@ -90,9 +90,8 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	auto successCallback = [username](EOClient* c)
 	{
-		c->server()->world->SetPendingLogin(username, false);
-
 		c->player = c->server()->world->PlayerFactory(username);
+		c->server()->world->SetPendingLogin(username, false);
 
 		// The client may disconnect if the password generation takes too long
 		if (!c->Connected())
@@ -154,6 +153,8 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	// if the player is already logged in, do the max_login_attempts logic above instead of just d/cing the client
 	// this check used to be in World::CheckCredentials, but needs access to username so I'm just putting it here
+	//
+	// PlayerOnline will also check for a pending login of 'username', preventing concurrent logins for the same account
 	if (client->server()->world->PlayerOnline(username))
 	{
 		failureCallback(client, LOGIN_LOGGEDIN);
