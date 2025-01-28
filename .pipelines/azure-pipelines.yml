@@ -67,7 +67,7 @@ stages:
   - job: build_docker
     displayName: 'Docker Smoke Test'
     dependsOn: build_linux
-    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual')))
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'Manual'), eq(variables['Build.Reason'], 'Schedule')))
     pool:
       vmImage: 'ubuntu-22.04'
     steps:
@@ -128,7 +128,7 @@ stages:
 
         exit $EXITCODE
       displayName: 'Download sample data and test run container'
-    - script: deploy/ci-test.sh --self-contained --botdir $(System.ArtifactsDirectory)/eobot/net6.0 --datadir $(pwd)/sample-data/ --image-version $(Build.BuildNumber) --no-pull
+    - script: deploy/ci-test.sh --self-contained --botdir $(System.ArtifactsDirectory)/eobot/net8.0 --datadir $(pwd)/sample-data/ --image-version $(Build.BuildNumber) --no-pull
       displayName: 'Run CI tests'
     - task: PublishBuildArtifacts@1
       displayName: 'Publish docker image for export'
