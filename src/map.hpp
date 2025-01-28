@@ -194,6 +194,7 @@ struct Map_Chest
 
 	int maxchest;
 	int chestslots;
+	short key;
 
 	int HasItem(short item) const;
 	int AddItem(short item, int amount, int slot = 0);

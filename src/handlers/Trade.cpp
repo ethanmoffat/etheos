@@ -97,9 +97,6 @@ void Trade_Remove(Character *character, PacketReader &reader)
 
 	if (character->DelTradeItem(itemid))
 	{
-		character->trade_agree = false;
-		character->trade_partner->trade_agree = false;
-
 		PacketBuilder builder(PACKET_TRADE, PACKET_REPLY,
 			6 + character->trade_inventory.size() * 6 + character->trade_partner->trade_inventory.size() * 6);
 
@@ -119,10 +116,15 @@ void Trade_Remove(Character *character, PacketReader &reader)
 		}
 		builder.AddByte(255);
 
+        builder.SetID(PACKET_TRADE, character->trade_agree ? PACKET_ADMIN : PACKET_REPLY);
 		character->Send(builder);
-		character->trade_partner->Send(builder);
-	}
 
+        builder.SetID(PACKET_TRADE, character->trade_partner->trade_agree ? PACKET_ADMIN : PACKET_REPLY);
+		character->trade_partner->Send(builder);
+
+		character->trade_agree = false;
+		character->trade_partner->trade_agree = false;
+	}
 }
 
 // Mark your (dis)agreeance with the current trade
@@ -239,9 +241,6 @@ void Trade_Add(Character *character, PacketReader &reader)
 
 	if (character->AddTradeItem(itemid, amount))
 	{
-		character->trade_agree = false;
-		character->trade_partner->trade_agree = false;
-
 		PacketBuilder builder(PACKET_TRADE, PACKET_REPLY,
 			6 + character->trade_inventory.size() * 6 + character->trade_partner->trade_inventory.size() * 6);
 
@@ -261,8 +260,14 @@ void Trade_Add(Character *character, PacketReader &reader)
 		}
 		builder.AddByte(255);
 
+        builder.SetID(PACKET_TRADE, character->trade_agree ? PACKET_ADMIN : PACKET_REPLY);
 		character->Send(builder);
+
+        builder.SetID(PACKET_TRADE, character->trade_partner->trade_agree ? PACKET_ADMIN : PACKET_REPLY);
 		character->trade_partner->Send(builder);
+
+		character->trade_agree = false;
+		character->trade_partner->trade_agree = false;
 	}
 }
 

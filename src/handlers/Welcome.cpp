@@ -154,24 +154,12 @@ void Welcome_Request(Player *player, PacketReader &reader)
 	reply.AddShort(player->character->evade);
 	reply.AddShort(player->character->armor);
 
-	if (!player->world->config["OldVersionCompat"] && player->client->version < 28)
-	{
-		reply.AddChar(static_cast<unsigned char>(player->character->display_str));
-		reply.AddChar(static_cast<unsigned char>(player->character->display_wis));
-		reply.AddChar(static_cast<unsigned char>(player->character->display_intl));
-		reply.AddChar(static_cast<unsigned char>(player->character->display_agi));
-		reply.AddChar(static_cast<unsigned char>(player->character->display_con));
-		reply.AddChar(static_cast<unsigned char>(player->character->display_cha));
-	}
-	else
-	{
-		reply.AddShort(player->character->display_str);
-		reply.AddShort(player->character->display_wis);
-		reply.AddShort(player->character->display_intl);
-		reply.AddShort(player->character->display_agi);
-		reply.AddShort(player->character->display_con);
-		reply.AddShort(player->character->display_cha);
-	}
+	reply.AddShort(player->character->display_str);
+	reply.AddShort(player->character->display_wis);
+	reply.AddShort(player->character->display_intl);
+	reply.AddShort(player->character->display_agi);
+	reply.AddShort(player->character->display_con);
+	reply.AddShort(player->character->display_cha);
 
 	UTIL_FOREACH(player->character->paperdoll, item)
 	{

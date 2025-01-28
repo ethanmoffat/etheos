@@ -653,6 +653,7 @@ bool Map::Load()
 		SAFE_READ(buf, sizeof(char), 12, fh);
 		unsigned char x = PacketProcessor::Number(buf[0]);
 		unsigned char y = PacketProcessor::Number(buf[1]);
+		short key = PacketProcessor::Number(buf[2], buf[3]);
 		short slot = PacketProcessor::Number(buf[4]);
 		short itemid = PacketProcessor::Number(buf[5], buf[6]);
 		short time = PacketProcessor::Number(buf[7], buf[8]);
@@ -674,6 +675,8 @@ bool Map::Load()
 				spawn.last_taken = Timer::GetTime();
 				spawn.item.id = itemid;
 				spawn.item.amount = amount;
+
+				chest->key = key > 0 ? key : chest->key;
 
 				chest->spawns.push_back(spawn);
 				chest->slots = std::max(chest->slots, slot+1);
@@ -1213,7 +1216,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	}
 	from->Send(builder);
 
-	builder.SetID(PACKET_APPEAR, PACKET_REPLY);
+	builder.SetID(PACKET_RANGE, PACKET_REPLY);
 	UTIL_FOREACH(newnpcs, npc)
 	{
 		builder.Reset(8);
@@ -1399,7 +1402,7 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 		}
 	}
 
-	PacketBuilder builder(PACKET_APPEAR, PACKET_REPLY, 8);
+	PacketBuilder builder(PACKET_RANGE, PACKET_REPLY, 8);
 	builder.AddChar(0);
 	builder.AddByte(255);
 	builder.AddChar(from->index);
@@ -1853,9 +1856,13 @@ bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
 
 		if (from && warp.spec > Map_Warp::Door)
 		{
-			if (!from->CanInteractDoors()
-			 || !from->HasItem(this->world->eif->GetKey(warp.spec - static_cast<int>(Map_Warp::Door) + 1)))
+			int keynum = warp.spec - static_cast<int>(Map_Warp::Door) + 1;
+			if (!from->CanInteractDoors() || !from->HasItem(this->world->eif->GetKey(keynum)))
 			{
+				PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 1);
+				builder.AddChar(keynum);
+				from->Send(builder);
+
 				return false;
 			}
 		}

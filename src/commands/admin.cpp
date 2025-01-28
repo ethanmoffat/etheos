@@ -188,24 +188,12 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 		reply.AddShort(swap->evade);
 		reply.AddShort(swap->armor);
 
-		if (!world->config["OldVersionCompat"] && player->client->version < 28)
-		{
-			reply.AddChar(static_cast<unsigned char>(swap->display_str));
-			reply.AddChar(static_cast<unsigned char>(swap->display_wis));
-			reply.AddChar(static_cast<unsigned char>(swap->display_intl));
-			reply.AddChar(static_cast<unsigned char>(swap->display_agi));
-			reply.AddChar(static_cast<unsigned char>(swap->display_con));
-			reply.AddChar(static_cast<unsigned char>(swap->display_cha));
-		}
-		else
-		{
-			reply.AddShort(swap->display_str);
-			reply.AddShort(swap->display_wis);
-			reply.AddShort(swap->display_intl);
-			reply.AddShort(swap->display_agi);
-			reply.AddShort(swap->display_con);
-			reply.AddShort(swap->display_cha);
-		}
+		reply.AddShort(swap->display_str);
+		reply.AddShort(swap->display_wis);
+		reply.AddShort(swap->display_intl);
+		reply.AddShort(swap->display_agi);
+		reply.AddShort(swap->display_con);
+		reply.AddShort(swap->display_cha);
 
 		UTIL_FOREACH(swap->paperdoll, item)
 		{

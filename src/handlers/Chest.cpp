@@ -134,14 +134,37 @@ void Chest_Open(Character *character, PacketReader &reader)
 	{
 		if (character->map->GetSpec(x, y) == Map_Tile::Chest)
 		{
-			PacketBuilder reply(PACKET_CHEST, PACKET_OPEN, 2);
-			reply.AddChar(x);
-			reply.AddChar(y);
-
 			UTIL_FOREACH(character->map->chests, chest)
 			{
 				if (chest->x == x && chest->y == y)
 				{
+					PacketBuilder reply(PACKET_CHEST, PACKET_OPEN, 2);
+
+					if (chest->key > 0)
+					{
+						// Thanks daddy Sausage
+						// https://discord.com/channels/723989119503696013/787685796055482368/1046490342834315325
+
+						unsigned int key_item = character->world->eif->GetKey(chest->key);
+						if (!key_item)
+						{
+							reply.SetID(PACKET_CHEST, PACKET_CLOSE);
+							reply.AddString("N");
+							character->Send(reply);
+							break;
+						}
+						else if (!character->HasItem(key_item))
+						{
+							reply.SetID(PACKET_CHEST, PACKET_CLOSE);
+							reply.AddShort(chest->key);
+							character->Send(reply);
+							break;
+						}
+					}
+
+					reply.AddChar(x);
+					reply.AddChar(y);
+
 					reply.ReserveMore(chest->items.size() * 5);
 
 					UTIL_CIFOREACH(chest->items, item)

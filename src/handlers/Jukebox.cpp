@@ -63,6 +63,9 @@ void Jukebox_Msg(Character *character, PacketReader &reader)
 	 || (track < 0 || track > static_cast<int>(character->world->config["JukeboxSongs"]))
 	 || character->HasItem(1) < static_cast<int>(character->world->config["JukeboxPrice"]))
 	{
+        PacketBuilder reply(PACKET_JUKEBOX, PACKET_REPLY, 2);
+        reply.AddShort(1);
+        character->Send(reply);
 		return;
 	}
 

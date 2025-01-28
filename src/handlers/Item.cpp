@@ -30,312 +30,318 @@ void Item_Use(Character *character, PacketReader &reader)
 
 	int id = reader.GetShort();
 
-	if (character->HasItem(id))
+	if (!character->HasItem(id))
 	{
-		const EIF_Data& item = character->world->eif->Get(id);
-		PacketBuilder reply(PACKET_ITEM, PACKET_REPLY, 3);
-		reply.AddChar(item.type);
+		PacketBuilder reply(PACKET_ITEM, PACKET_AGREE, 3);
 		reply.AddShort(id);
+		character->Send(reply);
 
-		auto QuestUsedItems = [](Character* character, int id)
+		return;
+	}
+
+	const EIF_Data& item = character->world->eif->Get(id);
+	PacketBuilder reply(PACKET_ITEM, PACKET_REPLY, 3);
+	reply.AddChar(item.type);
+	reply.AddShort(id);
+
+	auto QuestUsedItems = [](Character* character, int id)
+	{
+		UTIL_FOREACH(character->quests, q)
 		{
-			UTIL_FOREACH(character->quests, q)
-			{
-				if (!q.second || q.second->GetQuest()->Disabled())
-					continue;
+			if (!q.second || q.second->GetQuest()->Disabled())
+				continue;
 
-				q.second->UsedItem(id);
-			}
-		};
-
-		switch (item.type)
-		{
-			case EIF::Teleport:
-			{
-				if (!character->map->scroll)
-					break;
-
-				if (item.scrollmap == 0)
-				{
-					if (character->mapid == character->SpawnMap() && character->x == character->SpawnX() && character->y == character->SpawnY())
-						break;
-				}
-				else
-				{
-					if (character->mapid == item.scrollmap && character->x == item.scrollx && character->y == item.scrolly)
-						break;
-				}
-
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(6);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				if (item.scrollmap == 0)
-				{
-					character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_SCROLL);
-				}
-				else
-				{
-					character->Warp(item.scrollmap, item.scrollx, item.scrolly, WARP_ANIMATION_SCROLL);
-				}
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::Heal:
-			{
-				int hpgain = item.hp;
-				int tpgain = item.tp;
-
-				if (character->world->config["LimitDamage"])
-				{
-					hpgain = std::min(hpgain, character->maxhp - character->hp);
-					tpgain = std::min(tpgain, character->maxtp - character->tp);
-				}
-
-				hpgain = std::max(hpgain, 0);
-				tpgain = std::max(tpgain, 0);
-
-				if (hpgain == 0 && tpgain == 0)
-					break;
-
-				character->hp += hpgain;
-				character->tp += tpgain;
-
-				if (!character->world->config["LimitDamage"])
-				{
-					character->hp = std::min(character->hp, character->maxhp);
-					character->tp = std::min(character->tp, character->maxtp);
-				}
-
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(14);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				reply.AddInt(hpgain);
-				reply.AddShort(character->hp);
-				reply.AddShort(character->tp);
-
-				PacketBuilder builder(PACKET_RECOVER, PACKET_AGREE, 7);
-				builder.AddShort(character->PlayerID());
-				builder.AddInt(hpgain);
-				builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
-
-				UTIL_FOREACH(character->map->characters, updatecharacter)
-				{
-					if (updatecharacter != character && character->InRange(updatecharacter))
-					{
-						updatecharacter->Send(builder);
-					}
-				}
-
-				if (character->party)
-				{
-					character->party->UpdateHP(character);
-				}
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::HairDye:
-			{
-				if (character->haircolor == item.haircolor)
-					break;
-
-				character->haircolor = item.haircolor;
-
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(7);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				reply.AddChar(item.haircolor);
-
-				PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 5);
-				builder.AddShort(character->PlayerID());
-				builder.AddChar(SLOT_HAIRCOLOR);
-				builder.AddChar(0); // subloc
-				builder.AddChar(item.haircolor);
-
-				UTIL_FOREACH(character->map->characters, updatecharacter)
-				{
-					if (updatecharacter != character && character->InRange(updatecharacter))
-					{
-						updatecharacter->Send(builder);
-					}
-				}
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::Beer:
-			{
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(6);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::EffectPotion:
-			{
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(8);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-				reply.AddShort(item.effect);
-
-				character->Effect(item.effect, false);
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::CureCurse:
-			{
-				bool found = false;
-
-				for (std::size_t i = 0; i < character->paperdoll.size(); ++i)
-				{
-					if (character->world->eif->Get(character->paperdoll[i]).special == EIF::Cursed)
-					{
-						character->paperdoll[i] = 0;
-						found = true;
-					}
-				}
-
-				if (!found)
-					break;
-
-				character->CalculateStats();
-
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(32);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				reply.AddShort(character->maxhp);
-				reply.AddShort(character->maxtp);
-
-				reply.AddShort(character->display_str);
-				reply.AddShort(character->display_intl);
-				reply.AddShort(character->display_wis);
-				reply.AddShort(character->display_agi);
-				reply.AddShort(character->display_con);
-				reply.AddShort(character->display_cha);
-
-				reply.AddShort(character->mindam);
-				reply.AddShort(character->maxdam);
-				reply.AddShort(character->accuracy);
-				reply.AddShort(character->evade);
-				reply.AddShort(character->armor);
-
-				PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-				builder.AddShort(character->PlayerID());
-				builder.AddChar(SLOT_CLOTHES);
-				builder.AddChar(0); // sound
-				character->AddPaperdollData(builder, "BAHWS");
-
-				UTIL_FOREACH(character->map->characters, updatecharacter)
-				{
-					if (updatecharacter != character && character->InRange(updatecharacter))
-					{
-						updatecharacter->Send(builder);
-					}
-				}
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			case EIF::EXPReward:
-			{
-				bool level_up = false;
-
-				character->exp += item.expreward;
-
-				character->exp = std::min(character->exp, static_cast<int>(character->map->world->config["MaxExp"]));
-
-				while (character->level < static_cast<int>(character->map->world->config["MaxLevel"])
-				 && character->exp >= character->map->world->exp_table[character->level+1])
-				{
-					level_up = true;
-					++character->level;
-					character->statpoints += static_cast<int>(character->map->world->config["StatPerLevel"]);
-					character->skillpoints += static_cast<int>(character->map->world->config["SkillPerLevel"]);
-					character->CalculateStats();
-				}
-
-				character->DelItem(id, 1);
-
-				reply.ReserveMore(21);
-				reply.AddInt(character->HasItem(id));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-				reply.AddInt(character->exp);
-
-				reply.AddChar(level_up ? character->level : 0);
-				reply.AddShort(character->statpoints);
-				reply.AddShort(character->skillpoints);
-				reply.AddShort(character->maxhp);
-				reply.AddShort(character->maxtp);
-				reply.AddShort(character->maxsp);
-
-				if (level_up)
-				{
-					PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
-					builder.AddShort(character->PlayerID());
-
-					UTIL_FOREACH(character->map->characters, check)
-					{
-						if (character->InRange(check))
-						{
-							check->Send(builder);
-						}
-					}
-				}
-
-				character->Send(reply);
-
-				QuestUsedItems(character, id);
-			}
-			break;
-
-			default:
-				return;
+			q.second->UsedItem(id);
 		}
+	};
+
+	switch (item.type)
+	{
+		case EIF::Teleport:
+		{
+			if (!character->map->scroll)
+				break;
+
+			if (item.scrollmap == 0)
+			{
+				if (character->mapid == character->SpawnMap() && character->x == character->SpawnX() && character->y == character->SpawnY())
+					break;
+			}
+			else
+			{
+				if (character->mapid == item.scrollmap && character->x == item.scrollx && character->y == item.scrolly)
+					break;
+			}
+
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(6);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			if (item.scrollmap == 0)
+			{
+				character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_SCROLL);
+			}
+			else
+			{
+				character->Warp(item.scrollmap, item.scrollx, item.scrolly, WARP_ANIMATION_SCROLL);
+			}
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::Heal:
+		{
+			int hpgain = item.hp;
+			int tpgain = item.tp;
+
+			if (character->world->config["LimitDamage"])
+			{
+				hpgain = std::min(hpgain, character->maxhp - character->hp);
+				tpgain = std::min(tpgain, character->maxtp - character->tp);
+			}
+
+			hpgain = std::max(hpgain, 0);
+			tpgain = std::max(tpgain, 0);
+
+			if (hpgain == 0 && tpgain == 0)
+				break;
+
+			character->hp += hpgain;
+			character->tp += tpgain;
+
+			if (!character->world->config["LimitDamage"])
+			{
+				character->hp = std::min(character->hp, character->maxhp);
+				character->tp = std::min(character->tp, character->maxtp);
+			}
+
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(14);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			reply.AddInt(hpgain);
+			reply.AddShort(character->hp);
+			reply.AddShort(character->tp);
+
+			PacketBuilder builder(PACKET_RECOVER, PACKET_AGREE, 7);
+			builder.AddShort(character->PlayerID());
+			builder.AddInt(hpgain);
+			builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
+
+			UTIL_FOREACH(character->map->characters, updatecharacter)
+			{
+				if (updatecharacter != character && character->InRange(updatecharacter))
+				{
+					updatecharacter->Send(builder);
+				}
+			}
+
+			if (character->party)
+			{
+				character->party->UpdateHP(character);
+			}
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::HairDye:
+		{
+			if (character->haircolor == item.haircolor)
+				break;
+
+			character->haircolor = item.haircolor;
+
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(7);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			reply.AddChar(item.haircolor);
+
+			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 5);
+			builder.AddShort(character->PlayerID());
+			builder.AddChar(SLOT_HAIRCOLOR);
+			builder.AddChar(0); // subloc
+			builder.AddChar(item.haircolor);
+
+			UTIL_FOREACH(character->map->characters, updatecharacter)
+			{
+				if (updatecharacter != character && character->InRange(updatecharacter))
+				{
+					updatecharacter->Send(builder);
+				}
+			}
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::Beer:
+		{
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(6);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::EffectPotion:
+		{
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(8);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+			reply.AddShort(item.effect);
+
+			character->Effect(item.effect, false);
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::CureCurse:
+		{
+			bool found = false;
+
+			for (std::size_t i = 0; i < character->paperdoll.size(); ++i)
+			{
+				if (character->world->eif->Get(character->paperdoll[i]).special == EIF::Cursed)
+				{
+					character->paperdoll[i] = 0;
+					found = true;
+				}
+			}
+
+			if (!found)
+				break;
+
+			character->CalculateStats();
+
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(32);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			reply.AddShort(character->maxhp);
+			reply.AddShort(character->maxtp);
+
+			reply.AddShort(character->display_str);
+			reply.AddShort(character->display_intl);
+			reply.AddShort(character->display_wis);
+			reply.AddShort(character->display_agi);
+			reply.AddShort(character->display_con);
+			reply.AddShort(character->display_cha);
+
+			reply.AddShort(character->mindam);
+			reply.AddShort(character->maxdam);
+			reply.AddShort(character->accuracy);
+			reply.AddShort(character->evade);
+			reply.AddShort(character->armor);
+
+			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
+			builder.AddShort(character->PlayerID());
+			builder.AddChar(SLOT_CLOTHES);
+			builder.AddChar(0); // sound
+			character->AddPaperdollData(builder, "BAHWS");
+
+			UTIL_FOREACH(character->map->characters, updatecharacter)
+			{
+				if (updatecharacter != character && character->InRange(updatecharacter))
+				{
+					updatecharacter->Send(builder);
+				}
+			}
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		case EIF::EXPReward:
+		{
+			bool level_up = false;
+
+			character->exp += item.expreward;
+
+			character->exp = std::min(character->exp, static_cast<int>(character->map->world->config["MaxExp"]));
+
+			while (character->level < static_cast<int>(character->map->world->config["MaxLevel"])
+				&& character->exp >= character->map->world->exp_table[character->level+1])
+			{
+				level_up = true;
+				++character->level;
+				character->statpoints += static_cast<int>(character->map->world->config["StatPerLevel"]);
+				character->skillpoints += static_cast<int>(character->map->world->config["SkillPerLevel"]);
+				character->CalculateStats();
+			}
+
+			character->DelItem(id, 1);
+
+			reply.ReserveMore(21);
+			reply.AddInt(character->HasItem(id));
+			reply.AddChar(static_cast<unsigned char>(character->weight));
+			reply.AddChar(static_cast<unsigned char>(character->maxweight));
+
+			reply.AddInt(character->exp);
+
+			reply.AddChar(level_up ? character->level : 0);
+			reply.AddShort(character->statpoints);
+			reply.AddShort(character->skillpoints);
+			reply.AddShort(character->maxhp);
+			reply.AddShort(character->maxtp);
+			reply.AddShort(character->maxsp);
+
+			if (level_up)
+			{
+				PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
+				builder.AddShort(character->PlayerID());
+
+				UTIL_FOREACH(character->map->characters, check)
+				{
+					if (character->InRange(check))
+					{
+						check->Send(builder);
+					}
+				}
+			}
+
+			character->Send(reply);
+
+			QuestUsedItems(character, id);
+		}
+		break;
+
+		default:
+			return;
 	}
 }
 

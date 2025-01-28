@@ -108,7 +108,7 @@ void Init_Init(EOClient *client, PacketReader &reader)
 	int minversion = client->server()->world->config["MinVersion"];
 	if (!minversion)
 	{
-		minversion = client->server()->world->config["OldVersionCompat"] ? 27 : 28;
+		minversion = 28;
 	}
 
 	int maxversion = client->server()->world->config["MaxVersion"];

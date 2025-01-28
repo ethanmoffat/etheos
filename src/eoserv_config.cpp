@@ -47,7 +47,6 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "CheckVersion"       , true);
 	eoserv_config_default(config, "MinVersion"         , 0);
 	eoserv_config_default(config, "MaxVersion"         , 0);
-	eoserv_config_default(config, "OldVersionCompat"   , false);
 	eoserv_config_default(config, "TimedSave"          , "5m");
 	eoserv_config_default(config, "IgnoreHDID"         , false);
 	eoserv_config_default(config, "ServerLanguage"     , "./lang/en.ini");
