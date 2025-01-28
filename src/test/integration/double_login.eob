@@ -1,0 +1,37 @@
+// Note: this test requires the environment to have ThreadPoolThreads = LoginQueueSize = 4
+//
+$version = 28
+
+if ($botindex > 1) {
+    goto end
+}
+
+$account_name = "botacc" + 0
+$account_pass = "BotP@ssw0rd" + 0
+
+$LOGIN_OK = 3
+$LOGIN_LOGGEDIN = 5
+
+print ("SERVER=" + $host + ":" + $port + " Logging in " + $account_name)
+
+$loginRes = Login($account_name, $account_pass)
+if ($botindex == 1)
+{
+    if ($loginRes != $LOGIN_LOGGEDIN)
+        error("Expected 'Logged In' response for bot " + $botindex + " but was " + $loginRes)
+    else
+        print("Got expected 'Logged In' response for bot " + $botindex)
+}
+else if ($botindex == 0)
+{
+    if ($loginRes != $LOGIN_OK)
+        error("Expected OK response for bot " + $botindex + " but was " + $loginRes)
+    else
+        print("Got expected OK response for bot " + $botindex)
+}
+else
+{
+    error("Logic error - expected only $botindex 0 or 1")
+}
+
+end:
