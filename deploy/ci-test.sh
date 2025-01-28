@@ -12,6 +12,7 @@ function exec_tests() {
   ${botdir}/EOBot host=${host} port=${port} bots=6,2 script=${SCRIPT_ROOT}/../src/test/integration/change_passwords.eob -- "NewPassword" "BotP@ssw0rd"
   ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/login_queue_busy.eob
   ${botdir}/EOBot host=${host} port=${port} bots=6 script=${SCRIPT_ROOT}/../src/test/integration/create_delete_char.eob
+  ${botdir}/EOBot host=${host} port=${port} bots=2 script=${SCRIPT_ROOT}/../src/test/integration/double_login.eob
 }
 
 function exec_selfcontained() {
