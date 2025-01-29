@@ -131,6 +131,7 @@ stages:
     - script: deploy/ci-test.sh --self-contained --botdir $(System.ArtifactsDirectory)/eobot/net8.0 --datadir $(pwd)/sample-data/ --image-version $(Build.BuildNumber) --no-pull
       displayName: 'Run CI tests'
     - task: PublishBuildArtifacts@1
+      condition: succeededOrFailed()
       displayName: 'Publish docker image for export'
       inputs:
         PathtoPublish: image.tar.gz
