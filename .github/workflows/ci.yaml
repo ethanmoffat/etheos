@@ -53,12 +53,19 @@ jobs:
       with:
         fetch-depth: 0
         lfs: true
+    - name: Login to ACR
+      uses: Azure/login@v2.2.0
+      with:
+        creds: "${{ secrets.AZURE_CREDENTIALS }}"
+    - name: Pull CI test docker image
+      run: |
+        az acr login -n etheos
+        docker pull etheos.azurecr.io/etheos:ci-test
     - name: Download EOBot release
       uses: robinraju/release-downloader@v1
       with:
-        repo: ethanmoffat/EndlessClient
+        repository: ethanmoffat/EndlessClient
         latest: true
-        preRelease: true
         fileName: EOBot.Linux.zip
         out-file-path: eobot
         extract: true
@@ -67,22 +74,18 @@ jobs:
         wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
         unzip sample-data.zip -d .
 
-        docker run --rm --name testcontainer -v sample-data/:/etheos/data \
+        docker run --rm --name testcontainer -v $(pwd)/sample-data/:/etheos/data \
           -e ETHEOS_DBTYPE=sqlite -e "ETHEOS_INSTALLSQL=./install.sql" \
           -e ETHEOS_PORT=8078 -p 8078:8078 \
           etheos.azurecr.io/etheos:ci-test &
 
         sleep 5
 
-        docker logs testcontainer
-
         TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
         if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
             EXITCODE=1
         else
             EXITCODE=0
-            docker save -o image.tar darthchungis/etheos
-            gzip -1 image.tar
         fi
 
         docker stop testcontainer
@@ -90,5 +93,6 @@ jobs:
         exit $EXITCODE
     - name: Run CI Tests
       run: |
-        ls -al eobot # TODO: Remove after debugging
-        deploy/ci-test.sh --self-contained --botdir eobot/net8.0 --datadir $(pwd)/sample-data/ --no-pull
+        ls -al eobot/net8.0 # TODO: Remove after debugging
+        chmod +x eobot/net8.0/EOBot
+        deploy/ci-test.sh --self-contained --botdir eobot/net8.0 --datadir $(pwd)/sample-data/ --no-pull --image-repo etheos.azurecr.io/etheos --image-version ci-test

@@ -25,8 +25,9 @@ function exec_selfcontained() {
   local docker_build_local="$5"
   local config_dir="$6"
   local data_dir="$7"
-  local image_version="$8"
-  local skip_pull="$9"
+  local image_repo="$8"
+  local image_version="$9"
+  local skip_pull="$10"
 
   if [[ "${docker_setup}" == "true" ]]; then
     echo "Setting up self-contained docker run..."
@@ -34,7 +35,7 @@ function exec_selfcontained() {
     if [[ "${docker_build_local}" == "false" ]]; then
       if [[ "${skip_pull}" == "false" ]]; then
         echo "Pulling image..."
-        docker pull "darthchungis/etheos:$image_version"
+        docker pull "$image_repo:$image_version"
       fi
     else
       echo "Building source (may take a while)..."
@@ -43,7 +44,7 @@ function exec_selfcontained() {
 
       echo "Building image..."
       image_version="local"
-      docker build -t "darthchungis/etheos:$image_version" .
+      docker build -t "$image_repo:$image_version" .
       popd &> /dev/null
     fi
 
@@ -59,7 +60,7 @@ function exec_selfcontained() {
 -e ETHEOS_MAXCONNECTIONSPERIP=0 -e ETHEOS_IPRECONNECTLIMIT=1s -e ETHEOS_MAXCONNECTIONSPERPC=0 \
 -e ETHEOS_LOGINQUEUESIZE=4 -e ETHEOS_THREADPOOLTHREADS=4 -p "$port":"$port" \
 -v "$config_dir":/etheos/config_local -v "$data_dir":/etheos/data \
-"darthchungis/etheos:$image_version" &> /dev/null
+"$image_repo:$image_version" &> /dev/null
   fi
 
   python3 $SCRIPT_ROOT/test-connection.py localhost 3 "${port}"
@@ -82,6 +83,7 @@ function main() {
   local docker_build_local="false"
   local config_dir="$SCRIPT_ROOT/../config_local"
   local data_dir="$SCRIPT_ROOT/../data"
+  local image_repo="darthchungis/etheos"
   local image_version="latest"
   local skip_pull="false"
 
@@ -108,6 +110,10 @@ function main() {
         ;;
       -d|--datadir)
         data_dir="$2"
+        shift
+        ;;
+      -r|--image-repo)
+        image_repo="$2"
         shift
         ;;
       -v|--image-version)
@@ -162,7 +168,7 @@ function main() {
       port=8078
     fi
 
-    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}" "${image_version}" "${skip_pull}"
+    exec_selfcontained "${botdir}" "${port}" "${docker_setup}" "${docker_teardown}" "${docker_build_local}" "${config_dir}" "${data_dir}" "${image_repo}" "${image_version}" "${skip_pull}"
   else
     if [[ -z "${host}" ]]; then
       echo "Host is required"
@@ -195,6 +201,7 @@ function display_usage() {
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
   echo "  -d --datadir           Override the default local data directory with the speccified path"
   echo "                         NOTE: paths must be absolute. Use \$(pwd)/.. for paths relative to the deploy directory"
+  echo "  -r --image-repo        Use specified docker image repository (default: darthchungis/etheos)"
   echo "  -v --image-version     Use specified version of docker image (default: latest)"
   echo "  --no-setup             Do not set up docker container, assume already running."
   echo "  --no-teardown          Do not stop/remove docker container after run."
