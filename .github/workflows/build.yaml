@@ -60,6 +60,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: linux
+        path: install
     - name: Generate Build Number
       run: |
         echo "VERSION_NUMBER_WITH_OFFSET=$((1000+GITHUB_RUN_NUMBER))" >> $GITHUB_ENV
@@ -67,6 +68,7 @@ jobs:
       env:
         VERSION_NUMBER_WITH_OFFSET: ${{ env.VERSION_NUMBER_WITH_OFFSET }}
       run: |
+        chmod +x install/etheos
         docker build -t darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET .
         docker save -o image.tar darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET
         gzip -1 image.tar
