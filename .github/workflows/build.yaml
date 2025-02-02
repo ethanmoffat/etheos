@@ -1,0 +1,77 @@
+name: Build etheos
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: '8 0 * * 0' # 8 - hour (UTC) | 0 - minute | * - any day | * - any month | 0 - sunday
+
+jobs:
+  build:
+    name: Build on ${{ matrix.name }} OS
+    strategy:
+      matrix:
+        os:
+        - ubuntu-22.04
+        - windows-2019
+        include:
+        - os: ubuntu-22.04
+          name: linux
+          deps: sudo ./install-deps.sh
+          build: ./build-linux.sh -c --sqlserver ON --mariadb ON --sqlite ON
+        - os: windows-2019
+          name: windows
+          deps: .\install-deps.ps1 -SkipCMake
+          build: .\build-windows.ps1 -Clean -SqlServer ON -MariaDB ON -Sqlite ON
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true
+    - name: Install Build Dependencies
+      working-directory: scripts
+      run: ${{ matrix.deps }}
+    - name: Run Build Script
+      run: ${{ matrix.build }}
+    - name: Run Tests
+      working-directory: install/test
+      run: ./eoserv_test
+    - name: Publish Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: install/
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: linux
+    - name: Generate Build Number
+      run: |
+        echo "VERSION_NUMBER_WITH_OFFSET=$((1000+GITHUB_RUN_NUMBER))" >> $GITHUB_ENV
+    - name: Build etheos Image
+      env:
+        VERSION_NUMBER_WITH_OFFSET: ${{ env.VERSION_NUMBER_WITH_OFFSET }}
+      run: |
+        docker build -t darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET .
+        docker save -o image.tar darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET
+        gzip -1 image.tar
+    - name: Publish Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker
+        path: image.tar.gz
