@@ -1,0 +1,91 @@
+name: CI Test
+
+on:
+  workflow_run:
+    workflows:
+    - Build etheos
+    branches:
+    - master
+    types:
+    - completed
+
+jobs:
+  deploy-ci-test:
+    name: Deploy CI Test Image
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Download docker build artifact
+      uses: dawidd6/action-download-artifact@v8
+      with:
+        workflow: build.yaml
+        branch: master
+        name: docker
+        workflow_search: false
+        path: work
+    - name: Extract and load docker image
+      env:
+        GITHUB_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+      run: |
+        export VERSION_NUMBER_WITH_OFFSET=$((1000+GITHUB_RUN_NUMBER))"
+        gzip -f -d work/image.tar.gz
+        docker load -i work/image.tar
+        docker tag darthchungis/etheos:latest etheos.azurecr.io/etheos:ci-test
+    - name: Login to ACR
+      uses: Azure/login@v2.2.0
+      with:
+        creds: "${{ secrets.AZURE_CREDENTIALS }}"
+    - name: Push CI test docker image
+      run: |
+        az acr login -n etheos
+        docker push etheos.azurecr.io/etheos:ci-test
+
+  run-ci-test:
+    name: Run CI Test
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    needs: deploy-ci-test
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true
+    - name: Download EOBot release
+      uses: robinraju/release-downloader@v1
+      with:
+        repo: ethanmoffat/EndlessClient
+        latest: true
+        preRelease: true
+        fileName: EOBot.Linux.zip
+        out-file-path: eobot
+        extract: true
+    - name: Run etheos docker image
+      run: |
+        wget https://etheosstorage.blob.core.windows.net/data/sample-data.zip
+        unzip sample-data.zip -d .
+
+        docker run --rm --name testcontainer -v sample-data/:/etheos/data \
+          -e ETHEOS_DBTYPE=sqlite -e "ETHEOS_INSTALLSQL=./install.sql" \
+          -e ETHEOS_PORT=8078 -p 8078:8078 \
+          etheos.azurecr.io/etheos:ci-test &
+
+        sleep 5
+
+        docker logs testcontainer
+
+        TESTCONTAINERSTATUS=$(docker inspect -f '{{.State.Status}}' testcontainer)
+        if [[ "$TESTCONTAINERSTATUS" != "running" ]]; then
+            EXITCODE=1
+        else
+            EXITCODE=0
+            docker save -o image.tar darthchungis/etheos
+            gzip -1 image.tar
+        fi
+
+        docker stop testcontainer
+
+        exit $EXITCODE
+    - name: Run CI Tests
+      run: |
+        ls -al eobot # TODO: Remove after debugging
+        deploy/ci-test.sh --self-contained --botdir eobot/net8.0 --datadir $(pwd)/sample-data/ --no-pull

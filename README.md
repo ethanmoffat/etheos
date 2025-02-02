@@ -1,6 +1,6 @@
 # ETHEOS
 
-[![CI Build Status](https://ethanmoffat.visualstudio.com/etheos/_apis/build/status/etheos?branchName=master)](https://ethanmoffat.visualstudio.com/etheos/_build/latest?definitionId=13&branchName=master)
+[![Build Status](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml)
 
 ## Table of Contents
 
