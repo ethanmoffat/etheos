@@ -1,5 +1,9 @@
 name: CI Test
 
+env:
+  BASE_VERSION: "0.7.1"
+  BUILD_WORKFLOW_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+
 on:
   workflow_run:
     workflows:
@@ -24,13 +28,12 @@ jobs:
         workflow_search: false
         path: work
     - name: Extract and load docker image
-      env:
-        GITHUB_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
       run: |
-        export VERSION_NUMBER_WITH_OFFSET=$((1000+GITHUB_RUN_NUMBER))"
+        export VERSION_NUMBER_WITH_OFFSET=$((1000+BUILD_WORKFLOW_RUN_NUMBER))
+        export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
         gzip -f -d work/image.tar.gz
         docker load -i work/image.tar
-        docker tag darthchungis/etheos:latest etheos.azurecr.io/etheos:ci-test
+        docker tag darthchungis/etheos:$FULL_VERSION etheos.azurecr.io/etheos:ci-test
     - name: Login to ACR
       uses: Azure/login@v2.2.0
       with:

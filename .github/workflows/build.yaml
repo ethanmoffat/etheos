@@ -1,5 +1,8 @@
 name: Build etheos
 
+env:
+  BASE_VERSION: "0.7.1"
+
 on:
   push:
     branches:
@@ -69,8 +72,9 @@ jobs:
         VERSION_NUMBER_WITH_OFFSET: ${{ env.VERSION_NUMBER_WITH_OFFSET }}
       run: |
         chmod +x install/etheos
-        docker build -t darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET .
-        docker save -o image.tar darthchungis/etheos:$VERSION_NUMBER_WITH_OFFSET
+        export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
+        docker build -t darthchungis/etheos:$FULL_VERSION .
+        docker save -o image.tar darthchungis/etheos:$FULL_VERSION
         gzip -1 image.tar
     - name: Publish Build Artifacts
       uses: actions/upload-artifact@v4
