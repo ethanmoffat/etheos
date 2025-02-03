@@ -96,3 +96,74 @@ jobs:
         ls -al eobot/net8.0 # TODO: Remove after debugging
         chmod +x eobot/net8.0/EOBot
         deploy/ci-test.sh --self-contained --botdir eobot/net8.0 --datadir $(pwd)/sample-data/ --no-pull --image-repo etheos.azurecr.io/etheos --image-version ci-test
+
+  tag-repo:
+    name: Tag Repo with build number
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    needs: run-ci-test
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        lfs: true
+        persist-credentials: true
+    - name: Tag sources
+      run: |
+        export VERSION_NUMBER_WITH_OFFSET=$((1000+BUILD_WORKFLOW_RUN_NUMBER))
+        export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
+        git tag build/$FULL_VERSION
+        git push origin $FULL_VERSION
+
+  publish-docker:
+    name: Publish Docker Image
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    needs: run-ci-test
+    steps:
+    - name: Download docker build artifact
+      uses: dawidd6/action-download-artifact@v8
+      with:
+        workflow: build.yaml
+        branch: master
+        name: docker
+        workflow_search: false
+        path: work
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: darthchungis
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Extract and load docker image
+      run: |
+        export VERSION_NUMBER_WITH_OFFSET=$((1000+BUILD_WORKFLOW_RUN_NUMBER))
+        export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
+        gzip -f -d work/image.tar.gz
+        docker load -i work/image.tar
+        docker tag darthchungis/etheos:$FULL_VERSION darthchungis/etheos:latest
+    - name: Push latest docker image
+      run: docker push --all-tags darthchungis/etheos
+
+  #
+  # This stage assumes an existing deployment of etheos on Kubernetes, a publicly accessible API server, and a service account with credentials
+  # stored in the 'prod' environment context of the repo. It also assumes that the deployment (statefulset here) is configured to always pull
+  # the latest image. It simply restarts the rollout, which will re-pull the etheos image since it has been pushed in a prior job.
+  #
+  # A more robust solution would manage the deployment within this repo.
+  #
+  release:
+    name: Deploy latest etheos image
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-22.04
+    needs: publish-docker
+    environment:
+      name: prod
+    steps:
+    - name: Set the Kubernetes context
+      uses: azure/k8s-set-context@v4
+      with:
+        method: service-account
+        k8s-url: ${{ secrets.KUBERNETES_URL }}
+        k8s-secret: ${{ secrets.KUBERNETES_SECRET }}
+    - name: Restart etheos deployment
+      run: kubectl rollout restart statefulset etheos -n etheos
