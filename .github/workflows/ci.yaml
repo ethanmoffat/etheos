@@ -1,4 +1,4 @@
-name: CI Test
+name: CI Test and Deploy
 
 env:
   BASE_VERSION: "0.7.1"
@@ -113,7 +113,7 @@ jobs:
         export VERSION_NUMBER_WITH_OFFSET=$((1000+BUILD_WORKFLOW_RUN_NUMBER))
         export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
         git tag build/$FULL_VERSION
-        git push origin $FULL_VERSION
+        git push origin build/$FULL_VERSION
 
   publish-docker:
     name: Publish Docker Image
