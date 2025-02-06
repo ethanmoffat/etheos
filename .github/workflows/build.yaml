@@ -10,8 +10,8 @@ on:
   pull_request:
     branches:
       - master
-  schedule:
-    - cron: '8 0 * * 0' # 8 - hour (UTC) | 0 - minute | * - any day | * - any month | 0 - sunday
+#  schedule:
+#    - cron: '8 0 * * 0' # 8 - hour (UTC) | 0 - minute | * - any day | * - any month | 0 - sunday
 
 jobs:
   build:
