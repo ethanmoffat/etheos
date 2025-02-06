@@ -1,9 +1,18 @@
+FROM alpine:3.17.2 AS build
+
+WORKDIR /build
+COPY . .
+
+RUN apk add --update --no-cache git curl gnupg bash gcompat &&\
+    ./scripts/install-deps.sh &&\
+    ./build-linux.sh -c --sqlite ON --mariadb ON --sqlserver ON
+
 FROM alpine:3.17.2
 
 WORKDIR /etheos
 
 COPY scripts/install-deps.sh /tmp
-COPY install/ .
+COPY --from=build /build/install/ .
 
 # curl/gnupg :: required for package installs in install-deps
 # bash :: required to run install-deps

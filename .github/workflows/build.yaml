@@ -53,17 +53,11 @@ jobs:
   docker:
     name: Build Docker Image
     runs-on: ubuntu-22.04
-    needs: build
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         lfs: true
-    - name: Download Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: linux
-        path: install
     - name: Generate Build Number
       run: |
         echo "VERSION_NUMBER_WITH_OFFSET=$((1000+GITHUB_RUN_NUMBER))" >> $GITHUB_ENV
@@ -71,7 +65,6 @@ jobs:
       env:
         VERSION_NUMBER_WITH_OFFSET: ${{ env.VERSION_NUMBER_WITH_OFFSET }}
       run: |
-        chmod +x install/etheos
         export FULL_VERSION="$BASE_VERSION.$VERSION_NUMBER_WITH_OFFSET"
         docker build -t darthchungis/etheos:$FULL_VERSION .
         docker save -o image.tar darthchungis/etheos:$FULL_VERSION

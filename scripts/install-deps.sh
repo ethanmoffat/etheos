@@ -135,6 +135,7 @@ if [ "$SKIPSQLSERVER" == "false" ]; then
 
         # Install the package(s)
         apk add --allow-untrusted msodbcsql17_17.10.2.1-1_amd64.apk
+        PACKAGES="$PACKAGES unixodbc-dev"
     fi
 fi
 
@@ -156,9 +157,6 @@ elif [ "$PLATFORM_NAME" == "alpine" ]; then
 fi
 
 if [ "$SKIPCMAKE" == "false" ]; then
-#
-# NOTE: ALPINE SUPPORT WAS NOT ADDED FOR CMAKE
-#
     echo "Installing cmake..."
     if [ "$PLATFORM_NAME" == "ubuntu" ]; then
         apt-get remove -y cmake > /dev/null
