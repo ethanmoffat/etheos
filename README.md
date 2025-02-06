@@ -1,6 +1,7 @@
 # ETHEOS
 
 [![Build Status](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml)
+[![CI Test and Deploy](https://github.com/ethanmoffat/etheos/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/ci.yaml)
 
 ## Table of Contents
 

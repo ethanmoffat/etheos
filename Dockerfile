@@ -1,13 +1,14 @@
 FROM alpine:3.17.2
 
-COPY scripts/install-deps.sh /tmp
-COPY install/ /etheos
 WORKDIR /etheos
+
+COPY scripts/install-deps.sh /tmp
+COPY install/ .
 
 # curl/gnupg :: required for package installs in install-deps
 # bash :: required to run install-deps
 # gcompat :: compatibility layer for glibc in Alpine Linux. See: https://wiki.alpinelinux.org/wiki/Running_glibc_programs
-RUN rm -rf /etheos/config_local /etheos/test &&\
+RUN rm -rf config_local test &&\
     apk add --update --no-cache curl gnupg bash gcompat &&\
     /tmp/install-deps.sh --skip-cmake --skip-json &&\
     rm /tmp/install-deps.sh &&\
@@ -16,6 +17,8 @@ RUN rm -rf /etheos/config_local /etheos/test &&\
 
 USER etheos:etheos
 
+VOLUME /etheos/config_local /etheos/data
+
 EXPOSE 8078
 
-CMD [ "/etheos/etheos" ]
+CMD [ "./etheos" ]
