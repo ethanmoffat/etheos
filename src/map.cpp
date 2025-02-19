@@ -57,12 +57,12 @@ void map_spawn_chests(void *map_void)
 	{
 		bool needs_update = false;
 
-		std::vector<std::list<Map_Chest_Spawn>> spawns;
+		std::vector<std::list<Map_Chest_Spawn*>> spawns;
 		spawns.resize(chest->slots);
 
-		UTIL_FOREACH(chest->spawns, spawn)
+		UTIL_FOREACH_REF(chest->spawns, spawn)
 		{
-			if (spawn.last_taken + spawn.time*60.0 < current_time)
+			if (spawn.last_taken + spawn.spawn_random + spawn.time < current_time)
 			{
 				bool slot_used = false;
 
@@ -76,23 +76,30 @@ void map_spawn_chests(void *map_void)
 
 				if (!slot_used)
 				{
-					spawns[spawn.slot - 1].emplace_back(spawn);
+					spawns[spawn.slot - 1].emplace_back(&spawn);
 				}
 			}
 		}
+
+		double spawn_random = static_cast<double>(map->world->config["ChestSpawnRandomization"]);
+		bool spawn_random_is_pct = *static_cast<std::string>(map->world->config["ChestSpawnRandomization"]).rbegin() == '%';
 
 		UTIL_FOREACH(spawns, slot_spawns)
 		{
 			if (!slot_spawns.empty())
 			{
-				const Map_Chest_Spawn& spawn = *std::next(slot_spawns.cbegin(), util::rand(0, slot_spawns.size() - 1));
+				Map_Chest_Spawn* spawn = *std::next(slot_spawns.begin(), util::rand(0, slot_spawns.size() - 1));
 
-				chest->AddItem(spawn.item.id, spawn.item.amount, spawn.slot);
+
+				chest->AddItem(spawn->item.id, spawn->item.amount, spawn->slot);
 				needs_update = true;
 
 #ifdef DEBUG
-				Console::Dbg("Spawning chest item %i (x%i) on map %i", spawn.item.id, spawn.item.amount, map->id);
+				Console::Dbg("Spawning chest item %i (x%i) on map %i (timer %is | random %.2fs)", spawn->item.id, spawn->item.amount, map->id, static_cast<int>(spawn->time), spawn->spawn_random);
 #endif // DEBUG
+
+				double spawn_modifier = util::rand(double(0), spawn_random);
+				spawn->spawn_random = spawn_random_is_pct ? spawn_modifier * spawn->time : spawn_modifier;
 			}
 		}
 
@@ -353,7 +360,7 @@ Map::Map(int id, World *world)
 
 	if (!this->chests.empty())
 	{
-		TimeEvent *event = new TimeEvent(map_spawn_chests, this, 60.0, Timer::FOREVER);
+		TimeEvent *event = new TimeEvent(map_spawn_chests, this, 1.0, Timer::FOREVER);
 		this->world->timer.Register(event);
 	}
 
@@ -646,6 +653,9 @@ bool Map::Load()
 		SAFE_SEEK(fh, 4 * outersize, SEEK_CUR);
 	}
 
+	double spawn_random = static_cast<double>(this->world->config["ChestSpawnRandomization"]);
+	bool spawn_random_is_pct = *static_cast<std::string>(this->world->config["ChestSpawnRandomization"]).rbegin() == '%';
+
 	SAFE_READ(buf, sizeof(char), 1, fh);
 	outersize = PacketProcessor::Number(buf[0]);
 	for (int i = 0; i < outersize; ++i)
@@ -664,14 +674,23 @@ bool Map::Load()
 			Console::Wrn("A chest spawn on map %i uses a non-existent item (#%i at %ix%i)", this->id, itemid, x, y);
 		}
 
+		if (amount == 0)
+		{
+			Console::Wrn("A chest spawn on map %i has an amount of 0 (#%i at %ix%i) and will be ignored", this->id, itemid, x, y);
+			continue;
+		}
+
 		UTIL_FOREACH(this->chests, chest)
 		{
 			if (chest->x == x && chest->y == y)
 			{
 				Map_Chest_Spawn spawn;
 
+				double spawn_modifier = util::rand(double(0), spawn_random);
+
 				spawn.slot = slot+1;
-				spawn.time = time;
+				spawn.time = time * 60.0;
+				spawn.spawn_random = spawn_random_is_pct ? spawn_modifier * spawn.time : spawn_modifier;
 				spawn.last_taken = Timer::GetTime();
 				spawn.item.id = itemid;
 				spawn.item.amount = amount;

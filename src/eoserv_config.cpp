@@ -274,6 +274,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "MaxDrop"            , 10000000);
 	eoserv_config_default(config, "MaxChest"           , 10000000);
 	eoserv_config_default(config, "ChestSlots"         , 5);
+	eoserv_config_default(config, "ChestSpawnRandomization", 0);
 	eoserv_config_default(config, "MaxBank"            , 200);
 	eoserv_config_default(config, "BaseBankSize"       , 25);
 	eoserv_config_default(config, "BankSizeStep"       , 5);

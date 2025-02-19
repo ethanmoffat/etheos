@@ -176,8 +176,9 @@ struct Map_Chest_Spawn
 	int spawnid;
 	Map_Chest_Item item;
 	int slot;
-	short time;
+	double time;
 	double last_taken;
+	double spawn_random;
 };
 
 /**
