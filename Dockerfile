@@ -3,7 +3,7 @@ FROM alpine:3.17.2 AS build
 WORKDIR /build
 COPY . .
 
-RUN apk add --update --no-cache git curl gnupg bash gcompat &&\
+RUN apk add --update --no-cache git bash &&\
     ./scripts/install-deps.sh &&\
     ./build-linux.sh -c --sqlite ON --mariadb ON --sqlserver ON
 

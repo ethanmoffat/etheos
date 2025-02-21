@@ -68,7 +68,7 @@ if [ -z "$PLATFORM_VERSION" ]; then
     PLATFORM_VERSION=$(grep -oPi 'VERSION_ID=\K"(.+)"' /etc/os-release | sed -e 's/"//g')
 fi
 
-SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 6 7 8 3.17.2 "
+SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 6 7 8 3.17.0 3.17.2 "
 VERSION_IS_SUPPORTED=$(echo "$SUPPORTED_VERSIONS" | grep -oe " $PLATFORM_VERSION ")
 if [ -z "$PLATFORM_VERSION" ]; then
     >&2 echo "Unable to detect platform version! Check that /etc/os-release has a VERSION_ID= set (/etc/alpine-release for Alpine Linux)."
@@ -86,6 +86,8 @@ echo "Detected platform: $PLATFORM_NAME $PLATFORM_VERSION"
 PACKAGES="g++ make"
 if [ "$PLATFORM_NAME" == "rhel" ]; then
     PACKAGES="gcc-c++ make"
+elif [ "$PLATFORM_NAME" == "alpine" ]; then
+    PACKAGES="$PACKAGES gcompat"
 fi
 
 if [ "$SKIPMARIADB" == "false" ]; then
@@ -123,6 +125,8 @@ if [ "$SKIPSQLSERVER" == "false" ]; then
         yum remove -y unixODBC-utf16 unixODBC-utf16-devel > /dev/null
         PACKAGES="$PACKAGES msodbcsql17 unixODBC-devel"
     elif [ "$PLATFORM_NAME" == "alpine" ]; then
+        apk add --update curl gnupg
+
         # From: https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver16&tabs=ubuntu18-install%2Calpine17-install%2Cdebian8-install%2Credhat7-13-install%2Crhel7-offline#17
 
         # Download the desired package(s)

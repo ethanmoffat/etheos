@@ -565,6 +565,7 @@ bool Map::Load()
 				chest.x = xloc;
 				chest.y = yloc;
 				chest.slots = 0;
+				chest.key = 0;
 				this->chests.push_back(std::make_shared<Map_Chest>(chest));
 			}
 
