@@ -37,6 +37,11 @@ function main() {
       -t|--test)
         opt_test="true"
         ;;
+       -i|--install-all)
+		mariadb="ON"
+		sqlite="ON"
+		sqlserver="ON"
+		;;
       -h|--help)
         opt_help="true"
         break
@@ -154,6 +159,7 @@ function display_usage() {
   echo "  --mariadb (ON|OFF)          MariaDB/MySQL support [default: OFF]."
   echo "  --sqlite (ON|OFF)           SQLite support [default: OFF]."
   echo "  --sqlserver (ON|OFF)        SQL Server support [default: ON]."
+  echo "   -i --install-all 	        Build with support for all databases."	 
   echo "  -h --help                   Display this message."
 }
 
