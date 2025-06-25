@@ -1,7 +1,8 @@
 param (
     [switch]$SkipCMake,
     [switch]$SkipMariaDB,
-    [switch]$SkipSQLite
+    [switch]$SkipSQLite,
+    [string]$CMakeVersion = "3.31.6"
 )
 
 Add-Type -Assembly System.IO.Compression.FileSystem
@@ -51,7 +52,7 @@ if ($res) {
 
 if (-not $SkipCMake) {
     Write-Output "Installing CMake..."
-    choco install -y cmake --installargs '"ADD_CMAKE_TO_PATH=System"' | Out-Null
+     choco install -y cmake --version=$CMakeVersion --installargs '"ADD_CMAKE_TO_PATH=System"' | Out-Null
 
     refreshenv
     if (-not (Get-Command cmake)) {

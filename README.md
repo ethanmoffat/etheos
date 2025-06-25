@@ -74,7 +74,7 @@ A convenience script has been provided which installs each of the required depen
 
 ### Build and Install
 
-Run `./build-linux.sh -i` to build the source with support for all available database engines (default: SQL server) and install the project into a local directory (default: `install`) under the repository root.
+Run `./build-linux.sh` to build the source with support for the SQL Server database engine and install the project into a local directory (default: `install`) under the repository root. `./build-linux.sh -h` provides documentation of all options.
 
 ## Docker Image
 
@@ -128,10 +128,4 @@ For more information on authoring test scripts, see the output of `EOBot --help`
 
 ## Sample Servers
 
-Sample servers are hosted in different environments. These servers use SQL Server as a database backend. Servers use default assets from EO v28.
-
-1. `moffat.io:8078`
-   - ⚠️ This server is not guaranteed to be running the latest version
-
-2. `etheos.moffat.io:8078`
-   - This server is deployed on completion of successful CI builds
+A sample server using the SQL Server DB backend and default assets from EO v28 is available at `moffat.io:8078`. This server is redeployed via on successful CI runs.

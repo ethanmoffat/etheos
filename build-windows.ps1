@@ -68,6 +68,7 @@ foreach ($vsVersion in $vsVersions) {
     switch($versionMajor) {
         15 { $generator = "Visual Studio 15 2017" }
         16 { $generator = "Visual Studio 16 2019" }
+        17 { $generator = "Visual Studio 17 2022" }
     }
 
     if ($generator -and -not ($cmakeHelp -match $generator)) {
@@ -78,7 +79,7 @@ foreach ($vsVersion in $vsVersions) {
 }
 
 if (-not $generator) {
-    Write-Error "Unable to determine Visual Studio version. Is Visual Studio installed?"
+    Write-Error "Visual Studio not found or missing C++ toolchain."
     exit -1
 } else {
     Write-Output "Using generator: $generator"
