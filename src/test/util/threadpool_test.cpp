@@ -81,13 +81,8 @@ GTEST_TEST(ThreadPoolTests, QueueDoesWork)
 GTEST_TEST(ThreadPoolTests, QueueManyDoesAllWork)
 {
     const size_t numThreads = 10;
-
-    std::vector<bool> results;
-    results.resize(numThreads, false);
-
+    bool results[numThreads] = { false };
     Semaphore workDone(0, numThreads);
-
-    ASSERT_EQ(numThreads, results.size());
 
     auto workFunc = [&results, &workDone](const void * state)
     {

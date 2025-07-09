@@ -4,8 +4,8 @@ param (
     [switch]$Test,
     [switch]$Offline,
     [string]$SqlServer="ON",
-    [string]$MariaDB="OFF",
-    [string]$Sqlite="OFF",
+    [string]$MariaDB="ON",
+    [string]$Sqlite="ON",
     $BuildDir = "build"
 )
 

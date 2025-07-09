@@ -12,8 +12,8 @@ function main() {
   local opt_clean="false"
   local opt_help="false"
   local opt_test="false"
-  local mariadb="OFF"
-  local sqlite="OFF"
+  local mariadb="ON"
+  local sqlite="ON"
   local sqlserver="ON"
 
   local option

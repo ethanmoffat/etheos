@@ -397,6 +397,10 @@ PacketFamily PacketReader::Family() const
 
 unsigned int PacketReader::GetNumber(std::size_t length)
 {
+#ifndef WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
 	std::array<unsigned char, 4> bytes{{254, 254, 254, 254}};
 
 	size_t read_len = std::min(length, this->Remaining());
@@ -405,6 +409,9 @@ unsigned int PacketReader::GetNumber(std::size_t length)
 	this->pos += read_len;
 
 	return PacketProcessor::Number(bytes[0], bytes[1], bytes[2], bytes[3]);
+#ifndef WIN32
+#pragma GCC diagnostic pop
+#endif
 }
 
 unsigned char PacketReader::GetByte()

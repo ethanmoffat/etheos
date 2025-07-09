@@ -449,40 +449,48 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 				throw Database_OpenFailed("Unable to allocate ODBC connection handle");
 			}
 
-			char connStrBuff[4096] = { 0 };
-#ifdef _WIN32
-			auto driver_str = "SQL Server";
-#else
-			auto driver_str = "ODBC Driver 17 for SQL Server";
-#endif
-			if (db.empty())
-			{
-				sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};UID={%s};PWD={%s}",
-					driver_str,
-					this->host.c_str(),
-					this->port,
-					this->user.c_str(),
-					this->pass.c_str());
-			}
-			else
-			{
-				sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
-					driver_str,
-					this->host.c_str(),
-					this->port,
-					this->db.c_str(),
-					this->user.c_str(),
-					this->pass.c_str());
-			}
+			std::list<std::string> driver_strs;
+			driver_strs.push_back("SQL Server"); // Win32
+			driver_strs.push_back("ODBC Driver 17 for SQL Server"); // Most Linux distros
+			driver_strs.push_back("ODBC Driver 18 for SQL Server"); // Ubuntu 24.04
 
-			char sqlRetConnStr[1024] = { 0 };
-			ret = SQLDriverConnect(this->impl->hConn, NULL,
-				reinterpret_cast<SQLCHAR*>(connStrBuff),
-				SQL_NTS,
-				reinterpret_cast<SQLCHAR*>(sqlRetConnStr),
-				1024,
-				NULL,
-				SQL_DRIVER_NOPROMPT);
+			char connStrBuff[4096] = { 0 };
+			for (auto driver_str = driver_strs.cbegin(); driver_str != driver_strs.cend(); ++driver_str)
+			{
+				if (db.empty())
+				{
+					sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};UID={%s};PWD={%s}",
+						driver_str->c_str(),
+						this->host.c_str(),
+						this->port,
+						this->user.c_str(),
+						this->pass.c_str());
+				}
+				else
+				{
+					sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+						driver_str->c_str(),
+						this->host.c_str(),
+						this->port,
+						this->db.c_str(),
+						this->user.c_str(),
+						this->pass.c_str());
+				}
+
+				char sqlRetConnStr[1024] = { 0 };
+				ret = SQLDriverConnect(this->impl->hConn, NULL,
+					reinterpret_cast<SQLCHAR*>(connStrBuff),
+					SQL_NTS,
+					reinterpret_cast<SQLCHAR*>(sqlRetConnStr),
+					1024,
+					NULL,
+					SQL_DRIVER_NOPROMPT);
+
+				if (SQLSERVER_SUCCEEDED(ret))
+				{
+					break;
+				}
+			}
 
 			if (!SQLSERVER_SUCCEEDED(ret))
 			{
@@ -966,7 +974,7 @@ Database_Result Database::Query(const char *format, ...)
 
 	std::va_list ap;
 	va_start(ap, format);
-	QueryParameterPair queryState = std::move(this->ParseQueryArgs(format, ap));
+	QueryParameterPair queryState = this->ParseQueryArgs(format, ap);
 	va_end(ap);
 
 	std::string& finalquery = queryState.first;

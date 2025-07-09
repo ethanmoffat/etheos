@@ -26,7 +26,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install/test",
             "environment": [],
-            "console": "newExternalWindow"
+            "externalConsole": false
         },
         {
             "name": "Debug - Linux",
@@ -37,6 +37,18 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/install",
+            "environment": [],
+            "externalConsole": false
+        },
+        {
+            "name": "Debug - Tests - Linux",
+            "preLaunchTask": "Build (Linux) - Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/test/eoserv_test",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/install/test",
             "environment": [],
             "externalConsole": false
         }

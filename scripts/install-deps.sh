@@ -68,7 +68,7 @@ if [ -z "$PLATFORM_VERSION" ]; then
     PLATFORM_VERSION=$(grep -oPi 'VERSION_ID=\K"(.+)"' /etc/os-release | sed -e 's/"//g')
 fi
 
-SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 6 7 8 3.17.0 3.17.2 "
+SUPPORTED_VERSIONS=" 14.04 16.04 18.04 18.10 19.04 20.04 22.04 24.04 6 7 8 3.17.0 3.17.2 "
 VERSION_IS_SUPPORTED=$(echo "$SUPPORTED_VERSIONS" | grep -oe " $PLATFORM_VERSION ")
 if [ -z "$PLATFORM_VERSION" ]; then
     >&2 echo "Unable to detect platform version! Check that /etc/os-release has a VERSION_ID= set (/etc/alpine-release for Alpine Linux)."
@@ -113,11 +113,17 @@ fi
 if [ "$SKIPSQLSERVER" == "false" ]; then
     if [ "$PLATFORM_NAME" == "ubuntu" ]; then
         if [ ! -f '/etc/apt/sources.list.d/mssql-release.list' ]; then
-            curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+            if [ "$PLATFORM_VERSION" == "24.04" ]; then
+                curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+                PACKAGES="$PACKAGES msodbcsql18 unixodbc-dev"
+            else
+                curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+                PACKAGES="$PACKAGES msodbcsql17 unixodbc-dev"
+            fi
+
             curl https://packages.microsoft.com/config/ubuntu/${PLATFORM_VERSION}/prod.list > /etc/apt/sources.list.d/mssql-release.list
         fi
         apt-get update > /dev/null
-        PACKAGES="$PACKAGES msodbcsql17 unixodbc-dev"
     elif [ "$PLATFORM_NAME" == "rhel" ]; then
         if [ ! -f '/etc/yum.repos.d/mssql-release.repo' ]; then
             curl https://packages.microsoft.com/config/rhel/${PLATFORM_VERSION}/prod.repo > /etc/yum.repos.d/mssql-release.repo
@@ -134,7 +140,7 @@ if [ "$SKIPSQLSERVER" == "false" ]; then
 
         # Verify signature
         curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac7-8d28ddafb39b/msodbcsql17_17.10.2.1-1_amd64.sig
-        curl https://packages.microsoft.com/keys/microsoft.asc  | gpg --import -
+        curl https://packages.microsoft.com/keys/microsoft.asc | gpg --import -
         gpg --verify msodbcsql17_17.10.2.1-1_amd64.sig msodbcsql17_17.10.2.1-1_amd64.apk
 
         # Install the package(s)

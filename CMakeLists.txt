@@ -16,7 +16,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 option(EOSERV_WANT_MYSQL "Enables MariaDB/MySQL server database support." ON)
 option(EOSERV_WANT_SQLITE "Enables SQLite3 embedded database support." ON)
-option(EOSERV_WANT_SQLSERVER "Enables Microsoft SQL Server database support." OFF)
+option(EOSERV_WANT_SQLSERVER "Enables Microsoft SQL Server database support." ON)
 
 option(EOSERV_USE_PRECOMPILED_HEADERS "Uses a precompiled header to speed up compilation." ON)
 option(EOSERV_USE_UNITY_BUILD "Compiles multiple source files in one translation unit to speed up compilation." ON)

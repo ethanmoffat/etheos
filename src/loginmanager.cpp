@@ -144,7 +144,7 @@ AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EO
             // make a copy of the password for input to the salting function
             // original password needs to be preserved for update of password version (if necessary)
             util::secure_string passwordCopy(std::string(password.str()));
-            util::secure_string saltedPassword = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(passwordCopy)));
+            util::secure_string saltedPassword = Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(passwordCopy));
             if (this->_passwordHashers[dbPasswordVersion]->check(saltedPassword.str(), dbPasswordHash))
             {
                 if (dbPasswordVersion < currentPasswordVersion)
