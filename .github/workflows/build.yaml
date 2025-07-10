@@ -20,13 +20,13 @@ jobs:
       matrix:
         os:
         - ubuntu-22.04
-        - windows-2019
+        - windows-2022
         include:
         - os: ubuntu-22.04
           name: linux
           deps: sudo ./install-deps.sh
           build: ./build-linux.sh -c --sqlserver ON --mariadb ON --sqlite ON
-        - os: windows-2019
+        - os: windows-2022
           name: windows
           deps: .\install-deps.ps1 -SkipCMake
           build: .\build-windows.ps1 -Clean -SqlServer ON -MariaDB ON -Sqlite ON
