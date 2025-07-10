@@ -19,7 +19,7 @@ public:
         this->engine = type;
     }
 
-    MOCK_METHOD(void, Connect, (Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db), (override));
+    MOCK_METHOD(void, Connect, (Database::Engine type, const std::string& host, unsigned short port, const std::string& authType, const std::string& user, const std::string& pass, const std::string& db), (override));
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(Database_Result, RawQuery, (const char* query, bool tx_control, bool prepared), (override));
     MOCK_METHOD(std::string, Escape, (const std::string& esc), (override));

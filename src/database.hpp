@@ -113,7 +113,7 @@ class Database
 		bool connected;
 		Engine engine;
 
-		std::string host, user, pass, db;
+		std::string host, authtype, user, pass, db;
 		unsigned int port;
 
 		bool in_transaction;
@@ -147,13 +147,13 @@ class Database
 		 * @param connectnow Whether to connect now or on a query request
 		 * @throw Database_OpenFailed
 		 */
-		Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db = "", bool connectnow = true);
+		Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& authtype, const std::string& user, const std::string& pass, const std::string& db = "", bool connectnow = true);
 
 		/**
 		 * Opens a connection to a database
 		 * @throw Database_OpenFailed
 		 */
-		virtual void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db = "");
+		virtual void Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& authtype, const std::string& user, const std::string& pass, const std::string& db = "");
 
 		/**
 		 * Disconnects from the database

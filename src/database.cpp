@@ -149,6 +149,7 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 {
 	auto dbType = util::lowercase(std::string(config["DBType"]));
 	auto dbHost = std::string(config["DBHost"]);
+	auto dbAuthType = util::lowercase(std::string(config["DBAuthType"]));
 	auto dbUser = std::string(config["DBUser"]);
 	auto dbPass = std::string(config["DBPass"]);
 	auto dbName = std::string(config["DBName"]);
@@ -220,14 +221,14 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 			{
 				// for thread safety, SQLite access is serialized (SQLite calls use an internal mutex to serialize access)
 				// a shared connection is used to ensure that no concurrent access to the database file occurs across etheos threadpool threads
-				this->_sqliteConnection = std::move(std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName));
+				this->_sqliteConnection = std::move(std::make_shared<Database>(engine, dbHost, dbPort, dbAuthType, dbUser, dbPass, dbName));
 			}
 
 			return this->_sqliteConnection;
 		}
 		else
 		{
-			return std::make_shared<Database>(engine, dbHost, dbPort, dbUser, dbPass, dbName);
+			return std::make_shared<Database>(engine, dbHost, dbPort, dbAuthType, dbUser, dbPass, dbName);
 		}
 	}
 	catch (Database_OpenFailed& ex)
@@ -245,13 +246,13 @@ std::shared_ptr<Database> DatabaseFactory::CreateDatabase(Config& config, bool l
 
 		Console::Wrn("Database '%s' does not exist. Attempting to create for engine '%s'", dbName.c_str(), engineStr.c_str());
 
-		Database createDbConn(engine, dbHost, dbPort, dbUser, dbPass);
+		Database createDbConn(engine, dbHost, dbPort, dbAuthType, dbUser, dbPass);
 		createDbConn.RawQuery(std::string(std::string("CREATE DATABASE ") + dbName).c_str());
 		createDbConn.RawQuery(std::string(std::string("USE ") + dbName).c_str());
 		createDbConn.Close();
 	}
 
-	return std::shared_ptr<Database>(new Database(engine, dbHost, dbPort, dbUser, dbPass, dbName));
+	return std::shared_ptr<Database>(new Database(engine, dbHost, dbPort, dbAuthType, dbUser, dbPass, dbName));
 }
 
 Database::Bulk_Query_Context::Bulk_Query_Context(Database& db)
@@ -300,19 +301,20 @@ Database::Database()
 	, in_transaction(false)
 { }
 
-Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
+Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& authtype, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
 	: impl(new impl_)
 	, connected(false)
 	, in_transaction(false)
 {
 	if (connectnow)
 	{
-		this->Connect(type, host, port, user, pass, db);
+		this->Connect(type, host, port, authtype, user, pass, db);
 	}
 	else
 	{
 		this->engine = type;
 		this->host = host;
+		this->authtype = authtype;
 		this->user = user;
 		this->pass = pass;
 		this->port = port;
@@ -320,10 +322,11 @@ Database::Database(Database::Engine type, const std::string& host, unsigned shor
 	}
 }
 
-void Database::Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& user, const std::string& pass, const std::string& db)
+void Database::Connect(Database::Engine type, const std::string& host, unsigned short port, const std::string& authtype, const std::string& user, const std::string& pass, const std::string& db)
 {
 	this->engine = type;
 	this->host = host;
+	this->authtype = authtype;
 	this->user = user;
 	this->pass = pass;
 	this->port = port;
@@ -457,22 +460,35 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			char connStrBuff[4096] = { 0 };
 			for (auto driver_str = driver_strs.cbegin(); driver_str != driver_strs.cend(); ++driver_str)
 			{
+				int strlen = 0;
 				if (db.empty())
 				{
-					sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};UID={%s};PWD={%s}",
+					strlen = sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d}",
 						driver_str->c_str(),
 						this->host.c_str(),
-						this->port,
-						this->user.c_str(),
-						this->pass.c_str());
+						this->port);
 				}
 				else
 				{
-					sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s};UID={%s};PWD={%s}",
+					strlen = sprintf(connStrBuff, "DRIVER={%s};SERVER={%s,%d};DATABASE={%s}",
 						driver_str->c_str(),
 						this->host.c_str(),
 						this->port,
-						this->db.c_str(),
+						this->db.c_str());
+				}
+
+				if (this->authtype == "uami")
+				{
+					sprintf(connStrBuff + strlen, ";UID={%s};Authentication=ActiveDirectoryMsi;Encrypt=yes;",
+						this->user.c_str());
+				}
+				else if (this->authtype == "sami")
+				{
+					sprintf(connStrBuff + strlen, ";Authentication=ActiveDirectoryMsi;Encrypt=yes;");
+				}
+				else
+				{
+					sprintf(connStrBuff + strlen, ";UID={%s};PWD={%s};",
 						this->user.c_str(),
 						this->pass.c_str());
 				}

@@ -62,6 +62,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "SeoseCompatKey"     , "D4q9_f30da%#q02#)8");
 	eoserv_config_default(config, "DBType"             , "mysql");
 	eoserv_config_default(config, "DBHost"             , "localhost");
+	eoserv_config_default(config, "DBAuthType"         , "sql");
 	eoserv_config_default(config, "DBUser"             , "eoserv");
 	eoserv_config_default(config, "DBPass"             , "eoserv");
 	eoserv_config_default(config, "DBPassFile"         , "");
