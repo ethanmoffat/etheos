@@ -105,6 +105,8 @@ class Database
 			SqlServer
 		};
 
+	static void GlobalFree();
+
 	protected:
 		struct impl_;
 

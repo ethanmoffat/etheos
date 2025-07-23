@@ -42,7 +42,7 @@ volatile std::sig_atomic_t eoserv_sig_rehash = false;
 volatile bool eoserv_running = true;
 
 std::unique_ptr<EOServer> server;
-void DumpWorld(std::unique_ptr<EOServer>& server);
+void Cleanup(std::unique_ptr<EOServer>& server);
 
 #ifdef SIGHUP
 static void eoserv_rehash(int signal)
@@ -76,7 +76,7 @@ static void eoserv_crash(int signal)
 	Console::Err("EOSERV is dying! %s", extype);
 
 	// todo: doing this from a crash signal handler is potentially pretty dangerous
-	DumpWorld(server);
+	Cleanup(server);
 
 #ifdef DEBUG
 	std::signal(signal, SIG_DFL);
@@ -518,43 +518,43 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 	}
 	catch (Socket_Exception &e)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("%s: %s", e.what(), e.error());
 		return 1;
 	}
 	catch (Database_Exception &e)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("%s: %s", e.what(), e.error());
 		return 1;
 	}
 	catch (std::runtime_error &e)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("Runtime Error: %s", e.what());
 		return 1;
 	}
 	catch (std::logic_error &e)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("Logic Error: %s", e.what());
 		return 1;
 	}
 	catch (std::exception &e)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("Uncaught Exception: %s", e.what());
 		return 1;
 	}
 	catch (...)
 	{
-		DumpWorld(server);
+		Cleanup(server);
 		Console::Err("Uncaught Exception");
 		return 1;
 	}
 #endif // DEBUG_EXCEPTIONS
 
-	DumpWorld(server);
+	Cleanup(server);
 
 #ifdef WIN32
 	if (!eoserv_sig_reload)
@@ -568,10 +568,12 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 	return 0;
 }
 
-void DumpWorld(std::unique_ptr<EOServer>& server)
+void Cleanup(std::unique_ptr<EOServer>& server)
 {
 	if (!server || !server->world)
 		return;
+
+	Database::GlobalFree();
 
 	server->world->DumpToFile(server->world->config["WorldDumpFile"]);
 }

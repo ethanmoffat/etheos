@@ -54,13 +54,31 @@ struct Database::impl_
 #ifdef DATABASE_SQLITE
 		sqlite3 *sqlite_handle;
 #endif // DATABASE_SQLITE
-#ifdef DATABASE_SQLSERVER
-		SQLHENV hEnv;
-		SQLHDBC hConn;
-		HSTMT hstmt;
-#endif //DATABASE_SQLSERVER
 	};
+
+#ifdef DATABASE_SQLSERVER
+	static SQLHENV hEnv;
+	SQLHDBC hConn;
+	HSTMT hstmt;
+
+	impl_()
+	{
+		hConn = SQL_NULL_HDBC;
+		hstmt = SQL_NULL_HSTMT;
+	}
+#endif //DATABASE_SQLSERVER
+
+	static void GlobalFree()
+	{
+#ifdef DATABASE_SQLSERVER
+		SQLFreeHandle(SQL_HANDLE_ENV, impl_::hEnv);
+#endif //DATABASE_SQLSERVER
+	}
 };
+
+#ifdef DATABASE_SQLSERVER
+SQLHENV Database::impl_::hEnv = SQL_NULL_HENV;
+#endif //DATABASE_SQLSERVER
 
 #ifdef DATABASE_SQLSERVER
 void HandleSqlServerError(SQLSMALLINT handleType, SQLHANDLE handle, SQLRETURN code, void (*consoleFunc)(const char*, ...), std::list<int>* errorCodes = nullptr)
@@ -294,6 +312,11 @@ Database::Bulk_Query_Context::~Bulk_Query_Context()
 		db.Rollback();
 }
 
+void Database::GlobalFree()
+{
+	Database::impl_::GlobalFree();
+}
+
 Database::Database()
 	: impl(new impl_)
 	, connected(false)
@@ -425,25 +448,48 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			// Set connected so that if a failure occurs the handles get closed properly in the destructor
 			this->connected = true;
 
-			SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &this->impl->hEnv);
-			if (!SQLSERVER_SUCCEEDED(ret))
+			SQLRETURN ret = SQL_ERROR;
+			if (impl_::hEnv == SQL_NULL_HENV)
 			{
-				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
-				this->connected = false;
-				throw Database_OpenFailed("Unable to allocate ODBC environment handle");
+				// Enable connection pooling since sessions are treated ephemerally by etheos application code
+				// This will cause existing sessions to be reused, with idle sessions being automatically close by the driver
+				ret = SQLSetEnvAttr(NULL, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_HENV, 0);
+				if (!SQLSERVER_SUCCEEDED(ret))
+				{
+					this->connected = false;
+					throw Database_OpenFailed("Failed to enable connection pooling");
+				}
+
+				ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &impl_::hEnv);
+				if (!SQLSERVER_SUCCEEDED(ret))
+				{
+					if (ret == SQL_ERROR)
+						HandleSqlServerError(SQL_HANDLE_ENV, impl_::hEnv, ret, Console::Err);
+					this->connected = false;
+					throw Database_OpenFailed("Unable to allocate ODBC environment handle");
+				}
+
+				ret = SQLSetEnvAttr(impl_::hEnv, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
+				if (!SQLSERVER_SUCCEEDED(ret))
+				{
+					if (ret == SQL_ERROR)
+						HandleSqlServerError(SQL_HANDLE_ENV, impl_::hEnv, ret, Console::Err);
+					this->connected = false;
+					throw Database_OpenFailed("Unable to set ODBC version attribute");
+				}
+
+				// Enable relaxed matching for connection pooling
+				ret = SQLSetEnvAttr(impl_::hEnv, SQL_ATTR_CP_MATCH, (SQLPOINTER)SQL_CP_RELAXED_MATCH, 0);
+				if (!SQLSERVER_SUCCEEDED(ret))
+				{
+					if (ret == SQL_ERROR)
+						HandleSqlServerError(SQL_HANDLE_ENV, impl_::hEnv, ret, Console::Err);
+					this->connected = false;
+					throw Database_OpenFailed("Failed to enable connection pooling relaxed matching");
+				}
 			}
 
-			ret = SQLSetEnvAttr(this->impl->hEnv, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
-			if (!SQLSERVER_SUCCEEDED(ret))
-			{
-				if (ret == SQL_ERROR)
-					HandleSqlServerError(SQL_HANDLE_ENV, this->impl->hEnv, ret, Console::Err);
-				this->connected = false;
-				throw Database_OpenFailed("Unable to set ODBC version attribute");
-			}
-
-			ret = SQLAllocHandle(SQL_HANDLE_DBC, this->impl->hEnv, &this->impl->hConn);
+			ret = SQLAllocHandle(SQL_HANDLE_DBC, impl_::hEnv, &this->impl->hConn);
 			if (!SQLSERVER_SUCCEEDED(ret))
 			{
 				if (ret == SQL_ERROR)
@@ -573,7 +619,6 @@ void Database::Close()
 			SQLFreeHandle(SQL_HANDLE_STMT, this->impl->hstmt);
 			SQLDisconnect(this->impl->hConn);
 			SQLFreeHandle(SQL_HANDLE_DBC, this->impl->hConn);
-			SQLFreeHandle(SQL_HANDLE_ENV, this->impl->hEnv);
 #endif // DATABASE_SQLSERVER
 			break;
 	}
