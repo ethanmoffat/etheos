@@ -209,7 +209,7 @@ template <class ENF> struct ENF_Data_Base
 	short vendor_id;
 
 	int hp;
-	unsigned short exp;
+	int exp;
 	short mindam;
 	short maxdam;
 
