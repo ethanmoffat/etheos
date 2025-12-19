@@ -9,6 +9,8 @@
 
 #include "fwd/world.hpp"
 
+#include "config.hpp"
+#include "database.hpp"
 #include "fwd/character.hpp"
 #include "fwd/command_source.hpp"
 #include "fwd/eodata.hpp"
@@ -19,17 +21,15 @@
 #include "fwd/party.hpp"
 #include "fwd/player.hpp"
 #include "fwd/quest.hpp"
-#include "config.hpp"
-#include "database.hpp"
-#include "i18n.hpp"
 #include "hash.hpp"
-#include "map.hpp"
+#include "i18n.hpp"
 #include "loginmanager.hpp"
+#include "map.hpp"
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"
-#include "util/secure_string.hpp"
 #include "util/async.hpp"
+#include "util/secure_string.hpp"
 
 #include <array>
 #include <list>
@@ -38,177 +38,184 @@
 #include <string>
 #include <vector>
 
-struct Board_Post
-{
-	short id;
-	std::string author;
-	int author_admin;
-	std::string subject;
-	std::string body;
-	double time;
+struct Board_Post {
+  short id;
+  std::string author;
+  int author_admin;
+  std::string subject;
+  std::string body;
+  double time;
 };
 
-struct Board
-{
-	int id;
-	short last_id;
-	std::list<Board_Post *> posts;
+struct Board {
+  int id;
+  short last_id;
+  std::list<Board_Post *> posts;
 
-	Board(int id_) : id(id_), last_id(0) { }
+  Board(int id_) : id(id_), last_id(0) {}
 };
 
-struct Home
-{
-	std::string id;
-	std::string name;
-	short map;
-	unsigned char x;
-	unsigned char y;
-	int level;
-	int race;
-	int innkeeper_vend;
-	short sleep_map;
-	unsigned char sleep_x;
-	unsigned char sleep_y;
+struct Home {
+  std::string id;
+  std::string name;
+  short map;
+  unsigned char x;
+  unsigned char y;
+  int level;
+  int race;
+  int innkeeper_vend;
+  short sleep_map;
+  unsigned char sleep_x;
+  unsigned char sleep_y;
 
-	Home() : map(1), x(0), y(0),
-			 level(-1), race(-1), innkeeper_vend(0),
-			 sleep_map(0), sleep_x(0), sleep_y(0) { }
+  Home()
+      : map(1), x(0), y(0), level(-1), race(-1), innkeeper_vend(0),
+        sleep_map(0), sleep_x(0), sleep_y(0) {}
 };
 
 /**
- * Object which holds and manages all maps and characters on the server, as well as timed events
- * Only one of these should exist per server
+ * Object which holds and manages all maps and characters on the server, as well
+ * as timed events Only one of these should exist per server
  */
-class World
-{
-	private:
-		std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
-		std::unique_ptr<LoginManager> loginManager;
-		std::shared_ptr<DatabaseFactory> databaseFactory;
+class World {
+private:
+  std::unordered_map<HashFunc, std::shared_ptr<Hasher>> passwordHashers;
+  std::unique_ptr<LoginManager> loginManager;
+  std::shared_ptr<DatabaseFactory> databaseFactory;
 
-		std::map<std::string, bool> pending_logins;
-		std::mutex pending_logins_mutex;
-	protected:
-		int last_character_id;
+  std::map<std::string, bool> pending_logins;
+  std::mutex pending_logins_mutex;
 
-		void UpdateConfig();
+protected:
+  int last_character_id;
 
-	public:
-		Timer timer;
+  void UpdateConfig();
 
-		EOServer *server;
-		std::shared_ptr<Database> db;
+public:
+  Timer timer;
 
-		GuildManager *guildmanager;
+  EOServer *server;
+  std::shared_ptr<Database> db;
 
-		EIF *eif;
-		ENF *enf;
-		ESF *esf;
-		ECF *ecf;
+  GuildManager *guildmanager;
 
-		std::vector<std::unique_ptr<NPC_Data>> npc_data;
+  EIF *eif;
+  ENF *enf;
+  ESF *esf;
+  ECF *ecf;
 
-		Config config;
-		Config admin_config;
-		Config drops_config;
-		Config shops_config;
-		Config arenas_config;
-		Config formulas_config;
-		Config home_config;
-		Config skills_config;
-		Config speech_config;
+  std::vector<std::unique_ptr<NPC_Data>> npc_data;
 
-		I18N i18n;
+  Config config;
+  Config admin_config;
+  Config drops_config;
+  Config shops_config;
+  Config arenas_config;
+  Config formulas_config;
+  Config home_config;
+  Config skills_config;
+  Config speech_config;
+  std::map<short, short> pet_config;
 
-		std::vector<Character *> characters;
-		std::vector<Party *> parties;
-		std::vector<Map *> maps;
-		std::vector<std::shared_ptr<Home>> homes;
-		std::map<short, std::shared_ptr<Quest>> quests;
+  I18N i18n;
 
-		std::array<Board *, 8> boards;
+  std::vector<Character *> characters;
+  std::vector<Party *> parties;
+  std::vector<Map *> maps;
+  std::vector<std::shared_ptr<Home>> homes;
+  std::map<short, std::shared_ptr<Quest>> quests;
 
-		std::array<int, 254> exp_table;
-		std::vector<int> instrument_ids;
+  std::array<Board *, 8> boards;
 
-		int admin_count;
+  std::array<int, 254> exp_table;
+  std::vector<int> instrument_ids;
 
-		World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config);
+  int admin_count;
 
-		void Initialize();
+  World(std::shared_ptr<DatabaseFactory> databaseFactory,
+        const Config &eoserv_config, const Config &admin_config);
 
-		void DumpToFile(const std::string& fileName);
-		void RestoreFromDump(const std::string& fileName);
+  void Initialize();
+  void LoadPets();
 
-		void UpdateAdminCount(int admin_count);
-		void IncAdminCount() { UpdateAdminCount(this->admin_count + 1); }
-		void DecAdminCount() { UpdateAdminCount(this->admin_count - 1); }
+  void DumpToFile(const std::string &fileName);
+  void RestoreFromDump(const std::string &fileName);
 
-		void Command(std::string command, const std::vector<std::string>& arguments, Command_Source* from = 0);
+  void UpdateAdminCount(int admin_count);
+  void IncAdminCount() { UpdateAdminCount(this->admin_count + 1); }
+  void DecAdminCount() { UpdateAdminCount(this->admin_count - 1); }
 
-		void LoadHome();
+  void Command(std::string command, const std::vector<std::string> &arguments,
+               Command_Source *from = 0);
 
-		int GenerateCharacterID();
-		unsigned short GenerateOperationID(std::function<unsigned short(const EOClient *)> get_id) const;
-		int GenerateClientID();
+  void LoadHome();
 
-		void Login(Character *);
-		void Logout(Character *);
+  int GenerateCharacterID();
+  unsigned short GenerateOperationID(
+      std::function<unsigned short(const EOClient *)> get_id) const;
+  int GenerateClientID();
 
-		void Msg(Command_Source *from, std::string message, bool echo = true);
-		void AdminMsg(Command_Source *from, std::string message, int minlevel = ADMIN_GUARDIAN, bool echo = true);
-		void AnnounceMsg(Command_Source *from, std::string message, bool echo = true);
-		void ServerMsg(std::string message);
-		void AdminReport(Character *from, std::string reportee, std::string message);
-		void AdminRequest(Character *from, std::string message);
+  void Login(Character *);
+  void Logout(Character *);
 
-		void Reboot();
-		void Reboot(int seconds, std::string reason);
+  void Msg(Command_Source *from, std::string message, bool echo = true);
+  void AdminMsg(Command_Source *from, std::string message,
+                int minlevel = ADMIN_GUARDIAN, bool echo = true);
+  void AnnounceMsg(Command_Source *from, std::string message, bool echo = true);
+  void ServerMsg(std::string message);
+  void AdminReport(Character *from, std::string reportee, std::string message);
+  void AdminRequest(Character *from, std::string message);
 
-		void Rehash();
-		void ReloadPub(bool quiet = false);
-		void ReloadQuests();
+  void Reboot();
+  void Reboot(int seconds, std::string reason);
 
-		void Kick(Command_Source *from, Character *victim, bool announce = true);
-		void Jail(Command_Source *from, Character *victim, bool announce = true);
-		void Unjail(Command_Source *from, Character *victim);
-		void Ban(Command_Source *from, Character *victim, int duration, bool announce = true);
-		void Mute(Command_Source *from, Character *victim, bool announce = true);
+  void Rehash();
+  void ReloadPub(bool quiet = false);
+  void ReloadQuests();
 
-		int CheckBan(const std::string *username, const IPAddress *address, const int *hdid);
+  void Kick(Command_Source *from, Character *victim, bool announce = true);
+  void Jail(Command_Source *from, Character *victim, bool announce = true);
+  void Unjail(Command_Source *from, Character *victim);
+  void Ban(Command_Source *from, Character *victim, int duration,
+           bool announce = true);
+  void Mute(Command_Source *from, Character *victim, bool announce = true);
 
-		Character *GetCharacter(std::string name);
-		Character *GetCharacterReal(std::string real_name);
-		Character *GetCharacterPID(unsigned int id);
-		Character *GetCharacterCID(unsigned int id);
+  int CheckBan(const std::string *username, const IPAddress *address,
+               const int *hdid);
 
-		Map *GetMap(short id);
-		const NPC_Data* GetNpcData(short id) const;
-		std::shared_ptr<Home> GetHome(const Character *) const;
-		std::shared_ptr<Home> GetHome(std::string);
+  Character *GetCharacter(std::string name);
+  Character *GetCharacterReal(std::string real_name);
+  Character *GetCharacterPID(unsigned int id);
+  Character *GetCharacterCID(unsigned int id);
 
-		bool CharacterExists(std::string name);
-		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
-		void DeleteCharacter(std::string name);
+  Map *GetMap(short id);
+  const NPC_Data *GetNpcData(short id) const;
+  std::shared_ptr<Home> GetHome(const Character *) const;
+  std::shared_ptr<Home> GetHome(std::string);
 
-		Player *PlayerFactory(std::string username);
-		AsyncOperation<AccountCredentials, LoginReply>* CheckCredential(EOClient* client);
-		AsyncOperation<PasswordChangeInfo, bool>* ChangePassword(EOClient* client);
+  bool CharacterExists(std::string name);
+  Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle,
+                             int haircolor, Skin);
+  void DeleteCharacter(std::string name);
 
-		AsyncOperation<AccountCreateInfo, bool>* CreateAccount(EOClient* client);
+  Player *PlayerFactory(std::string username);
+  AsyncOperation<AccountCredentials, LoginReply> *
+  CheckCredential(EOClient *client);
+  AsyncOperation<PasswordChangeInfo, bool> *ChangePassword(EOClient *client);
 
-		bool PlayerExists(std::string username);
-		bool PlayerOnline(std::string username);
-		void SetPendingLogin(const std::string& username, bool is_pending);
-		bool GetPendingLogin(const std::string& username);
+  AsyncOperation<AccountCreateInfo, bool> *CreateAccount(EOClient *client);
 
-		bool PKExcept(const Map *map);
-		bool PKExcept(int mapid);
+  bool PlayerExists(std::string username);
+  bool PlayerOnline(std::string username);
+  void SetPendingLogin(const std::string &username, bool is_pending);
+  bool GetPendingLogin(const std::string &username);
 
-		bool IsInstrument(int graphic_id);
+  bool PKExcept(const Map *map);
+  bool PKExcept(int mapid);
 
-		~World();
+  bool IsInstrument(int graphic_id);
+
+  ~World();
 };
 
 #endif // WORLD_HPP_INCLUDED

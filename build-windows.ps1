@@ -33,8 +33,32 @@ function EnsureMariaDB() {
     Write-Warning "Warning: no MariaDB found in `$env:PATH - CMake may not be able to find the dependency"
 }
 
-if (-not (Get-Command cmake)) {
-    Write-Error "CMake is not installed. Please install CMake before running this script."
+if (-not (Get-Command vswhere -ErrorAction SilentlyContinue)) {
+    $vswherePath = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswherePath) {
+        Write-Output "Found vswhere at $vswherePath"
+        $env:PATH = "$(Split-Path $vswherePath);$env:PATH"
+    } else {
+        Write-Warning "vswhere not found in PATH or standard location."
+    }
+}
+
+if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+    # Try to find CMake via VS
+    if (Get-Command vswhere -ErrorAction SilentlyContinue) {
+        $vsPath = vswhere -latest -requires Microsoft.VisualStudio.Component.VC.CMake.Project -property installationPath
+        if ($vsPath) {
+            $cmakePath = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+            if (Test-Path $cmakePath) {
+                Write-Output "Found CMake at $cmakePath"
+                $env:PATH = "$cmakePath;$env:PATH"
+            }
+        }
+    }
+}
+
+if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+    Write-Error "CMake is not installed or could not be found. Please install CMake before running this script."
     exit -1
 }
 

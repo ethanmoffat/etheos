@@ -1210,7 +1210,7 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction) {
 
   bool adminghost = (from->ENF().type == ENF::Aggressive || from->parent);
 
-  if (!this->Walkable(target_x, target_y, !from->owner) ||
+  if (!this->Walkable(target_x, target_y, true) ||
       this->Occupied(target_x, target_y, Map::PlayerAndNPC, adminghost)) {
     return WalkFail;
   }
@@ -1703,7 +1703,7 @@ bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target,
 
   if (target != Map::PlayerOnly) {
     UTIL_FOREACH(this->npcs, npc) {
-      if (npc->alive && npc->x == x && npc->y == y && !npc->ghost) {
+      if (npc->alive && npc->x == x && npc->y == y) {
         return true;
       }
     }
@@ -2572,19 +2572,3 @@ NPC *Map::GetNPCIndex(unsigned char index) {
 
 #undef SAFE_SEEK
 #undef SAFE_READ
-void Map::AddNPC(NPC *npc) {
-  npc->index = this->GenerateNPCIndex();
-  this->npcs.push_back(npc);
-}
-
-void Map::DelNPC(NPC *npc) {
-  UTIL_FOREACH_CREF(npc->damagelist, opponent) {
-    opponent->attacker->unregister_npc.erase(
-        std::remove(UTIL_RANGE(opponent->attacker->unregister_npc), npc),
-        opponent->attacker->unregister_npc.end());
-  }
-
-  this->npcs.erase(std::remove(UTIL_RANGE(this->npcs), npc), this->npcs.end());
-
-  delete npc;
-}
