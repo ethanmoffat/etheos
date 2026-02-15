@@ -143,6 +143,10 @@ void Learn(const std::vector<std::string>& arguments, Character* from)
 		builder.AddInt(from->HasItem(1));
 		from->Send(builder);
 	}
+	else
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("skill_not_found"));
+	}
 
 	if (level >= 0)
 	{
@@ -158,6 +162,116 @@ void Learn(const std::vector<std::string>& arguments, Character* from)
 			builder.AddShort(it->level);
 			from->Send(builder);
 		}
+	}
+}
+
+void Teach(const std::vector<std::string>& arguments, Character* from)
+{
+	Character* victim = from->SourceWorld()->GetCharacter(arguments[0]);
+
+	if (!victim || victim->nowhere)
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("character_not_found"));
+		return;
+	}
+
+	if (victim->SourceAccess() >= from->SourceAccess())
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("command_access_denied"));
+		return;
+	}
+
+	short skill_id = util::to_int(arguments[1]);
+	short level = -1;
+
+	if (arguments.size() >= 3)
+		level = std::max(0, std::min<int>(from->world->config["MaxSkillLevel"], util::to_int(arguments[2])));
+
+	if (victim->AddSpell(skill_id))
+	{
+		PacketBuilder builder(PACKET_STATSKILL, PACKET_TAKE, 6);
+		builder.AddShort(skill_id);
+		builder.AddInt(victim->HasItem(1));
+		victim->Send(builder);
+
+		if (level >= 0)
+		{
+			auto it = std::find_if(UTIL_RANGE(victim->spells), [&](Character_Spell spell) { return spell.id == skill_id; });
+
+			if (it != victim->spells.end())
+			{
+				it->level = static_cast<unsigned char>(level);
+
+				PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
+				builder.AddShort(victim->skillpoints);
+				builder.AddShort(skill_id);
+				builder.AddShort(it->level);
+				victim->Send(builder);
+			}
+		}
+
+		from->world->ServerMsg(
+			from->SourceWorld()->i18n.Format(
+				"taught_skill",
+				victim->SourceName(),
+				from->world->esf->Get(skill_id).name,
+				from->SourceName()
+			)
+		);
+	}
+	else
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("skill_not_found"));
+	}
+}
+
+void Forget(const std::vector<std::string>& arguments, Character* from)
+{
+	Character* victim = nullptr;
+	if (arguments.size() >= 2)
+	{
+		victim = from->SourceWorld()->GetCharacter(arguments[1]);
+
+		if (!victim || victim->nowhere)
+		{
+			from->ServerMsg(from->SourceWorld()->i18n.Format("character_not_found"));
+			return;
+		}
+
+		if (victim->SourceAccess() >= from->SourceAccess())
+		{
+			from->ServerMsg(from->SourceWorld()->i18n.Format("command_access_denied"));
+			return;
+		}
+	}
+	else
+	{
+		victim = from;
+	}
+
+	short skill_id = util::to_int(arguments[0]);
+
+	if (victim->DelSpell(skill_id))
+	{
+		PacketBuilder reply(PACKET_STATSKILL, PACKET_REMOVE, 2);
+		reply.AddShort(skill_id);
+		victim->Send(reply);
+
+		if (from != victim)
+		{
+			from->world->ServerMsg(
+				from->SourceWorld()->i18n.Format(
+					"forgot_skill",
+					victim->SourceName(),
+					from->world->esf->Get(skill_id).name,
+					from->SourceName()
+				)
+			);
+		}
+	}
+	else
+	{
+		from->ServerMsg(from->SourceWorld()->i18n.Format("skill_not_found"));
 	}
 }
 
@@ -204,7 +318,9 @@ COMMAND_HANDLER_REGISTER(debug)
 	RegisterCharacter({"ditem", {"item"}, {"amount", "x", "y"}, 2}, DropItem, CMD_FLAG_DUTY_RESTRICT);
 	RegisterCharacter({"snpc", {"npc"}, {"amount", "speed", "direction"}, 2}, SpawnNPC, CMD_FLAG_DUTY_RESTRICT);
 	RegisterCharacter({"dnpc", {}, {}, 2}, DespawnNPC, CMD_FLAG_DUTY_RESTRICT);
-	RegisterCharacter({"learn", {"skill"}, {"level"}}, Learn, CMD_FLAG_DUTY_RESTRICT);
+	RegisterCharacter({"learn", {"skill"}, {"level"}, 4}, Learn, CMD_FLAG_DUTY_RESTRICT);
+	RegisterCharacter({"teach", {"victim", "skill"}, {"level"}, 4}, Teach, CMD_FLAG_DUTY_RESTRICT);
+	RegisterCharacter({"forget", {"skill"}, {"victim"}, 4}, Forget, CMD_FLAG_DUTY_RESTRICT);
 	RegisterCharacter({"qstate", {"quest", "state"}}, QuestState, CMD_FLAG_DUTY_RESTRICT);
 	RegisterAlias("si", "sitem");
 	RegisterAlias("di", "ditem");

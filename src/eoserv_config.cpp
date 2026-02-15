@@ -333,6 +333,8 @@ void eoserv_config_validate_admin(Config& config)
 	eoserv_config_default(config, "snpc"          , 3);
 	eoserv_config_default(config, "dnpc"          , 3);
 	eoserv_config_default(config, "learn"         , 3);
+	eoserv_config_default(config, "teach"         , 3);
+	eoserv_config_default(config, "forget"        , 3);
 	eoserv_config_default(config, "qstate"        , 3);
 	eoserv_config_default(config, "quake"         , 2);
 	eoserv_config_default(config, "setlevel"      , 3);
