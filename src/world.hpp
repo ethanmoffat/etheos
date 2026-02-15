@@ -166,7 +166,7 @@ class World
 		void Reboot();
 		void Reboot(int seconds, std::string reason);
 
-		void Rehash();
+		void Rehash(Command_Source *from);
 		void ReloadPub(bool quiet = false);
 		void ReloadQuests();
 

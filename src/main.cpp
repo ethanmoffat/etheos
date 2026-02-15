@@ -455,7 +455,7 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 				std::string old_logout = config["LogOut"];
 
 				eoserv_sig_rehash = false;
-				server->world->Rehash();
+				server->world->Rehash(nullptr);
 
 				// Does not support changing from file logging back to '-'
 				{

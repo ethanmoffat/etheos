@@ -131,7 +131,7 @@ void ReloadConfig(const std::vector<std::string>& arguments, Command_Source* fro
 	(void)arguments;
 
 	Console::Out("Config reloaded by %s", from->SourceName().c_str());
-	from->SourceWorld()->Rehash();
+	from->SourceWorld()->Rehash(from);
 }
 
 void ReloadQuest(const std::vector<std::string>& arguments, Command_Source* from)

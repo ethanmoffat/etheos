@@ -1286,7 +1286,7 @@ void World::AdminRequest(Character *from, std::string message)
 	}
 }
 
-void World::Rehash()
+void World::Rehash(Command_Source *from)
 {
 	try
 	{
@@ -1319,6 +1319,8 @@ void World::Rehash()
 		if (npc->id != 0)
 			npc->Load();
 	}
+
+	this->AdminMsg(from, this->i18n.Format("rehash"));
 }
 
 void World::ReloadPub(bool quiet)
