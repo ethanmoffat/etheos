@@ -265,6 +265,8 @@ void world_timed_save(void *world_void)
 
 	world->guildmanager->SaveAll();
 
+	world->SaveCommandAudit();
+
 	try
 	{
 		world->db->Commit();
@@ -526,6 +528,8 @@ void World::Initialize()
 	}
 
 	this->guildmanager = new GuildManager(this);
+
+	this->LoadCommandAudit();
 }
 
 void World::DumpToFile(const std::string& fileName)
@@ -912,7 +916,85 @@ void World::Command(std::string command, const std::vector<std::string>& argumen
 		from = system_source.get();
 	}
 
-	Commands::Handle(util::lowercase(command), arguments, from);
+	if (Commands::Handle(util::lowercase(command), arguments, from))
+	{
+		this->command_audit_uncommitted.push_back(std::make_tuple(std::time(0), from->SourceName(), command, arguments));
+	}
+}
+
+void World::SaveCommandAudit()
+{
+	if (this->command_audit_uncommitted.empty())
+		return;
+
+	UTIL_FOREACH(this->command_audit_uncommitted, entry)
+	{
+		std::time_t timestamp = std::get<0>(entry);
+		const std::string& source = std::get<1>(entry);
+		const std::string& command = std::get<2>(entry);
+		const std::vector<std::string>& arguments = std::get<3>(entry);
+
+		// Serialize arguments as space-separated string
+		std::string args_str;
+		for (std::size_t i = 0; i < arguments.size(); ++i)
+		{
+			if (i > 0)
+				args_str += " ";
+			args_str += arguments[i];
+		}
+
+		try
+		{
+			this->db->Query("INSERT INTO `command_audit` (`time`, `source`, `command`, `arguments`) VALUES (#, '$', '$', '$')",
+				static_cast<int>(timestamp), source.c_str(), command.c_str(), args_str.c_str());
+		}
+		catch (Database_Exception& e)
+		{
+			Console::Err("Could not save command audit to database.");
+			Console::Err("%s", e.error());
+		}
+	}
+
+	this->command_audit.insert(this->command_audit.end(), this->command_audit_uncommitted.begin(), this->command_audit_uncommitted.end());
+	this->command_audit_uncommitted.clear();
+}
+
+void World::LoadCommandAudit()
+{
+	this->command_audit.clear();
+
+	std::time_t seven_days_ago = std::time(0) - (7 * 24 * 60 * 60);
+
+	try
+	{
+		Database_Result res = this->db->Query(
+			"SELECT `time`, `source`, `command`, `arguments` FROM `command_audit` "
+			"WHERE `time` >= # ORDER BY `time` ASC",
+			static_cast<int>(seven_days_ago)
+		);
+
+		for (const auto& row : res)
+		{
+			std::time_t timestamp = static_cast<int>(row.at("time"));
+			std::string source = static_cast<std::string>(row.at("source"));
+			std::string command = static_cast<std::string>(row.at("command"));
+			std::string args_str = static_cast<std::string>(row.at("arguments"));
+
+			// Deserialize arguments from space-separated string
+			std::vector<std::string> arguments;
+			if (!args_str.empty())
+			{
+				arguments = util::explode(' ', args_str);
+			}
+
+			this->command_audit.push_back(std::make_tuple(timestamp, source, command, arguments));
+		}
+	}
+	catch (Database_Exception& e)
+	{
+		Console::Wrn("Could not load command audit from database.");
+		Console::Wrn("%s", e.error());
+	}
 }
 
 void World::LoadHome()

@@ -134,6 +134,9 @@ class World
 
 		int admin_count;
 
+		std::vector<std::tuple<std::time_t, std::string, std::string, std::vector<std::string>>> command_audit;
+		std::vector<std::tuple<std::time_t, std::string, std::string, std::vector<std::string>>> command_audit_uncommitted;
+
 		World(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config);
 
 		void Initialize();
@@ -207,6 +210,9 @@ class World
 		bool PKExcept(int mapid);
 
 		bool IsInstrument(int graphic_id);
+
+		void LoadCommandAudit();
+		void SaveCommandAudit();
 
 		~World();
 };

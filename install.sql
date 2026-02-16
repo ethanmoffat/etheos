@@ -102,6 +102,17 @@ CREATE TABLE IF NOT EXISTS `reports`
 	PRIMARY KEY (`reporter`, `reported`, `time`)
 );
 
+CREATE TABLE IF NOT EXISTS `command_audit`
+(
+	`id`        INTEGER     NOT NULL,
+	`time`      INTEGER     NOT NULL,
+	`source`    VARCHAR(16) NOT NULL,
+	`command`   VARCHAR(64) NOT NULL,
+	`arguments` TEXT,
+
+	PRIMARY KEY (`id`)
+);
+
 CREATE INDEX IF NOT EXISTS `character_account_index` ON `characters` (`account`);
 CREATE INDEX IF NOT EXISTS `character_guild_index` ON `characters` (`guild`);
 CREATE INDEX IF NOT EXISTS `ban_ip_index` ON `bans` (`ip`);

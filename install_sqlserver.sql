@@ -122,3 +122,15 @@ BEGIN
         PRIMARY KEY ([reporter], [reported], [time])
     )
 END
+
+IF OBJECT_ID(N'command_audit', 'U') is null
+BEGIN
+    CREATE TABLE [command_audit]
+    (
+        [id]        INTEGER      NOT NULL PRIMARY KEY IDENTITY(1,1),
+        [time]      INTEGER      NOT NULL,
+        [source]    VARCHAR(16)  NOT NULL,
+        [command]   VARCHAR(64)  NOT NULL,
+        [arguments] VARCHAR(MAX)
+    )
+END

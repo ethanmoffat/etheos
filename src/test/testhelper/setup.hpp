@@ -53,6 +53,11 @@ static std::shared_ptr<Database> CreateMockDatabase()
                 RawQuery(HasSubstr("FROM accounts"), _, _))
         .WillRepeatedly(Return(Database_Result()));
 
+    // no command audit entries by default
+    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
+                RawQuery(HasSubstr("FROM command_audit"), _, _))
+        .WillRepeatedly(Return(Database_Result()));
+
     // Suppress gmock "uninteresting method call" warnings in output
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()), Pending()).WillRepeatedly(Return(false));
     EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()), Escape(_)).WillRepeatedly(Return(""));

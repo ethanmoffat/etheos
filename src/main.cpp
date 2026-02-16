@@ -390,12 +390,14 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 				Database_Result ban_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans`");
 				Database_Result ban_active_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` <= # AND `expires` <> 0", int(std::time(0)));
 				Database_Result ban_perm_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `bans` WHERE `expires` = 0");
+				Database_Result audit_count = server->world->db->Query("SELECT COUNT(1) AS `count` FROM `command_audit`");
 
 				Console::Out("Database info:");
-				Console::Out("  Accounts:   %i", int(acc_count.front()["count"]));
-				Console::Out("  Characters: %i (%i staff)", int(character_count.front()["count"]), int(admin_character_count.front()["count"]));
-				Console::Out("  Guilds:     %i", int(guild_count.front()["count"]));
-				Console::Out("  Bans:       %i (%i expired, %i permanent)", int(ban_count.front()["count"]), int(ban_active_count.front()["count"]), int(ban_perm_count.front()["count"]));
+				Console::Out("  Accounts:      %i", int(acc_count.front()["count"]));
+				Console::Out("  Characters:    %i (%i staff)", int(character_count.front()["count"]), int(admin_character_count.front()["count"]));
+				Console::Out("  Guilds:        %i", int(guild_count.front()["count"]));
+				Console::Out("  Bans:          %i (%i expired, %i permanent)", int(ban_count.front()["count"]), int(ban_active_count.front()["count"]), int(ban_perm_count.front()["count"]));
+				Console::Out("  Command Audit: %i", int(audit_count.front()["count"]));
 
 				server->world->UpdateAdminCount(int(admin_character_count.front()["count"]));
 
@@ -563,17 +565,20 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 	}
 #endif // WIN32
 
-	server.reset();
-
 	return 0;
 }
 
 void Cleanup(std::unique_ptr<EOServer>& server)
 {
 	if (!server || !server->world)
+	{
+		Database::GlobalFree();
 		return;
+	}
+
+	server->world->SaveCommandAudit();
+	server->world->DumpToFile(server->world->config["WorldDumpFile"]);
+	server.reset();
 
 	Database::GlobalFree();
-
-	server->world->DumpToFile(server->world->config["WorldDumpFile"]);
 }

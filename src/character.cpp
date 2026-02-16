@@ -2062,6 +2062,130 @@ void Character::Send(const PacketBuilder &builder)
 	this->player->Send(builder);
 }
 
+// thanks cirras <3
+void Character::ShowInfoBox(const std::string& title, const std::vector<std::string>& lines)
+{
+	constexpr size_t INFOBOX_WIDTH = 197;
+	constexpr size_t SPACE_WIDTH = 3;
+
+	std::string content;
+	std::string content_line;
+	size_t content_line_width;
+
+	auto add_current_content_line = [&]() {
+		if (content_line.empty())
+		{
+			return;
+		}
+
+		content += content_line;
+		int spaces = (INFOBOX_WIDTH - content_line_width) / SPACE_WIDTH;
+
+		if (content_line[0] == ' ')
+		{
+			// The client will ignore the first space in a line, so let's add another.
+			++spaces;
+		}
+
+		for (int i = 0; i < spaces; ++i)
+		{
+			content += ' ';
+		}
+
+		content_line.clear();
+		content_line_width = 0;
+	};
+
+	content.reserve(lines.size() * 2 * INFOBOX_WIDTH);
+	content_line.reserve(INFOBOX_WIDTH);
+
+	for (const std::string& line : lines)
+	{
+		std::vector<std::string> chunks;
+		{
+			std::string chunk;
+			bool leading_whitespace = false;
+
+			for (char c : line)
+			{
+				if (c == ' ')
+				{
+					if (chunks.empty())
+					{
+						leading_whitespace = true;
+					}
+
+					if (leading_whitespace)
+					{
+						chunk += c;
+					}
+					else if (!chunk.empty())
+					{
+						chunk += c;
+						chunks.push_back(chunk);
+						chunk.clear();
+					}
+
+					continue;
+				}
+
+				if (leading_whitespace)
+				{
+					leading_whitespace = false;
+					chunks.push_back(chunk);
+					chunk.clear();
+				}
+
+				chunk += c;
+			}
+
+			if (chunks.empty() && chunk.empty())
+			{
+				// Empty line
+				chunk = ' ';
+			}
+
+			if (!chunk.empty())
+			{
+				chunks.push_back(chunk);
+			}
+		}
+
+		content_line.clear();
+		content_line_width = 0;
+
+		for (const std::string& chunk : chunks)
+		{
+			size_t chunk_width = util::text_width(chunk);
+			if (content_line_width + chunk_width > INFOBOX_WIDTH)
+			{
+				add_current_content_line();
+
+				if (chunk_width >= INFOBOX_WIDTH)
+				{
+					content += util::text_cap(chunk, INFOBOX_WIDTH);
+					continue;
+				}
+			}
+
+			content_line += chunk;
+			content_line_width += chunk_width;
+		}
+
+		add_current_content_line();
+	}
+
+	this->ShowInfoBox(title, content);
+}
+
+void Character::ShowInfoBox(const std::string& title, const std::string& content)
+{
+	PacketBuilder builder(PACKET_MESSAGE, PACKET_ACCEPT, 2 + title.length() + content.length());
+	builder.AddBreakString(title);
+	builder.AddString(content);
+	this->Send(builder);
+}
+
 void Character::Logout()
 {
 	if (!this->online)
@@ -2127,8 +2251,8 @@ void Character::Logout()
 void Character::Save()
 {
 	const std::string & quest_data = (!this->quest_string.empty())
-	                               ? this->quest_string
-	                               : QuestSerialize(this->quests, this->quests_inactive);
+								   ? this->quest_string
+								   : QuestSerialize(this->quests, this->quests_inactive);
 
 	int nointeract = this->nointeract;
 

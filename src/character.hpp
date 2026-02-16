@@ -370,6 +370,9 @@ class Character : public Command_Source
 
 		void Send(const PacketBuilder &);
 
+		void ShowInfoBox(const std::string& title, const std::vector<std::string>& lines);
+		void ShowInfoBox(const std::string& title, const std::string& content);
+
 		void Logout();
 		void Save();
 

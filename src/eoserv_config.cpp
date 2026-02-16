@@ -365,6 +365,7 @@ void eoserv_config_validate_admin(Config& config)
 	eoserv_config_default(config, "undress"       , 2);
 	eoserv_config_default(config, "dress2"        , 3);
 	eoserv_config_default(config, "duty"          , 3);
+	eoserv_config_default(config, "audit"         , 1);
 	eoserv_config_default(config, "killnpc"       , 4);
 	eoserv_config_default(config, "boardmod"      , 1);
 	eoserv_config_default(config, "reports"       , 1);
