@@ -28,6 +28,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef WEBSOCKET_SUPPORT
+#include "wsserver.hpp"
+#endif
+
 void server_ping_all(void *server_void)
 {
 	EOServer *server = static_cast<EOServer *>(server_void);
@@ -193,6 +197,26 @@ void EOServer::Initialize(std::shared_ptr<DatabaseFactory> databaseFactory, cons
 	this->start = Timer::GetTime();
 
 	this->UpdateConfig();
+
+#ifdef WEBSOCKET_SUPPORT
+	if (this->world->config["WebSocketEnabled"])
+	{
+		int ws_port = int(this->world->config["WebSocketPort"]);
+		std::string host = std::string(this->world->config["Host"]);
+		this->wsserver = new WSServer(this, host, ws_port);
+
+		if (this->wsserver->Start())
+		{
+			Console::Out("WebSocket server listening on %s:%i", host.c_str(), ws_port);
+		}
+		else
+		{
+			Console::Err("Failed to start WebSocket server on port %i", ws_port);
+			delete this->wsserver;
+			this->wsserver = nullptr;
+		}
+	}
+#endif
 }
 
 Client *EOServer::ClientFactory(const Socket &sock)
@@ -295,6 +319,13 @@ void EOServer::Tick()
 
 	this->BuryTheDead();
 
+#ifdef WEBSOCKET_SUPPORT
+	if (this->wsserver)
+	{
+		this->wsserver->Tick();
+	}
+#endif
+
 	this->world->timer.Tick();
 }
 
@@ -314,6 +345,15 @@ void EOServer::RecordClientRejection(const IPAddress& ip, const char* reason)
 
 EOServer::~EOServer()
 {
+#ifdef WEBSOCKET_SUPPORT
+	if (this->wsserver)
+	{
+		this->wsserver->Stop();
+		delete this->wsserver;
+		this->wsserver = nullptr;
+	}
+#endif
+
 	// All clients must be fully closed before the world ends
 	UTIL_FOREACH(this->clients, client)
 	{

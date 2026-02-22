@@ -230,6 +230,7 @@ class Client
 		Server *server;
 		bool connected;
 		bool accepted = false;
+		bool is_websocket = false;
 		std::time_t closed_time;
 		std::time_t connect_time;
 

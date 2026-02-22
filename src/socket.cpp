@@ -785,6 +785,9 @@ std::vector<Client *> *Server::Select(double timeout)
 
 	UTIL_FOREACH(this->clients, client)
 	{
+		if (client->is_websocket)
+			continue;
+
 		fd.fd = client->impl->sock;
 
 		fd.events = 0;
@@ -819,6 +822,9 @@ std::vector<Client *> *Server::Select(double timeout)
 		int i = 0;
 		UTIL_FOREACH(this->clients, client)
 		{
+			if (client->is_websocket)
+				continue;
+
 			++i;
 			if (fds[i].revents & POLLERR || fds[i].revents & POLLHUP || fds[i].revents & POLLNVAL)
 			{
@@ -871,6 +877,9 @@ std::vector<Client *> *Server::Select(double timeout)
 
 	UTIL_FOREACH(this->clients, client)
 	{
+		if (client->is_websocket)
+			continue;
+
 		if (client->recv_buffer_used != client->recv_buffer.length())
 		{
 			FD_SET(client->impl->sock, &this->impl->read_fds);
@@ -907,6 +916,9 @@ std::vector<Client *> *Server::Select(double timeout)
 
 		UTIL_FOREACH(this->clients, client)
 		{
+			if (client->is_websocket)
+				continue;
+
 			if (FD_ISSET(client->impl->sock, &this->impl->except_fds))
 			{
 				client->Close(true);
@@ -953,11 +965,14 @@ void Server::BuryTheDead()
 
 		if (!client->Connected() && !client->IsAsyncOpPending() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
 		{
+			if (!client->is_websocket)
+			{
 #ifdef WIN32
-			closesocket(client->impl->sock);
+				closesocket(client->impl->sock);
 #else // WIN32
-			close(client->impl->sock);
+				close(client->impl->sock);
 #endif // WIN32
+			}
 			delete client;
 			it = this->clients.erase(it);
 			if (it == this->clients.end())

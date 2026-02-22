@@ -148,11 +148,15 @@ class EOClient : public Client
 
 		void Execute(const std::string &data);
 
-		bool Upload(FileType type, int id, InitReply init_reply);
+		virtual bool Upload(FileType type, int id, InitReply init_reply);
 		bool Upload(FileType type, const std::string &filename, InitReply init_reply);
 		virtual void Send(const PacketBuilder &packet);
 
 		virtual ~EOClient();
+
+#ifdef WEBSOCKET_SUPPORT
+	friend class WSClient;
+#endif
 };
 
 #endif // EOCLIENT_HPP_INCLUDED
