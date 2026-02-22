@@ -18,6 +18,8 @@ option(EOSERV_WANT_MYSQL "Enables MariaDB/MySQL server database support." ON)
 option(EOSERV_WANT_SQLITE "Enables SQLite3 embedded database support." ON)
 option(EOSERV_WANT_SQLSERVER "Enables Microsoft SQL Server database support." ON)
 
+option(EOSERV_WANT_WEBSOCKET "Enables WebSocket listener for web client connections." OFF)
+
 option(EOSERV_USE_PRECOMPILED_HEADERS "Uses a precompiled header to speed up compilation." ON)
 option(EOSERV_USE_UNITY_BUILD "Compiles multiple source files in one translation unit to speed up compilation." ON)
 option(EOSERV_USE_CLANG_MODULES "Uses Clang modules (if available) to speed up compilation. Note: Clang modules are an experimental feature." OFF)
@@ -248,6 +250,14 @@ target_include_directories(etheos PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
 
+if(EOSERV_WANT_WEBSOCKET)
+	include(DownloadIXWebSocket)
+	target_include_directories(etheos PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ixwebsocket-src)
+	target_include_directories(eoserv_lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ixwebsocket-src)
+	list(APPEND eoserv_LIBRARIES ixwebsocket)
+	add_compile_definitions(WEBSOCKET_SUPPORT)
+endif()
+
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
 
 target_link_libraries(etheos eoserv_lib)
@@ -276,23 +286,23 @@ include(EOSERV_PCH)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)
 	if(EOSERV_GEN_PRECOMPILED_HEADERS)
-		add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/eoserv-pch.h
-			COMMAND ${CMAKE_SOURCE_DIR}/autogen-pch.sh ${eoserv_ALL_SOURCE_FILES} > ${CMAKE_BINARY_DIR}/eoserv-pch.h
+		add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/eoserv-pch.h"
+			COMMAND "${CMAKE_SOURCE_DIR}/autogen-pch.sh" ${eoserv_ALL_SOURCE_FILES} > "${CMAKE_BINARY_DIR}/eoserv-pch.h"
 			MAIN_DEPENDENCY autogen-pch.sh
 			# This dependency is commented out to avoid constant rebuilding on any source file change
 			# DEPENDS autogen-pch.sh ${eoserv_ALL_SOURCE_FILES}
-			WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+			WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 		)
 	else()
-		add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/eoserv-pch.h
-			COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/src/stdafx.h ${CMAKE_BINARY_DIR}/eoserv-pch.h
+		add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/eoserv-pch.h"
+			COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/src/stdafx.h" "${CMAKE_BINARY_DIR}/eoserv-pch.h"
 			MAIN_DEPENDENCY src/stdafx.h
 			DEPENDS src/stdafx.h
 		)
 	endif()
 
 	add_custom_target(eoserv-pch-autogen
-		DEPENDS ${CMAKE_BINARY_DIR}/eoserv-pch.h
+		DEPENDS "${CMAKE_BINARY_DIR}/eoserv-pch.h"
 	)
 
 	compile_pch(eoserv-pch ${CMAKE_BINARY_DIR}/eoserv-pch.h)

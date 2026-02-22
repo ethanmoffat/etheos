@@ -18,6 +18,10 @@
 
 #include "socket.hpp"
 
+#ifdef WEBSOCKET_SUPPORT
+#include "fwd/wsserver.hpp"
+#endif
+
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -67,6 +71,10 @@ class EOServer : public Server
 		void CleanupConnectionLog();
 
 		~EOServer();
+
+#ifdef WEBSOCKET_SUPPORT
+		WSServer *wsserver = nullptr;
+#endif
 };
 
 #endif // EOSERVER_HPP_INCLUDED

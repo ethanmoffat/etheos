@@ -135,6 +135,12 @@ set(eoserv_ALL_SOURCE_FILES
 	src/wedding.hpp
 	src/world.cpp
 	src/world.hpp
+	src/wsserver.cpp
+	src/wsserver.hpp
+	src/wsclient.cpp
+	src/wsclient.hpp
+	src/fwd/wsserver.hpp
+	src/fwd/wsclient.hpp
 )
 
 set(eoserv_ALL_HANDLER_FILES
