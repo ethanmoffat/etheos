@@ -208,7 +208,7 @@ void ENF::Read(const std::string& filename)
 		newdata.evade = PacketProcessor::Number(buf[22], buf[23]);
 		newdata.armor = PacketProcessor::Number(buf[24], buf[25]);
 
-		newdata.exp = PacketProcessor::Number(buf[36], buf[37]);
+		newdata.exp = PacketProcessor::Number(buf[36], buf[37], buf[38]);
 
 		if (std::fread(static_cast<void *>(&namesize), sizeof(char), 1, fh) != 1)
 		{
