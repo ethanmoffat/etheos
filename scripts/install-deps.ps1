@@ -60,7 +60,7 @@ if (-not $SkipCMake) {
     }
 }
 
-$MariaDBURL = "https://downloads.mariadb.com/Connectors/c/connector-c-2.3.7/mariadb-connector-c-2.3.7-win32.msi"
+$MariaDBURL = "https://dlm.mariadb.com/4516899/Connectors/c/connector-c-3.4.8/mariadb-connector-c-3.4.8-win32.msi"
 if (-not $SkipMariaDB) {
     Write-Output "Installing MariaDB..."
     $DownloadedFile = (Join-Path $DownloadDir "mariadb.msi")
