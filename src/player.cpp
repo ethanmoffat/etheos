@@ -38,9 +38,9 @@ Player::Player(const std::string& username, World * world, Database * database)
 {
 	this->world = world;
 
-	auto dbPointer = database ? database : this->world->db.get();
+	auto db_ptr = database ? database : this->world->db.get();
 
-	Database_Result res = dbPointer->Query("SELECT `username`, `password` FROM `accounts` WHERE `username` = '$'", username.c_str());
+	Database_Result res = db_ptr->Query("SELECT `username`, `password` FROM `accounts` WHERE `username` = '$'", username.c_str());
 	if (res.empty())
 	{
 		throw std::runtime_error("Player not found (" + username + ")");
@@ -54,11 +54,11 @@ Player::Player(const std::string& username, World * world, Database * database)
 
 	this->username = static_cast<std::string>(row["username"]);
 
-	res = dbPointer->Query("SELECT `name` FROM `characters` WHERE `account` = '$' ORDER BY `exp` DESC", username.c_str());
+	res = db_ptr->Query("SELECT `name` FROM `characters` WHERE `account` = '$' ORDER BY `exp` DESC", username.c_str());
 
 	UTIL_FOREACH_REF(res, row)
 	{
-		Character *newchar = new Character(row["name"], world);
+		Character *newchar = new Character(row["name"], world, db_ptr);
 		newchar->player = this;
 		this->characters.push_back(newchar);
 	}

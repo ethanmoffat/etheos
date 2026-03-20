@@ -17,6 +17,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -53,6 +54,15 @@ class Database_QueryFailed : public Database_Exception
 {
 	public: Database_QueryFailed(const char *e) : Database_Exception(e) {}
 	const char *what() const noexcept { return "Database_QueryFailed"; }
+};
+
+/**
+ * Exception thrown when a Database connection is accessed from a thread other than the one that created it
+ */
+class Database_ThreadViolation : public Database_Exception
+{
+	public: Database_ThreadViolation(const char *e) : Database_Exception(e) {}
+	const char *what() const noexcept { return "Database_ThreadViolation"; }
 };
 
 /**
@@ -120,6 +130,9 @@ class Database
 
 		bool in_transaction;
 		std::list<std::string> transaction_log;
+
+		std::thread::id owner_thread;
+		void CheckThreadAffinity() const;
 
 		typedef std::pair<std::string, std::list<std::string>> QueryParameterPair;
 		QueryParameterPair ParseQueryArgs(const char * format, va_list ap) const;

@@ -10,6 +10,7 @@
 #include "fwd/character.hpp"
 
 #include "fwd/arena.hpp"
+#include "fwd/database.hpp"
 #include "fwd/guild.hpp"
 #include "fwd/npc.hpp"
 #include "fwd/packet.hpp"
@@ -281,7 +282,7 @@ class Character : public Command_Source
 		std::string quest_string;
 
 		Character(World *);
-		Character(std::string name, World *);
+		Character(std::string name, World *, Database * = nullptr);
 
 		bool IsHideInvisible() const { return hidden & HideInvisible; }
 		bool IsHideOnline() const { return hidden & HideOnline; }

@@ -365,7 +365,7 @@ Character::Character(World * world)
 {
 }
 
-Character::Character(std::string name, World *world)
+Character::Character(std::string name, World *world, Database *database)
 	: muted_until(0)
 	, bot(false)
 	, cosmetic_paperdoll{{}}
@@ -383,7 +383,9 @@ Character::Character(std::string name, World *world)
 		this->bot = bot_it != bot_characters.end();
 	}
 
-	Database_Result res = this->world->db->Query("SELECT `name`, `title`, `home`, `fiance`, `partner`, `admin`, `class`, `gender`, `race`, `hairstyle`, `haircolor`,"
+	auto db_ptr = database ? database : this->world->db.get();
+
+	Database_Result res = db_ptr->Query("SELECT `name`, `title`, `home`, `fiance`, `partner`, `admin`, `class`, `gender`, `race`, `hairstyle`, `haircolor`,"
 		"`map`, `x`, `y`, `direction`, `level`, `exp`, `hp`, `tp`, `str`, `int`, `wis`, `agi`, `con`, `cha`, `statpoints`, `skillpoints`, "
 		"`karma`, `sitting`, `hidden`, `bankmax`, `goldbank`, `usage`, `inventory`, `bank`, `paperdoll`, `spells`, `guild`, `guild_rank`, `guild_rank_string`, `quest`, `vars`, "
 		"`nointeract` FROM `characters` WHERE `name` = '$'", name.c_str());
@@ -485,7 +487,7 @@ Character::Character(std::string name, World *world)
 
 	if (!guild_tag.empty())
 	{
-		this->guild = this->world->guildmanager->GetGuild(guild_tag);
+		this->guild = this->world->guildmanager->GetGuild(guild_tag, db_ptr);
 		this->guild_rank = GetRow<int>(row, "guild_rank");
 		this->guild_rank_string = GetRow<std::string>(row, "guild_rank_string");
 	}

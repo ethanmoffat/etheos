@@ -10,6 +10,7 @@
 #include "fwd/guild.hpp"
 
 #include "fwd/character.hpp"
+#include "fwd/database.hpp"
 #include "fwd/world.hpp"
 
 #include <algorithm>
@@ -81,7 +82,7 @@ class GuildManager
 
 		GuildManager(World *world_) : cache_clearing(false), world(world_) { }
 
-		std::shared_ptr<Guild> GetGuild(std::string tag);
+		std::shared_ptr<Guild> GetGuild(std::string tag, Database * database = nullptr);
 		std::shared_ptr<Guild> GetGuildName(std::string name);
 		std::shared_ptr<Guild_Create> GetCreate(std::string tag);
 		std::shared_ptr<Guild_Create> BeginCreate(std::string tag, std::string name, Character *leader);

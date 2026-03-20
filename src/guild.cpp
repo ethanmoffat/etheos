@@ -100,7 +100,7 @@ Guild_Create::~Guild_Create()
 	this->manager->CancelCreate(this->tag);
 }
 
-std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag)
+std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag, Database * database)
 {
 	tag = util::uppercase(tag);
 
@@ -112,7 +112,9 @@ std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag)
 	}
 	else
 	{
-		Database_Result res = this->world->db->Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `tag` = '$'", tag.c_str());
+		auto db_ptr = database ? database : this->world->db.get();
+
+		Database_Result res = db_ptr->Query("SELECT `tag`, `name`, `description`, `created`, `ranks`, `bank` FROM `guilds` WHERE `tag` = '$'", tag.c_str());
 
 		if (res.empty())
 		{
@@ -128,7 +130,7 @@ std::shared_ptr<Guild> GuildManager::GetGuild(std::string tag)
 		guild->ranks = RankUnserialize(static_cast<std::string>(row["ranks"]));
 		guild->bank = static_cast<int>(row["bank"]);
 
-		res = this->world->db->Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", tag.c_str());
+		res = db_ptr->Query("SELECT `name`, `guild_rank`, `guild_rank_string` FROM `characters` WHERE `guild` = '$' ORDER BY `guild_rank` ASC, `name` ASC", tag.c_str());
 
 		UTIL_FOREACH_REF(res, row)
 		{

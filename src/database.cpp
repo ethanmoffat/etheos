@@ -317,6 +317,18 @@ void Database::GlobalFree()
 	Database::impl_::GlobalFree();
 }
 
+void Database::CheckThreadAffinity() const
+{
+	// owner_thread is only set after Connect(), skip check if unset (e.g. mock databases)
+	if (this->owner_thread == std::thread::id())
+		return;
+
+	if (std::this_thread::get_id() != this->owner_thread)
+	{
+		throw Database_ThreadViolation("Database connection accessed from a thread other than the one that created it");
+	}
+}
+
 Database::Database()
 	: impl(new impl_)
 	, connected(false)
@@ -589,6 +601,14 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 		default:
 			throw Database_OpenFailed("Invalid database engine.");
 	}
+
+	// SQLite uses a singleton in DatabaseFactory, so the owner thread id is left as the default for this engine type
+	//   to simulate shared access across threads. Note that SQLite uses internal serialization and is intentionally
+	//   shared across threads.
+	if (type != SQLite)
+	{
+		this->owner_thread = std::this_thread::get_id();
+	}
 }
 
 void Database::Close()
@@ -630,6 +650,8 @@ Database_Result Database::RawQuery(const char* query, bool tx_control, bool prep
 	{
 		throw Database_QueryFailed("Not connected to database.");
 	}
+
+	this->CheckThreadAffinity();
 
 	Database_Result result;
 
@@ -1032,6 +1054,8 @@ Database_Result Database::Query(const char *format, ...)
 	{
 		throw Database_QueryFailed("Not connected to database.");
 	}
+
+	this->CheckThreadAffinity();
 
 	std::va_list ap;
 	va_start(ap, format);
