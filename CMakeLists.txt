@@ -233,7 +233,7 @@ if (NOT EOSERV_WANT_MYSQL AND NOT EOSERV_WANT_SQLITE AND NOT EOSERV_WANT_SQLSERV
 endif()
 
 if(WIN32)
-	list(APPEND eoserv_LIBRARIES winmm ws2_32)
+	list(APPEND eoserv_LIBRARIES winmm ws2_32 bcrypt.lib)
 
 	if (EOSERV_WANT_MYSQL)
 		list(APPEND eoserv_LIBRARIES shlwapi crypt32 secur32)
