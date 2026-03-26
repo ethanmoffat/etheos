@@ -230,6 +230,7 @@ class Client
 		Server *server;
 		bool connected;
 		bool accepted = false;
+		bool is_websocket = false;
 		std::time_t closed_time;
 		std::time_t connect_time;
 
@@ -270,9 +271,10 @@ class Client
 
 		bool Accepted() const { return accepted; }
 		void MarkAccepted() { accepted = true; }
+		bool IsWebSocket() const { return is_websocket; }
 
 		virtual bool Connected() const;
-		IPAddress GetRemoteAddr() const;
+		virtual IPAddress GetRemoteAddr() const;
 
 		void AsyncOpPending(bool asyncOpPending) { this->async_op_pending = asyncOpPending; }
 		bool IsAsyncOpPending() const { return this->async_op_pending; }
@@ -437,7 +439,9 @@ class Server
 			return this->maxconn;
 		}
 
-		virtual ~Server();
+		virtual void OnClientRemoved(Client *) {}
+
+	virtual ~Server();
 };
 
 

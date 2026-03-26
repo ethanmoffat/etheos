@@ -291,6 +291,8 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "ThreadPoolThreads"  , 0);
 	eoserv_config_default(config, "AutoCreateDatabase" , false);
 	eoserv_config_default(config, "WorldDumpFile"      , "./world.bak.json");
+	eoserv_config_default(config, "WebSocketEnabled"   , false);
+	eoserv_config_default(config, "WebSocketPort"      , 8082);
 }
 
 void eoserv_config_validate_admin(Config& config)

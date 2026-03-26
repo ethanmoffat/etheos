@@ -15,6 +15,7 @@ function main() {
   local mariadb="ON"
   local sqlite="ON"
   local sqlserver="ON"
+  local websocket="OFF"
 
   local option
   while [[ "$#" -gt 0 ]]
@@ -53,6 +54,10 @@ function main() {
         sqlserver="$2"
         shift
         ;;
+      --websocket)
+        websocket="$2"
+        shift
+        ;;
       *)
         echo "Error: unsupported option \"${option}\""
         return 1
@@ -86,6 +91,11 @@ function main() {
     return 1
   fi
 
+  if [[ "${websocket}" != "ON" && "${websocket}" != "OFF" ]]; then
+    echo "Error: acceptable values for option --websocket are ON|OFF"
+    return 1
+  fi
+
   echo ""
   echo "Build mode: ${build_mode}"
   echo "Build directory: ${build_dir}"
@@ -93,6 +103,7 @@ function main() {
   echo "MariaDB support: ${mariadb}"
   echo "SQLite support: ${sqlite}"
   echo "SQL Server support: ${sqlserver}"
+  echo "WebSocket support: ${websocket}"
 
   if [[ "${opt_clean}" == "true" ]]; then
     echo ""
@@ -114,6 +125,7 @@ function main() {
   cmake_macros+=("-DEOSERV_WANT_MYSQL=${mariadb}")
   cmake_macros+=("-DEOSERV_WANT_SQLITE=${sqlite}")
   cmake_macros+=("-DEOSERV_WANT_SQLSERVER=${sqlserver}")
+  cmake_macros+=("-DEOSERV_WANT_WEBSOCKET=${websocket}")
 
   pushd "${build_dir}" > /dev/null
 
@@ -154,6 +166,7 @@ function display_usage() {
   echo "  --mariadb (ON|OFF)          MariaDB/MySQL support [default: OFF]."
   echo "  --sqlite (ON|OFF)           SQLite support [default: OFF]."
   echo "  --sqlserver (ON|OFF)        SQL Server support [default: ON]."
+  echo "  --websocket (ON|OFF)        WebSocket listener support [default: OFF]."
   echo "  -h --help                   Display this message."
 }
 

@@ -17,6 +17,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 option(EOSERV_WANT_MYSQL "Enables MariaDB/MySQL server database support." ON)
 option(EOSERV_WANT_SQLITE "Enables SQLite3 embedded database support." ON)
 option(EOSERV_WANT_SQLSERVER "Enables Microsoft SQL Server database support." ON)
+option(EOSERV_WANT_WEBSOCKET "Enables WebSocket listener for web client connections." OFF)
 
 option(EOSERV_USE_PRECOMPILED_HEADERS "Uses a precompiled header to speed up compilation." ON)
 option(EOSERV_USE_UNITY_BUILD "Compiles multiple source files in one translation unit to speed up compilation." ON)
@@ -252,6 +253,15 @@ target_include_directories(eoserv_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
 
 target_link_libraries(etheos eoserv_lib)
 target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})
+
+if(EOSERV_WANT_WEBSOCKET)
+	include(DownloadIXWebSocket)
+	target_include_directories(etheos PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ixwebsocket-src)
+	target_include_directories(eoserv_lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ixwebsocket-src)
+	list(APPEND eoserv_LIBRARIES ixwebsocket)
+	target_link_libraries(eoserv_lib ixwebsocket)
+	add_compile_definitions(WEBSOCKET_SUPPORT)
+endif()
 
 install(TARGETS etheos RUNTIME DESTINATION .)
 install(TARGETS eoserv_test RUNTIME DESTINATION ./test)
