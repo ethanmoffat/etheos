@@ -18,6 +18,10 @@
 
 #include "socket.hpp"
 
+#ifdef WEBSOCKET_SUPPORT
+#include "fwd/wsserver.hpp"
+#endif
+
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -66,7 +70,13 @@ class EOServer : public Server
 		void RecordClientRejection(const IPAddress& ip, const char* reason);
 		void CleanupConnectionLog();
 
+		void OnClientRemoved(Client *client) override;
+
 		~EOServer();
+
+#ifdef WEBSOCKET_SUPPORT
+		WSServer *wsserver = nullptr;
+#endif
 };
 
 #endif // EOSERVER_HPP_INCLUDED
