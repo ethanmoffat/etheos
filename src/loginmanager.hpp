@@ -14,7 +14,7 @@
 #include <unordered_map>
 
 #include "hash.hpp"
-#include "fwd/config.hpp"
+#include "config.hpp"
 #include "fwd/database.hpp"
 #include "fwd/player.hpp"
 #include "fwd/world.hpp"
@@ -36,7 +36,7 @@ public:
 
     void UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials);
 
-    bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
+    bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config.at("LoginQueueSize")); };
 
 private:
     std::shared_ptr<DatabaseFactory> _databaseFactory;

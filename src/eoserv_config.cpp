@@ -34,6 +34,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "LogConnection"      , 0);
 	eoserv_config_default(config, "Host"               , "0.0.0.0");
 	eoserv_config_default(config, "Port"               , 8078);
+	eoserv_config_default(config, "WebSocketPort"      , 0);
 	eoserv_config_default(config, "MaxConnections"     , 300);
 	eoserv_config_default(config, "ListenBacklog"      , 50);
 	eoserv_config_default(config, "MaxPlayers"         , 200);

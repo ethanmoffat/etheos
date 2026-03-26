@@ -17,6 +17,7 @@
 #include "fwd/world.hpp"
 
 #include "socket.hpp"
+#include "socket_impl.hpp"
 
 #include <array>
 #include <string>
@@ -42,6 +43,12 @@ class EOServer : public Server
 		void Initialize(std::shared_ptr<DatabaseFactory> databaseFactory, const Config &eoserv_config, const Config &admin_config);
 
 		TimeEvent* ping_timer = nullptr;
+
+		// WebSocket listener (separate port, optional)
+		SOCKET ws_listen_sock_ = INVALID_SOCKET;
+		bool ws_enabled_ = false;
+
+		void PollWebSocket();
 
 	protected:
 		virtual Client *ClientFactory(const Socket &);
