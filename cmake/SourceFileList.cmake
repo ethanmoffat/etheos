@@ -278,6 +278,7 @@ set(ExtraFiles
 )
 
 set(TestFiles
+	src/test/action_queue_test.cpp
 	src/test/config_test.cpp
 	src/test/database_test.cpp
 	src/test/worlddump_test.cpp
