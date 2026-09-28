@@ -5,6 +5,7 @@ SCRIPT_ROOT="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd 
 set -e
 
 SKIPCMAKE=false
+CMAKE_VERSION=3.31.6
 SKIPMARIADB=false
 SKIPSQLITE=false
 SKIPSQLSERVER=false
@@ -17,6 +18,7 @@ function parse_options {
     OPTION="${1}"
     case $OPTION in
       --skip-cmake)           SKIPCMAKE=true          ;;
+      --cmake-version)        CMAKE_VERSION="${2}"    ; [ $# -gt 1 ] && shift ;;
       --skip-mariadb)         SKIPMARIADB=true        ;;
       --skip-sqlite)          SKIPSQLITE=true         ;;
       --skip-odbc)            SKIPSQLSERVER=true      ;;
@@ -29,9 +31,15 @@ function parse_options {
 
 parse_options "$@"
 
+if [ -z "$CMAKE_VERSION" ]; then
+    >&2 echo "--cmake-version requires a version (for example: --cmake-version 3.31.6)"
+    exit -1
+fi
+
 if [ "$HELP" == "true" ]; then
     echo "All dependencies downloaded by default. Options available: "
     echo "  --skip-cmake             Skip CMake download"
+    echo "  --cmake-version <ver>    CMake version to install (default: $CMAKE_VERSION)"
     echo "  --skip-mariadb           Skip MariaDB download"
     echo "  --skip-sqlite            Skip SQLite download"
     echo "  --skip-odbc              Skip ODBC (SQL Server) download"
@@ -179,10 +187,12 @@ if [ "$SKIPCMAKE" == "false" ]; then
     elif [ "$PLATFORM_NAME" == "rhel" ]; then
         yum remove -y cmake > /dev/null
     fi
-    wget -q https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-Linux-x86_64.sh
-    chmod +x ./cmake-3.16.0-Linux-x86_64.sh
-    ./cmake-3.16.0-Linux-x86_64.sh --skip-license --prefix=/usr
-    rm cmake-3.16.0-Linux-x86_64.sh
+    # Since CMake 3.20 the installer name uses lowercase "linux"
+    CMAKE_INSTALLER="cmake-$CMAKE_VERSION-linux-x86_64.sh"
+    wget -q "https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/$CMAKE_INSTALLER"
+    chmod +x "./$CMAKE_INSTALLER"
+    "./$CMAKE_INSTALLER" --skip-license --prefix=/usr
+    rm "$CMAKE_INSTALLER"
 fi
 
 if [ "$SKIPJSON" == "false" ]; then

@@ -2,7 +2,7 @@
 # EOSERV is released under the zlib license.
 # See LICENSE.txt for more info.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.18...3.31)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0054 NEW)
 
@@ -10,6 +10,10 @@ project(etheos VERSION 0.8.0 LANGUAGES C CXX)
 
 # Pre-release suffix (rc.N), or empty for a release. Set both with scripts/prepare-release.sh.
 set(ETHEOS_VERSION_SUFFIX "rc.1")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -112,29 +116,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	)
 endif()
 
-if((eoserv_GCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
-OR (eoserv_CLANG AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "3.5"))
-	set(eoserv_CXX1Y TRUE)
-endif()
-
-if(eoserv_GCC OR eoserv_CLANG)
-	if(NOT " ${CMAKE_CXX_FLAGS} " MATCHES " -std=")
-		if(eoserv_CXX1Y)
-			set(eoserv_STDFLAG "-std=c++1y")
-		else()
-			set(eoserv_STDFLAG "-std=c++17")
-		endif()
-	endif()
-endif()
-
-if(eoserv_STDFLAG)
-	if(NOT " ${CMAKE_CXX_FLAGS} " MATCHES " -std=")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${eoserv_STDFLAG}")
-	endif()
-endif()
-
 if(eoserv_MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8 /Zc:__cplusplus")
 endif()
 
 # These non-standard anti-optimizations are currently required for a correctly functioning server
@@ -182,6 +165,12 @@ endif()
 
 include(DownloadGoogleTest)
 
+# -----------
+#  eolib-cpp
+# -----------
+
+include(FetchEolib)
+
 # ---------
 #  Outputs
 # ---------
@@ -189,6 +178,9 @@ include(DownloadGoogleTest)
 add_library(etheos_lib STATIC ${eoserv_SOURCE_FILES})
 add_executable(etheos ${eoserv_MAIN_FILES})
 add_executable(etheos_test ${TestFiles})
+
+target_compile_features(etheos_lib PUBLIC cxx_std_17)
+target_link_libraries(etheos_lib eolib::eolib)
 
 target_include_directories(etheos_test PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/json)
 target_include_directories(etheos_test PUBLIC ${CMAKE_BINARY_DIR}/googletest-src/googlemock/include)
