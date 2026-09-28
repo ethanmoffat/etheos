@@ -16,7 +16,7 @@
 
 ## Getting Started on Windows
 
-Visual Studio 2017 or 2019 is required for the compiler toolchain in order to build on Windows. You will need to select the "Desktop Development with C++" workload when installing. Windows 10 SDK is required for the ODBC (SQL server) driver libraries (can be installed as part of Visual Studio).
+Visual Studio 2019 or later is required for the compiler toolchain in order to build on Windows. You will need to select the "Desktop Development with C++" workload when installing. Windows 10 SDK is required for the ODBC (SQL server) driver libraries (can be installed as part of Visual Studio).
 
 > ⚠️ If you have previously attempted to build eoserv using MinGW on Windows, please uninstall MinGW as it conflicts with the standard libraries provided by Visual Studio.
 
@@ -40,7 +40,7 @@ The build and dependency install scripts may now be run from the `etheos` direct
 
 The dependencies for building ETHEOS on Windows are:
 
-- CMake (>= 2.8.2)
+- CMake (>= 3.18)
 - SQLite
 - MariaDB
 - vswhere
@@ -62,8 +62,8 @@ This process has been tested on Ubuntu 18.04 and 20.04 (including WSL/Windows Su
 
 The dependencies for building ETHEOS on Linux are:
 
-- g++
-- CMake (>= 2.6)
+- g++ (>= 8)
+- CMake (>= 3.18)
 - SQLite
 - MariaDB
 - git (for getting bcrypt/googletest components)

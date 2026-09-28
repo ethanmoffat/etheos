@@ -47,6 +47,14 @@ macro(compile_pch TargetName HeaderFile)
 		endif()
 	endforeach()
 
+	# The header is compiled by a custom command, which doesn't get the flags CMake derives from CMAKE_CXX_STANDARD.
+	# The standard must match the sources that use the PCH, or the compiler rejects it.
+	if(CMAKE_CXX_EXTENSIONS)
+		set(_PCHFlags "${_PCHFlags} ${CMAKE_CXX${CMAKE_CXX_STANDARD}_EXTENSION_COMPILE_OPTION}")
+	else()
+		set(_PCHFlags "${_PCHFlags} ${CMAKE_CXX${CMAKE_CXX_STANDARD}_STANDARD_COMPILE_OPTION}")
+	endif()
+
 	set(_PCHFlags "${_PCHFlags} ${CMAKE_CXX_FLAGS}")
 
 	string(TOLOWER "${CMAKE_BUILD_TYPE}" _PCHBuildType)
