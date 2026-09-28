@@ -46,11 +46,25 @@ struct ActionQueue_Action
  */
 class ActionQueue
 {
-	public:
+	private:
 		std::queue<std::unique_ptr<ActionQueue_Action>> queue;
 
+		// Earliest time the next action can be handled
 		double next;
+
+	public:
 		void AddAction(const PacketReader& reader, double time, bool auto_queue = false);
+
+		/**
+		 * Gets the number of queued actions, which is limited by PacketQueueMax.
+		 */
+		std::size_t Size() const;
+
+		/**
+		 * Handles the next action for the client if it's due at the given time. Exceptions thrown by the handler are
+		 * passed on to the caller.
+		 */
+		void Pump(EOClient* client, double now);
 
 		ActionQueue() : next(0) {};
 

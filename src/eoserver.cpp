@@ -75,10 +75,72 @@ void server_check_hangup(void *server_void)
 	}
 }
 
+void server_pump_client_queue(EOClient* client, double now, std::size_t queue_max)
+{
+	if (client->queue.Size() > queue_max)
+	{
+		Console::Wrn("Client was disconnected for filling up the action queue: %s", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		client->AsyncOpPending(false);
+		client->Close();
+		return;
+	}
+
+#ifndef DEBUG_EXCEPTIONS
+	try
+	{
+#endif // DEBUG_EXCEPTIONS
+		client->queue.Pump(client, now);
+#ifndef DEBUG_EXCEPTIONS
+	}
+	catch (Socket_Exception& e)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		Console::Err("%s: %s", e.what(), e.error());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+	catch (Database_Exception& e)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		Console::Err("%s: %s", e.what(), e.error());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+	catch (std::runtime_error& e)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		Console::Err("Runtime Error: %s", e.what());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+	catch (std::logic_error& e)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		Console::Err("Logic Error: %s", e.what());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+	catch (std::exception& e)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		Console::Err("Uncaught Exception: %s", e.what());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+	catch (...)
+	{
+		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
+		client->AsyncOpPending(false);
+		client->Close();
+	}
+#endif // DEBUG_EXCEPTIONS
+}
+
 void server_pump_queue(void *server_void)
 {
 	EOServer *server = static_cast<EOServer *>(server_void);
 	double now = Timer::GetTime();
+	std::size_t queue_max = std::size_t(int(server->world->config["PacketQueueMax"]));
 
 	UTIL_FOREACH(server->clients, rawclient)
 	{
@@ -87,73 +149,7 @@ void server_pump_queue(void *server_void)
 		if (!client->Connected())
 			continue;
 
-		std::size_t size = client->queue.queue.size();
-
-		if (size > std::size_t(int(server->world->config["PacketQueueMax"])))
-		{
-			Console::Wrn("Client was disconnected for filling up the action queue: %s", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-			client->AsyncOpPending(false);
-			client->Close();
-			continue;
-		}
-
-		if (size != 0 && client->queue.next <= now)
-		{
-			std::unique_ptr<ActionQueue_Action> action = std::move(client->queue.queue.front());
-			client->queue.queue.pop();
-
-#ifndef DEBUG_EXCEPTIONS
-			try
-			{
-#endif // DEBUG_EXCEPTIONS
-				Handlers::Handle(action->reader.Family(), action->reader.Action(), client, action->reader, !action->auto_queue);
-#ifndef DEBUG_EXCEPTIONS
-			}
-			catch (Socket_Exception& e)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				Console::Err("%s: %s", e.what(), e.error());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-			catch (Database_Exception& e)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				Console::Err("%s: %s", e.what(), e.error());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-			catch (std::runtime_error& e)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				Console::Err("Runtime Error: %s", e.what());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-			catch (std::logic_error& e)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				Console::Err("Logic Error: %s", e.what());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-			catch (std::exception& e)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				Console::Err("Uncaught Exception: %s", e.what());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-			catch (...)
-			{
-				Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-				client->AsyncOpPending(false);
-				client->Close();
-			}
-#endif // DEBUG_EXCEPTIONS
-
-			client->queue.next = now + action->time;
-		}
+		server_pump_client_queue(client, now, queue_max);
 	}
 }
 

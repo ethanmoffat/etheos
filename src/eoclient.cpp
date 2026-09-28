@@ -15,6 +15,7 @@
 #include "player.hpp"
 #include "timer.hpp"
 #include "world.hpp"
+#include "handlers/handlers.hpp"
 
 #include "console.hpp"
 #include "socket.hpp"
@@ -32,6 +33,24 @@
 void ActionQueue::AddAction(const PacketReader& reader, double time, bool auto_queue)
 {
 	this->queue.emplace(new ActionQueue_Action(reader, time, auto_queue));
+}
+
+std::size_t ActionQueue::Size() const
+{
+	return this->queue.size();
+}
+
+void ActionQueue::Pump(EOClient* client, double now)
+{
+	if (this->queue.empty() || this->next > now)
+		return;
+
+	std::unique_ptr<ActionQueue_Action> action = std::move(this->queue.front());
+	this->queue.pop();
+
+	this->next = now + action->time;
+
+	Handlers::Handle(action->reader.Family(), action->reader.Action(), client, action->reader, !action->auto_queue);
 }
 
 ActionQueue::~ActionQueue()

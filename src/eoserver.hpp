@@ -19,11 +19,13 @@
 #include "socket.hpp"
 
 #include <array>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 
 void server_ping_all(void *server_void);
 void server_pump_queue(void *server_void);
+void server_pump_client_queue(EOClient* client, double now, std::size_t queue_max);
 
 struct ConnectionLogEntry
 {
