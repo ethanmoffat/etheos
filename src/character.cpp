@@ -21,6 +21,7 @@
 #include "quest.hpp"
 #include "timer.hpp"
 #include "world.hpp"
+#include "handlers/handlers.hpp"
 
 #include "console.hpp"
 #include "util.hpp"
@@ -34,6 +35,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -1895,13 +1897,17 @@ void Character::DeathRespawn()
 	this->x = this->SpawnX();
 	this->y = this->SpawnY();
 
-	this->player->client->queue.AddAction(PacketReader(std::array<char, 2>{
-		{char(PACKET_INTERNAL_NULL), char(PACKET_INTERNAL)}
-	}.data()), 1.5);
+	// The character stays in limbo until the packets it already sent are handled and the pause is over. The character is
+	// looked up again then, since it can be freed on logout while the client lives on.
+	this->player->client->queue.Hold(1.5, Handlers::Playing, [](EOClient& client)
+	{
+		if (!client.player || !client.player->character)
+			throw std::runtime_error("Death respawn without a character");
 
-	this->player->client->queue.AddAction(PacketReader(std::array<char, 2>{
-		{char(PACKET_INTERNAL_WARP), char(PACKET_INTERNAL)}
-	}.data()), 0.0);
+		Character* character = client.player->character;
+		character->map = nullptr;
+		character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_NONE);
+	});
 }
 
 void Character::Mute(const Command_Source *by)

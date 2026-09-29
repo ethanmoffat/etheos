@@ -7,7 +7,9 @@
 #include "packet.hpp"
 #include "handlers/handlers.hpp"
 
-#include <array>
+#include <eolib/protocol/net/enums.hpp>
+
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,8 +35,8 @@ static constexpr int ReceiveDelayTicks = ToTicks(ReceiveDelaySeconds);
 static constexpr int DeathHoldTicks = ToTicks(DeathHoldSeconds);
 static constexpr int P3DelayTicks = ToTicks(P3DelaySeconds);
 
-// An action with no delay sets the next pump time to the current tick, so the next action is handled on the following
-// tick
+// An action with no delay, or the end of a hold, sets the next pump time to the current tick, so the next action is
+// handled on the following tick
 static constexpr int NextTick = 1;
 
 static int current_tick;
@@ -49,8 +51,6 @@ static void Handle_P1(EOClient*, PacketReader&) { RecordEvent("P1"); }
 static void Handle_P2(EOClient*, PacketReader&) { RecordEvent("P2"); }
 static void Handle_P3(EOClient*, PacketReader&) { RecordEvent("P3"); }
 static void Handle_P4(EOClient*, PacketReader&) { RecordEvent("P4"); }
-static void Handle_InternalNull(EOClient*, PacketReader&) { }
-static void Handle_InternalWarp(EOClient*, PacketReader&) { RecordEvent("respawn"); }
 
 static void RegisterTestHandler(PacketFamily family, PacketAction action, Handlers::client_handler_t f, unsigned short allow_states, double delay)
 {
@@ -61,15 +61,53 @@ static void RegisterTestHandler(PacketFamily family, PacketAction action, Handle
 // Mirrors what EOClient::Execute queues for a received packet
 static void Receive(EOClient& client, PacketFamily family, PacketAction action)
 {
-    client.queue.AddAction(PacketReader(std::string{char(action), char(family)}), ReceiveDelaySeconds, true);
+    client.queue.AddAction(QueuedPacket{eolib::protocol::net::PacketFamily(family), eolib::protocol::net::PacketAction(action), ""}, ReceiveDelaySeconds, true);
 }
 
 // Mirrors what Character::DeathRespawn queues
 static void Die(EOClient& client)
 {
-    client.queue.AddAction(PacketReader(std::array<char, 2>{{char(PACKET_INTERNAL_NULL), char(PACKET_INTERNAL)}}.data()), DeathHoldSeconds);
-    client.queue.AddAction(PacketReader(std::array<char, 2>{{char(PACKET_INTERNAL_WARP), char(PACKET_INTERNAL)}}.data()), 0.0);
+    client.queue.Hold(DeathHoldSeconds, Handlers::Playing, [](EOClient&) { RecordEvent("respawn"); });
 }
+
+class ActionQueueHoldTests : public ::testing::Test
+{
+protected:
+    Config config, admin_config;
+    std::unique_ptr<EOServer> server;
+    std::unique_ptr<MockClient> client;
+
+    void SetUp() override
+    {
+        Console::SuppressOutput(true);
+
+        CreateConfigWithTestDefaults(config, admin_config);
+
+        auto mockDatabase = CreateMockDatabase();
+        auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase);
+
+        server = std::make_unique<EOServer>(IPAddress("127.0.0.1"), ActionQueueTestServerPort, mockDatabaseFactory, config, admin_config);
+        client = std::make_unique<MockClient>(server.get());
+        EXPECT_CALL(*client, Connected()).WillRepeatedly(Return(true));
+        client->state = EOClient::Playing;
+
+        RegisterTestHandler(PACKET_WALK, PACKET_PLAYER, Handle_P1, Handlers::Playing, 0.0);
+
+        events.clear();
+    }
+
+    void TearDown() override
+    {
+        client.reset();
+        server.reset();
+    }
+
+    void Pump(int from_tick, int to_tick)
+    {
+        for (current_tick = from_tick; current_tick < to_tick; ++current_tick)
+            server_pump_client_queue(client.get(), current_tick * TickSeconds, QueueMax);
+    }
+};
 
 GTEST_TEST(ActionQueueTests, DeathRespawn_PacketsQueuedAround_KeepOrderAndTiming)
 {
@@ -88,8 +126,6 @@ GTEST_TEST(ActionQueueTests, DeathRespawn_PacketsQueuedAround_KeepOrderAndTiming
     RegisterTestHandler(PACKET_FACE, PACKET_PLAYER, Handle_P2, Handlers::Playing | Handlers::OutOfBand, 0.0);
     RegisterTestHandler(PACKET_EMOTE, PACKET_REPORT, Handle_P3, Handlers::Playing, P3DelaySeconds);
     RegisterTestHandler(PACKET_SIT, PACKET_REQUEST, Handle_P4, Handlers::Playing, 0.0);
-    RegisterTestHandler(PACKET_INTERNAL, PACKET_INTERNAL_NULL, Handle_InternalNull, Handlers::Any, 0.0);
-    RegisterTestHandler(PACKET_INTERNAL, PACKET_INTERNAL_WARP, Handle_InternalWarp, Handlers::Playing, 0.0);
 
     MockClient client(&server);
     EXPECT_CALL(client, Connected()).WillRepeatedly(Return(true));
@@ -135,4 +171,92 @@ GTEST_TEST(ActionQueueTests, DeathRespawn_PacketsQueuedAround_KeepOrderAndTiming
         {"P4", p4_tick},
     };
     EXPECT_EQ(expected_events, events);
+}
+
+TEST_F(ActionQueueHoldTests, Hold_EmptyQueue_ReleasesOnceAfterDuration)
+{
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    current_tick = 0;
+    Die(*client);
+
+    Pump(0, 400);
+
+    // The hold starts on the first tick
+    const std::vector<std::pair<std::string, int>> expected_events{{"respawn", DeathHoldTicks}};
+    EXPECT_EQ(expected_events, events);
+}
+
+TEST_F(ActionQueueHoldTests, Hold_StateChangesWhileDraining_SkipsOnRelease)
+{
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    Receive(*client, PACKET_WALK, PACKET_PLAYER);
+    Die(*client);
+
+    Pump(0, 1);
+    client->state = EOClient::Initialized;
+    Pump(1, 400);
+
+    EXPECT_TRUE(events.empty());
+}
+
+TEST_F(ActionQueueHoldTests, Hold_StateChangesDuringPause_SkipsOnRelease)
+{
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    Die(*client);
+
+    Pump(0, DeathHoldTicks / 2);
+    client->state = EOClient::Initialized;
+    Pump(DeathHoldTicks / 2, 400);
+
+    EXPECT_TRUE(events.empty());
+}
+
+TEST_F(ActionQueueHoldTests, Hold_PacketsAfterHold_WaitForRelease)
+{
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    current_tick = 0;
+    Die(*client);
+    Receive(*client, PACKET_WALK, PACKET_PLAYER);
+
+    Pump(0, 400);
+
+    // P1 is taken from the queue on the tick after the release, and handled after its receive delay
+    const int respawn_tick = DeathHoldTicks;
+    const int p1_tick = respawn_tick + NextTick + ReceiveDelayTicks;
+
+    const std::vector<std::pair<std::string, int>> expected_events{{"respawn", respawn_tick}, {"P1", p1_tick}};
+    EXPECT_EQ(expected_events, events);
+}
+
+TEST_F(ActionQueueHoldTests, Hold_OnReleaseThrows_ClosesClient)
+{
+    EXPECT_CALL(*client, Close(false)).Times(1);
+
+    client->queue.Hold(DeathHoldSeconds, Handlers::Playing, [](EOClient&) { throw std::runtime_error("test"); });
+
+    Pump(0, 400);
+}
+
+TEST_F(ActionQueueHoldTests, Hold_QueueMaxZero_DoesNotCountTowardsLimit)
+{
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    Die(*client);
+
+    for (current_tick = 0; current_tick < 400; ++current_tick)
+        server_pump_client_queue(client.get(), current_tick * TickSeconds, 0);
+
+    const std::vector<std::pair<std::string, int>> expected_events{{"respawn", DeathHoldTicks}};
+    EXPECT_EQ(expected_events, events);
+}
+
+TEST_F(ActionQueueHoldTests, Hold_WhileActive_ThrowsLogicError)
+{
+    Die(*client);
+
+    EXPECT_THROW(Die(*client), std::logic_error);
 }

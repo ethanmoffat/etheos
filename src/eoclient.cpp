@@ -35,9 +35,19 @@
 #include <string>
 #include <utility>
 
-void ActionQueue::AddAction(const PacketReader& reader, double time, bool auto_queue)
+namespace net = eolib::protocol::net;
+
+void ActionQueue::AddAction(QueuedPacket packet, double time, bool auto_queue)
 {
-	this->queue.emplace(new ActionQueue_Action(reader, time, auto_queue));
+	this->queue.emplace(new ActionQueue_Action(std::move(packet), time, auto_queue));
+}
+
+void ActionQueue::Hold(double seconds, unsigned short allow_states, std::function<void(EOClient&)> on_release)
+{
+	if (this->hold)
+		throw std::logic_error("Action queue is already on hold");
+
+	this->hold = HoldState{this->queue.size(), false, seconds, allow_states, std::move(on_release)};
 }
 
 std::size_t ActionQueue::Size() const
@@ -47,15 +57,44 @@ std::size_t ActionQueue::Size() const
 
 void ActionQueue::Pump(EOClient* client, double now)
 {
-	if (this->queue.empty() || this->next > now)
+	if (this->next > now)
+		return;
+
+	if (this->hold && this->hold->ahead == 0)
+	{
+		this->PumpHold(client, now);
+		return;
+	}
+
+	if (this->queue.empty())
 		return;
 
 	std::unique_ptr<ActionQueue_Action> action = std::move(this->queue.front());
 	this->queue.pop();
 
+	if (this->hold)
+		--this->hold->ahead;
+
 	this->next = now + action->time;
 
-	Handlers::Handle(action->reader.Family(), action->reader.Action(), client, action->reader, !action->auto_queue);
+	Handlers::Handle(client, action->packet, !action->auto_queue);
+}
+
+void ActionQueue::PumpHold(EOClient* client, double now)
+{
+	if (!this->hold->armed)
+	{
+		this->hold->armed = true;
+		this->next = now + this->hold->duration;
+		return;
+	}
+
+	HoldState hold = std::move(*this->hold);
+	this->hold.reset();
+	this->next = now;
+
+	if (Handlers::packet_handler_register::StateCheck(client, hold.allow_states))
+		hold.on_release(*client);
 }
 
 ActionQueue::~ActionQueue()
@@ -262,8 +301,8 @@ void EOClient::NewCreateID()
 static bool IsInitInit(const std::string& data)
 {
 	return data.length() >= 2
-		&& static_cast<unsigned char>(data[0]) == static_cast<unsigned char>(eolib::protocol::net::PacketAction::Init)
-		&& static_cast<unsigned char>(data[1]) == static_cast<unsigned char>(eolib::protocol::net::PacketFamily::Init);
+		&& static_cast<unsigned char>(data[0]) == static_cast<unsigned char>(net::PacketAction::Init)
+		&& static_cast<unsigned char>(data[1]) == static_cast<unsigned char>(net::PacketFamily::Init);
 }
 
 void EOClient::EncryptPacket(std::string& body, int multiple)
@@ -297,33 +336,26 @@ void EOClient::Execute(const std::string &data)
 	std::string decrypted = data;
 	EOClient::DecryptPacket(decrypted, this->client_encryption_multiple);
 
-	PacketReader reader(decrypted);
+	auto action = net::PacketAction(static_cast<unsigned char>(decrypted[0]));
+	auto family = net::PacketFamily(static_cast<unsigned char>(decrypted[1]));
 
-	this->LogPacket(reader.Family(), reader.Action(), reader.Length(), "RECV");
+	this->LogPacket(PacketFamily(family), PacketAction(action), decrypted.length(), "RECV");
 
-	if (reader.Family() == PACKET_INTERNAL)
+	std::size_t payload_start = 2;
+
+	if (family != net::PacketFamily::Init)
 	{
-		Console::Wrn("Closing client connection sending a reserved packet ID: %s", static_cast<std::string>(this->GetRemoteAddr()).c_str());
-		this->AsyncOpPending(false);
-		this->Close();
-		return;
-	}
-
-	if (reader.Family() != PACKET_F_INIT)
-	{
-		bool ping_reply = (reader.Family() == PACKET_CONNECTION && reader.Action() == PACKET_PING);
-
 		// A client that replies before it has been pinged keeps its current sequence start
-		if (ping_reply && this->upcoming_sequence_start)
+		if (family == net::PacketFamily::Connection && action == net::PacketAction::Ping && this->upcoming_sequence_start)
 			this->sequencer.SetSequenceStart(*this->upcoming_sequence_start);
 
-		int client_seq;
 		int server_seq = this->sequencer.NextSequence();
 
-		if (server_seq >= int(eolib::data::EoNumericLimits::CharMax))
-			client_seq = reader.GetShort();
-		else
-			client_seq = reader.GetChar();
+		std::size_t seq_length = (server_seq >= int(eolib::data::EoNumericLimits::CharMax)) ? 2 : 1;
+		seq_length = std::min(seq_length, decrypted.length() - payload_start);
+
+		int client_seq = eolib::data::NumberEncoder::DecodeNumber(reinterpret_cast<const std::uint8_t*>(decrypted.data() + payload_start), seq_length);
+		payload_start += seq_length;
 
 		if (this->server()->world->config["EnforceSequence"])
 		{
@@ -341,7 +373,7 @@ void EOClient::Execute(const std::string &data)
 		this->sequencer.NextSequence();
 	}
 
-	queue.AddAction(reader, 0.02, true);
+	queue.AddAction(QueuedPacket{family, action, decrypted.substr(payload_start)}, 0.02, true);
 }
 
 bool EOClient::Upload(FileType type, int id, InitReply init_reply)

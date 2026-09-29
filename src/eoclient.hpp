@@ -19,9 +19,11 @@
 
 #include <eolib/packet/packet_sequencer.hpp>
 #include <eolib/packet/sequence_start.hpp>
+#include <eolib/protocol/net/enums.hpp>
 
 #include <cstddef>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -30,43 +32,87 @@
 #include <mutex>
 
 /**
- * An action the server will execute for the client
+ * A packet received from a client, waiting to be handled
+ */
+struct QueuedPacket
+{
+	eolib::protocol::net::PacketFamily family;
+	eolib::protocol::net::PacketAction action;
+
+	// The packet data after the family, action and sequence number
+	std::string payload;
+};
+
+/**
+ * A packet the server will handle for the client
  */
 struct ActionQueue_Action
 {
-	PacketReader reader;
+	QueuedPacket packet;
 	double time;
 	bool auto_queue;
 
-	ActionQueue_Action(PacketReader reader_, double time_, bool auto_queue_ = false)
-		: reader(reader_)
+	ActionQueue_Action(QueuedPacket packet_, double time_, bool auto_queue_ = false)
+		: packet(std::move(packet_))
 		, time(time_)
 		, auto_queue(auto_queue_)
 	{ }
 };
 
 /**
- * A list of actions a client needs to eventually have executed for it
+ * A list of packets a client needs to eventually have handled for it
  */
 class ActionQueue
 {
 	private:
+		/**
+		 * A pause in handling a client's packets, followed by a callback
+		 */
+		struct HoldState
+		{
+			// Number of packets queued before the hold, which are handled before the pause starts
+			std::size_t ahead;
+
+			// Whether the pause has started
+			bool armed;
+
+			double duration;
+
+			// Client states (Handlers::AllowState) in which on_release still runs
+			unsigned short allow_states;
+
+			std::function<void(EOClient&)> on_release;
+		};
+
 		std::queue<std::unique_ptr<ActionQueue_Action>> queue;
+		std::optional<HoldState> hold;
 
 		// Earliest time the next action can be handled
 		double next;
 
+		/**
+		 * Starts the pause once the packets ahead of the hold are handled, and ends it once the duration has passed.
+		 */
+		void PumpHold(EOClient* client, double now);
+
 	public:
-		void AddAction(const PacketReader& reader, double time, bool auto_queue = false);
+		void AddAction(QueuedPacket packet, double time, bool auto_queue = false);
 
 		/**
-		 * Gets the number of queued actions, which is limited by PacketQueueMax.
+		 * Pauses packet handling for the given number of seconds once the packets already queued are handled, then
+		 * calls on_release if the client is still in one of allow_states. Packets queued after this call wait for it.
+		 * Throws std::logic_error if a hold is already active.
+		 */
+		void Hold(double seconds, unsigned short allow_states, std::function<void(EOClient&)> on_release);
+
+		/**
+		 * Gets the number of queued packets, which is limited by PacketQueueMax. A hold isn't counted.
 		 */
 		std::size_t Size() const;
 
 		/**
-		 * Handles the next action for the client if it's due at the given time. Exceptions thrown by the handler are
-		 * passed on to the caller.
+		 * Handles the next packet for the client, or starts or ends a hold, if it's due at the given time. Exceptions
+		 * thrown by the handler or the hold's on_release are passed on to the caller.
 		 */
 		void Pump(EOClient* client, double now);
 

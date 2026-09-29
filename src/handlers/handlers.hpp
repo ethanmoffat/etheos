@@ -96,7 +96,7 @@ class packet_handler_register
 
 		static bool StateCheck(EOClient *client, unsigned short allow_states);
 
-		void Handle(PacketFamily family, PacketAction action, EOClient *client, PacketReader &reader, bool from_queue = false) const;
+		void Handle(EOClient* client, const QueuedPacket& packet, bool from_queue = false) const;
 
 		void SetDelay(PacketFamily family, PacketAction action, double delay);
 };
@@ -126,6 +126,14 @@ class packet_handler_register_init
 		~packet_handler_register_init();
 };
 
+/**
+ * Gets the object a handler is called with. Throws std::runtime_error if the client doesn't have one yet.
+ */
+template <typename TTarget> TTarget* GetHandlerTarget(EOClient* client);
+template <> EOClient* GetHandlerTarget<EOClient>(EOClient* client);
+template <> Player* GetHandlerTarget<Player>(EOClient* client);
+template <> Character* GetHandlerTarget<Character>(EOClient* client);
+
 template <PacketFamily family> class packet_handler_register_helper
 {
 	public:
@@ -145,9 +153,9 @@ template <PacketFamily family> class packet_handler_register_helper
 		}
 };
 
-inline void Handle(PacketFamily family, PacketAction action, EOClient *client, PacketReader &reader, bool from_queue = false)
+inline void Handle(EOClient* client, const QueuedPacket& packet, bool from_queue = false)
 {
-	packet_handler_register_instance->Handle(family, action, client, reader, from_queue);
+	packet_handler_register_instance->Handle(client, packet, from_queue);
 }
 
 inline void SetDelay(PacketFamily family, PacketAction action, double delay)

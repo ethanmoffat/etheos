@@ -13,7 +13,6 @@ class PacketBuilder;
 
 enum PacketFamily : unsigned char
 {
-	PACKET_INTERNAL = 0,
 	PACKET_CONNECTION = 1,
 	PACKET_ACCOUNT = 2,
 	PACKET_CHARACTER = 3,
@@ -99,9 +98,6 @@ enum PacketAction : unsigned char
 	PACKET_TARGET_OTHER = 31,
 	PACKET_TARGET_GROUP = 33, // Tentative name
 	PACKET_DIALOG = 34,
-
-	PACKET_INTERNAL_NULL = 128,
-	PACKET_INTERNAL_WARP = 129,
 
 	PACKET_PING = 240,
 	PACKET_PONG = 241,

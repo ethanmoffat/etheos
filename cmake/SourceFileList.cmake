@@ -163,7 +163,6 @@ set(eoserv_ALL_HANDLER_FILES
 	src/handlers/Global.cpp
 	src/handlers/Guild.cpp
 	src/handlers/Init.cpp
-	src/handlers/Internal.cpp
 	src/handlers/Item.cpp
 	src/handlers/Jukebox.cpp
 	src/handlers/Locker.cpp

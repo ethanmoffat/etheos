@@ -11,6 +11,7 @@ class EOClient;
 class ActionQueue;
 
 struct ActionQueue_Action;
+struct QueuedPacket;
 
 enum InitReply : unsigned char
 {
