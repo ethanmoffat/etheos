@@ -186,19 +186,19 @@ include(DownloadGoogleTest)
 #  Outputs
 # ---------
 
-add_library(eoserv_lib STATIC ${eoserv_SOURCE_FILES})
+add_library(etheos_lib STATIC ${eoserv_SOURCE_FILES})
 add_executable(etheos ${eoserv_MAIN_FILES})
-add_executable(eoserv_test ${TestFiles})
+add_executable(etheos_test ${TestFiles})
 
-target_include_directories(eoserv_test PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/json)
-target_include_directories(eoserv_test PUBLIC ${CMAKE_BINARY_DIR}/googletest-src/googlemock/include)
-target_link_libraries(eoserv_test gtest_main gmock eoserv_lib)
+target_include_directories(etheos_test PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/json)
+target_include_directories(etheos_test PUBLIC ${CMAKE_BINARY_DIR}/googletest-src/googlemock/include)
+target_link_libraries(etheos_test gtest_main gmock etheos_lib)
 
 if(EOSERV_USE_PRECOMPILED_HEADERS)
-	add_dependencies(eoserv_test eoserv-pch)
+	add_dependencies(etheos_test eoserv-pch)
 endif()
 
-add_test(NAME eoserv_test COMMAND eoserv_test)
+add_test(NAME etheos_test COMMAND etheos_test)
 
 set (CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
 
@@ -250,17 +250,17 @@ endif()
 include(DownloadBcrypt)
 
 target_include_directories(etheos PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
-target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
+target_include_directories(etheos_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/include)
 list(APPEND eoserv_LIBRARIES bcrypt)
 
-target_include_directories(eoserv_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
-target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/generated)
+target_include_directories(etheos_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
+target_include_directories(etheos_lib PUBLIC ${CMAKE_BINARY_DIR}/generated)
 
-target_link_libraries(etheos eoserv_lib)
-target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})
+target_link_libraries(etheos etheos_lib)
+target_link_libraries(etheos_lib ${eoserv_LIBRARIES})
 
 install(TARGETS etheos RUNTIME DESTINATION .)
-install(TARGETS eoserv_test RUNTIME DESTINATION ./test)
+install(TARGETS etheos_test RUNTIME DESTINATION ./test)
 
 foreach (File ${ExtraFiles})
 	get_filename_component(Dir "${File}" DIRECTORY)
@@ -305,7 +305,7 @@ if(EOSERV_USE_PRECOMPILED_HEADERS)
 
 	add_dependencies(eoserv-pch-autogen eoserv-pch)
 	add_dependencies(etheos eoserv-pch)
-	add_dependencies(eoserv_lib eoserv-pch)
+	add_dependencies(etheos_lib eoserv-pch)
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${eoserv-pch_INCLUDE_FLAG}")
 endif()

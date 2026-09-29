@@ -124,6 +124,6 @@ Set-Location $PSScriptRoot
 
 if ($Test) {
     Set-Location install/test
-    ./eoserv_test.exe
+    ./etheos_test.exe
     Set-Location $PSScriptRoot
 }

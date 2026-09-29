@@ -45,7 +45,7 @@ jobs:
 
       - name: Test
         working-directory: install/test
-        run: ./eoserv_test
+        run: ./etheos_test
 
       # Archived so file permissions survive the artifact upload; the release workflow repackages it.
       - name: Archive install directory
