@@ -16,19 +16,14 @@
 #include "../console.hpp"
 #include "../util.hpp"
 
+#include <eolib/encrypt/server_verifier.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <stdexcept>
 #include <string>
-
-static inline unsigned int stupid_hash(unsigned int i)
-{
-	++i;
-
-	return 110905 + (i % 9 + 1) * ((11092004 - i) % ((i % 11 + 1) * 119)) * 119 + i % 2004;
-}
 
 namespace Handlers
 {
@@ -130,7 +125,7 @@ void Init_Init(EOClient *client, PacketReader &reader)
 		return;
 	}
 
-	response = stupid_hash(challenge);
+	response = static_cast<unsigned int>(eolib::encrypt::ServerVerifier::Hash(static_cast<int>(challenge)));
 
 	int emulti_e = util::rand(6,12);
 	int emulti_d = util::rand(6,12);
