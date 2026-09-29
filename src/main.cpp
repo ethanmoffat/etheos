@@ -287,14 +287,14 @@ int eoserv_main(int argc, char *argv[])
 		eoserv_config_validate_admin(aconfig);
 
 		Console::Styled[1] = Console::Styled[0] = config["StyleConsole"];
-		std::puts("\
+		std::printf("\
                ███████╗████████╗██╗  ██╗███████╗ ██████╗ ███████╗               \n\
- v" EOSERV_VERSION_STRING "        ██╔════╝╚══██╔══╝██║  ██║██╔════╝██╔═══██╗██╔════╝               \n\
+ v%-13s██╔════╝╚══██╔══╝██║  ██║██╔════╝██╔═══██╗██╔════╝               \n\
 ===============█████╗     ██║   ███████║█████╗  ██║   ██║███████╗===============\n\
 ===============██╔══╝     ██║   ██╔══██║██╔══╝  ██║   ██║╚════██║===============\n\
  Copyright (c) ███████╗   ██║   ██║  ██║███████╗╚██████╔╝███████║ Modified by   \n\
 Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝ Ethan Moffat  \n\
-\n");
+\n\n", EOSERV_VERSION_STRING);
 #ifdef DEBUG
 		Console::Wrn("This is a debug build and shouldn't be used for live servers.");
 #endif

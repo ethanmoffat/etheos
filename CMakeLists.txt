@@ -8,7 +8,12 @@ cmake_policy(SET CMP0054 NEW)
 
 project(etheos VERSION 0.7.1 LANGUAGES C CXX)
 
+# Pre-release suffix (rc.N), or empty for a release. Set both with scripts/prepare-release.sh.
+set(ETHEOS_VERSION_SUFFIX "")
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+include(EtheosVersion)
 
 # ---------
 #  Options
@@ -249,6 +254,7 @@ target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/bcrypt-src/incl
 list(APPEND eoserv_LIBRARIES bcrypt)
 
 target_include_directories(eoserv_lib PUBLIC ${CMAKE_SOURCE_DIR}/json)
+target_include_directories(eoserv_lib PUBLIC ${CMAKE_BINARY_DIR}/generated)
 
 target_link_libraries(etheos eoserv_lib)
 target_link_libraries(eoserv_lib ${eoserv_LIBRARIES})

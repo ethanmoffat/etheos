@@ -1,7 +1,7 @@
 # ETHEOS
 
-[![Build Status](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/build.yaml)
-[![CI Test and Deploy](https://github.com/ethanmoffat/etheos/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/ci.yaml)
+[![Build](https://github.com/ethanmoffat/etheos/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ethanmoffat/etheos/actions/workflows/build.yml)
+[![Release](https://github.com/ethanmoffat/etheos/actions/workflows/release.yml/badge.svg)](https://github.com/ethanmoffat/etheos/actions/workflows/release.yml)
 
 ## Table of Contents
 
@@ -11,6 +11,7 @@
 - [Running](#running)
 - [Development](#development)
 - [Integration Tests](#integration-tests)
+- [Releases](#releases)
 - [Sample servers](#sample-servers)
 
 ## Getting Started on Windows
@@ -78,7 +79,7 @@ Run `./build-linux.sh` to build the source with support for the SQL Server datab
 
 ## Docker Image
 
-A docker image is available on docker hub at `darthchungis/etheos`. Environment variables in the form of `ETHEOS_###` (all uppercase, case-sensitive) may be used to set configuration options. These options will override what is set by default in the configuration files.
+A docker image is available on docker hub at `darthchungis/etheos`. Each release is tagged with its version, and `latest` is the newest stable (non-rc) release. Environment variables in the form of `ETHEOS_###` (all uppercase, case-sensitive) may be used to set configuration options. These options will override what is set by default in the configuration files.
 
 For example:
 
@@ -104,7 +105,7 @@ Development within [Visual Studio Code](https://code.visualstudio.com/) (vscode)
 
 Integration tests have been added under `src/test/integration`. These are integration test scripts that are run via [EOBot](https://www.github.com/ethanmoffat/EndlessClient/tree/master/EOBot).
 
-These tests are run as part of the release pipeline that deploys the sample server to `etheos.moffat.io:8078` (see below section). However, they may also be run locally to validate integration scenarios or add more integration test coverage.
+These tests are run by the build workflow on every push and pull request to `master` and `feat/*` branches. They may also be run locally to validate integration scenarios or add more integration test coverage.
 
 Running these integration tests is only supported on Linux. Ubuntu 22.04 is the suggested platform. WSL 2 is supported.
 
@@ -126,6 +127,10 @@ This script will use a self-contained docker environment based on your local rep
 
 For more information on authoring test scripts, see the output of `EOBot --help`.
 
+## Releases
+
+Changes are listed in [CHANGELOG.md](CHANGELOG.md). Versions follow [Semantic Versioning](https://semver.org), with `-rc.N` release candidates. Each release is published as a [GitHub release](https://github.com/ethanmoffat/etheos/releases) with Linux and Windows builds, and as a Docker image (see [Docker Image](#docker-image)).
+
 ## Sample Servers
 
-A sample server using the SQL Server DB backend and default assets from EO v28 is available at `moffat.io:8078`. This server is redeployed via on successful CI runs.
+A sample server using the SQL Server DB backend and default assets from EO v28 is available at `moffat.io:8078`.

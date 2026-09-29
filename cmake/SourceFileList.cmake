@@ -130,7 +130,6 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/threadpool.hpp
 	src/util/variant.cpp
 	src/util/variant.hpp
-	src/version.h
 	src/wedding.cpp
 	src/wedding.hpp
 	src/world.cpp

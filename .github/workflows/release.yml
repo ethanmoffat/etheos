@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      build-run-id: ${{ steps.build.outputs.run-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history, so the script can check the tagged commit is on master
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate release
+        run: ./scripts/validate-release.sh "${GITHUB_REF_NAME}"
+
+      - name: Find the master build of the tagged commit
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          run_id="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow build.yml --branch master --event push \
+            --commit "${commit}" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -z "${run_id}" ]; then
+            echo "::error::No successful master build of ${commit:0:7} was found. Push master and wait for its build to pass before pushing the tag."
+            exit 1
+          fi
+          echo "Using build run ${run_id} for ${commit:0:7}"
+          echo "run-id=${run_id}" >> "$GITHUB_OUTPUT"
+
+  docker:
+    name: Publish Docker image
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      IMAGE: darthchungis/etheos
+      VERSION: ${{ needs.validate.outputs.version }}
+      PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: docker-image
+          run-id: ${{ needs.validate.outputs.build-run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: darthchungis
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Check the version isn't published
+        run: |
+          if docker manifest inspect "${IMAGE}:${VERSION}" > /dev/null 2>&1; then
+            echo "::error::${IMAGE}:${VERSION} is already published"
+            exit 1
+          fi
+
+      - name: Push image
+        run: |
+          gunzip -c image.tar.gz | docker load
+          docker tag etheos:build "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:${VERSION}"
+          # Only stable releases move :latest
+          if [[ "${PRERELEASE}" != "true" ]]; then
+            docker tag etheos:build "${IMAGE}:latest"
+            docker push "${IMAGE}:latest"
+          fi
+
+  github-release:
+    name: GitHub release
+    needs: [validate, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: install-*
+          path: artifacts
+          run-id: ${{ needs.validate.outputs.build-run-id }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+
+      - name: Package release archives
+        run: |
+          mkdir dist
+          for platform in linux-x64 windows-x86; do
+            name="etheos-${VERSION}-${platform}"
+            mkdir -p "staging/${name}"
+            tar -xzf "artifacts/install-${platform}.tar.gz" -C "staging/${name}"
+            (cd staging && zip -qr "../dist/${name}.zip" "${name}")
+          done
+          (cd dist && sha256sum -- *.zip > "etheos-${VERSION}.sha256")
+          cat "dist/etheos-${VERSION}.sha256"
+
+      - name: Parse changelog
+        id: changelog
+        uses: coditory/changelog-parser@v1
+        with:
+          version: ${{ needs.validate.outputs.version }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: etheos ${{ needs.validate.outputs.version }}
+          body: ${{ steps.changelog.outputs.description }}
+          prerelease: ${{ needs.validate.outputs.prerelease }}
+          files: dist/*
+          fail_on_unmatched_files: true

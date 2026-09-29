@@ -12,6 +12,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -38,6 +39,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -64,6 +66,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "sqlite/include",
                 "json",
                 "src"
@@ -90,6 +93,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -114,6 +118,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -139,6 +144,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -163,6 +169,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -190,6 +197,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -217,6 +225,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "sqlite/include",
                 "json",
                 "src"
@@ -244,6 +253,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -269,6 +279,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
@@ -295,6 +306,7 @@
                 "build/googletest-src/googletest/include",
                 "build/googletest-src/googlemock/include",
                 "build/bcrypt-src/include",
+                "build/generated",
                 "json",
                 "src"
             ],
