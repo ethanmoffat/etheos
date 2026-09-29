@@ -6,16 +6,56 @@
 
 #include "handlers.hpp"
 
+#include "../config.hpp"
 #include "../eoclient.hpp"
+#include "../eoserver.hpp"
 #include "../player.hpp"
+#include "../world.hpp"
 
 #include "../console.hpp"
 
+#include <eolib/data/eo_reader.hpp>
+#include <eolib/protocol/net/client/packet_factory.hpp>
+
+#include <exception>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace Handlers
 {
+
+void HandleMalformedPacket(EOClient* client, net::PacketFamily family, net::PacketAction action, const std::string& reason)
+{
+	std::string packet_name = net::ToString(family) + "_" + net::ToString(action);
+	std::string address = static_cast<std::string>(client->GetRemoteAddr());
+
+	if (!client->server()->world->config["EnforcePacketFormat"])
+	{
+		Console::Wrn("Dropping malformed packet %s from %s: %s", packet_name.c_str(), address.c_str(), reason.c_str());
+		return;
+	}
+
+	Console::Wrn("Closing client connection sending malformed packet %s: %s: %s", packet_name.c_str(), address.c_str(), reason.c_str());
+	client->AsyncOpPending(false);
+	client->Close();
+}
+
+bool DeserializePacket(EOClient* client, const QueuedPacket& packet, net::Packet& typed_packet)
+{
+	try
+	{
+		eolib::data::EoReader reader(std::string_view(packet.payload));
+		typed_packet.Deserialize(reader);
+	}
+	catch (const std::exception& e)
+	{
+		HandleMalformedPacket(client, packet.family, packet.action, e.what());
+		return false;
+	}
+
+	return true;
+}
 
 template <> EOClient* GetHandlerTarget<EOClient>(EOClient* client)
 {
@@ -98,6 +138,12 @@ void packet_handler_register::Register(PacketFamily family, PacketAction action,
 
 void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packet, bool from_queue) const
 {
+	if (!net::client::PacketFactory::Contains(packet.family, packet.action))
+	{
+		HandleMalformedPacket(client, packet.family, packet.action, "unrecognized packet family/action");
+		return;
+	}
+
 	auto family = PacketFamily(packet.family);
 	auto action = PacketAction(packet.action);
 
@@ -122,6 +168,12 @@ void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packe
 	if (!from_queue && (handler.allow_states & Playing) && !(handler.allow_states & OutOfBand))
 	{
 		client->queue.AddAction(packet, handler.delay);
+		return;
+	}
+
+	if (handler.typed_invoker)
+	{
+		handler.typed_invoker(handler.f, client, packet);
 		return;
 	}
 

@@ -20,6 +20,7 @@
 #include <eolib/packet/packet_sequencer.hpp>
 #include <eolib/packet/sequence_start.hpp>
 #include <eolib/protocol/net/enums.hpp>
+#include <eolib/protocol/net/packet.hpp>
 
 #include <cstddef>
 #include <cstdio>
@@ -247,6 +248,11 @@ class EOClient : public Client
 		bool Upload(FileType type, int id, InitReply init_reply);
 		bool Upload(FileType type, const std::string &filename, InitReply init_reply);
 		virtual void Send(const PacketBuilder &packet);
+
+		/**
+		 * Serializes and sends a packet. Packets that fail to serialize are logged and dropped.
+		 */
+		virtual void Send(const eolib::protocol::net::Packet& packet);
 
 		virtual ~EOClient();
 };

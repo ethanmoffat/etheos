@@ -53,6 +53,7 @@ void eoserv_config_validate_config(Config& config)
 	eoserv_config_default(config, "PacketQueueMax"     , 40);
 	eoserv_config_default(config, "PingRate"           , 60.0);
 	eoserv_config_default(config, "EnforceSequence"    , true);
+	eoserv_config_default(config, "EnforcePacketFormat", false);
 	eoserv_config_default(config, "EnforceTimestamps"  , true);
 	eoserv_config_default(config, "EnforceSessions"    , true);
 	eoserv_config_default(config, "PasswordSalt"       , "ChangeMe");
