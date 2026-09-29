@@ -112,13 +112,19 @@ fi
 
 if [ "$SKIPSQLSERVER" == "false" ]; then
     if [ "$PLATFORM_NAME" == "ubuntu" ]; then
-        if [ ! -f '/etc/apt/sources.list.d/mssql-release.list' ]; then
+        if [ "$PLATFORM_VERSION" == "24.04" ]; then
+            PACKAGES="$PACKAGES msodbcsql18 unixodbc-dev"
+        else
+            PACKAGES="$PACKAGES msodbcsql17 unixodbc-dev"
+        fi
+
+        # Some images (e.g. GitHub-hosted runners) already configure this repo; adding it again with a different
+        # Signed-By makes apt refuse to read any sources.
+        if ! grep -rqs "packages.microsoft.com/ubuntu/${PLATFORM_VERSION}/prod" /etc/apt/sources.list /etc/apt/sources.list.d/; then
             if [ "$PLATFORM_VERSION" == "24.04" ]; then
                 curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
-                PACKAGES="$PACKAGES msodbcsql18 unixodbc-dev"
             else
                 curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-                PACKAGES="$PACKAGES msodbcsql17 unixodbc-dev"
             fi
 
             curl https://packages.microsoft.com/config/ubuntu/${PLATFORM_VERSION}/prod.list > /etc/apt/sources.list.d/mssql-release.list
