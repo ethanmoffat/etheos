@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include <gtest/gtest.h>
 
 #include "util/semaphore.hpp"
@@ -64,7 +66,7 @@ GTEST_TEST(ThreadPoolTests, GreaterThanMaxThreadsUsesDefault)
 
 GTEST_TEST(ThreadPoolTests, QueueDoesWork)
 {
-    volatile bool done = false;
+    std::atomic<bool> done(false);
     auto workFunc = [&done](const void * state)
     {
         (void)state;
@@ -75,7 +77,7 @@ GTEST_TEST(ThreadPoolTests, QueueDoesWork)
     ThreadPool::Queue(workFunc, nullptr);
     SLEEP_MS(200);
 
-    ASSERT_TRUE(done);
+    ASSERT_TRUE(done.load());
 }
 
 GTEST_TEST(ThreadPoolTests, QueueManyDoesAllWork)
@@ -111,7 +113,7 @@ GTEST_TEST(ThreadPoolTests, QueueRespectsMaxThreads)
     TestThreadPool testThreadPool(defaultMaxThreads);
 
     Semaphore s(0, defaultMaxThreads);
-    volatile unsigned workCounter = 0;
+    std::atomic<unsigned> workCounter(0);
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
@@ -126,13 +128,13 @@ GTEST_TEST(ThreadPoolTests, QueueRespectsMaxThreads)
     }
 
     SLEEP_MS(200);
-    ASSERT_EQ(workCounter, defaultMaxThreads) << "Expected work counter to match the maximum number of threads";
+    ASSERT_EQ(workCounter.load(), defaultMaxThreads) << "Expected work counter to match the maximum number of threads";
 
     // Release should allow one of the queued workers to complete
     s.Release();
 
     SLEEP_MS(100);
-    ASSERT_EQ(workCounter, defaultMaxThreads+1) << "Expected work counter to increase when allowing another thread to work";
+    ASSERT_EQ(workCounter.load(), defaultMaxThreads+1) << "Expected work counter to increase when allowing another thread to work";
 
     s.Release(defaultMaxThreads);
     testThreadPool.JoinAll();
@@ -169,7 +171,7 @@ GTEST_TEST(ThreadPoolTests, ResizeLessThreadsReducesThreadPoolSize)
     testThreadPool.SetNumThreads(newThreadPoolSize);
 
     Semaphore s(0);
-    volatile unsigned workCounter = 0;
+    std::atomic<unsigned> workCounter(0);
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
@@ -184,18 +186,18 @@ GTEST_TEST(ThreadPoolTests, ResizeLessThreadsReducesThreadPoolSize)
     }
 
     SLEEP_MS(100);
-    ASSERT_EQ(workCounter, newThreadPoolSize) << "Expected work counter to match decreased threadpool size";
+    ASSERT_EQ(workCounter.load(), newThreadPoolSize) << "Expected work counter to match decreased threadpool size";
 
     // Release should allow one of the queued workers to complete
     s.Release();
 
     SLEEP_MS(100);
-    ASSERT_EQ(workCounter, newThreadPoolSize+1) << "Expected work counter to increment by one";
+    ASSERT_EQ(workCounter.load(), newThreadPoolSize+1) << "Expected work counter to increment by one";
 
     s.Release(defaultMaxThreads);
 
     SLEEP_MS(100);
-    ASSERT_EQ(workCounter, defaultMaxThreads+1) << "Expected work counter to match number of queued work procs";
+    ASSERT_EQ(workCounter.load(), defaultMaxThreads+1) << "Expected work counter to match number of queued work procs";
     testThreadPool.JoinAll();
 }
 
@@ -208,7 +210,7 @@ GTEST_TEST(ThreadPoolTests, ResizeMoreThreadsIncreasesThreadPoolSize)
     testThreadPool.SetNumThreads(newThreadPoolSize);
 
     Semaphore s(0);
-    volatile unsigned workCounter = 0;
+    std::atomic<unsigned> workCounter(0);
 
     auto workFunc = [&workCounter, &s](const void * state)
     {
@@ -223,7 +225,7 @@ GTEST_TEST(ThreadPoolTests, ResizeMoreThreadsIncreasesThreadPoolSize)
     }
 
     SLEEP_MS(100);
-    ASSERT_EQ(workCounter, newThreadPoolSize) << "Expected work counter to match increased threadpool size";
+    ASSERT_EQ(workCounter.load(), newThreadPoolSize) << "Expected work counter to match increased threadpool size";
 
     s.Release(newThreadPoolSize);
 
@@ -236,7 +238,7 @@ GTEST_TEST(ThreadPoolTests, ShutdownAllowsWorkToComplete)
 
     TestThreadPool testThreadPool(defaultMaxThreads);
 
-    volatile unsigned workCounter = 0;
+    std::atomic<unsigned> workCounter(0);
 
     auto workFunc = [&workCounter](const void * state)
     {
@@ -250,7 +252,7 @@ GTEST_TEST(ThreadPoolTests, ShutdownAllowsWorkToComplete)
 
     testThreadPool.Shutdown();
     ASSERT_TRUE(testThreadPool.IsShutdown()) << "Expected threadpool to be shutdown but it was not";
-    ASSERT_EQ(workCounter, 1) << "Expected work counter to indicate threadpool task had completed";
+    ASSERT_EQ(workCounter.load(), 1) << "Expected work counter to indicate threadpool task had completed";
 
     testThreadPool.JoinAll();
 }
@@ -261,7 +263,7 @@ GTEST_TEST(ThreadPoolTests, ShutdownPreventsStateChanges)
 
     TestThreadPool testThreadPool(defaultMaxThreads);
 
-    volatile unsigned workCounter = 0;
+    std::atomic<unsigned> workCounter(0);
 
     auto workFunc = [&workCounter](const void * state)
     {
