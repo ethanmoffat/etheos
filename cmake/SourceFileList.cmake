@@ -281,9 +281,16 @@ set(TestFiles
 	src/test/config_test.cpp
 	src/test/database_test.cpp
 	src/test/eoclient_test.cpp
+	src/test/map_test.cpp
 	src/test/packet_dispatch_test.cpp
+	src/test/socket_test.cpp
 	src/test/worlddump_test.cpp
+	src/test/handlers/Account_test.cpp
+	src/test/handlers/Character_test.cpp
+	src/test/handlers/Connection_test.cpp
+	src/test/handlers/Init_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Welcome_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp
 )

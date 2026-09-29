@@ -19,18 +19,42 @@
 #include "../util.hpp"
 #include "../util/secure_string.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+#include <eolib/protocol/net/server/structs.hpp>
+
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
 namespace Handlers
 {
 
-// Log in to an account
-void Login_Request(EOClient *client, PacketReader &reader)
+// Creates a Login_Reply for a reply code that has no data
+static net::server::LoginReplyServerPacket MakeLoginReply(net::server::LoginReply reply_code)
 {
-	std::string username = reader.GetBreakString();
-	util::secure_string password(std::move(reader.GetBreakString()));
+	net::server::LoginReplyServerPacket reply;
+	reply.reply_code = reply_code;
+
+	switch (reply_code)
+	{
+		case net::server::LoginReply::WrongUser: reply.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataWrongUser(); break;
+		case net::server::LoginReply::WrongUserPassword: reply.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataWrongUserPassword(); break;
+		case net::server::LoginReply::Banned: reply.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataBanned(); break;
+		case net::server::LoginReply::LoggedIn: reply.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataLoggedIn(); break;
+		case net::server::LoginReply::Busy: reply.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataBusy(); break;
+		default: throw std::invalid_argument("Login reply code " + net::server::ToString(reply_code) + " has data");
+	}
+
+	return reply;
+}
+
+// Log in to an account
+void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket& packet)
+{
+	std::string username = packet.username;
+	util::secure_string password(std::string(packet.password));
 
 	if (username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
 	 || password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"])))
@@ -45,45 +69,40 @@ void Login_Request(EOClient *client, PacketReader &reader)
 
 	if (client->server()->world->CheckBan(&username, 0, 0) != -1)
 	{
-		PacketBuilder reply(PACKET_F_INIT, PACKET_A_INIT, 2);
-
 		if (static_cast<bool>(client->server()->world->config["InitLoginBan"]))
 		{
-			reply.AddByte(INIT_BANNED);
-			reply.AddByte(INIT_BAN_PERM);
+			net::server::InitInitServerPacket::ReplyCodeDataBanned banned;
+			banned.ban_type = net::server::InitBanType::Permanent;
+
+			net::server::InitInitServerPacket reply;
+			reply.reply_code = net::server::InitReply::Banned;
+			reply.reply_code_data = banned;
+			client->Send(reply);
 		}
 		else
 		{
-			reply.SetID(PACKET_LOGIN, PACKET_REPLY);
-			reply.AddShort(LOGIN_ACCOUNT_BANNED);
+			client->Send(MakeLoginReply(net::server::LoginReply::Banned));
 		}
 
-		client->Send(reply);
 		client->Close();
 		return;
 	}
 
 	if (username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USER);
-		client->Send(reply);
+		client->Send(MakeLoginReply(net::server::LoginReply::WrongUser));
 		return;
 	}
 
 	if (password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USERPASS);
-		client->Send(reply);
+		client->Send(MakeLoginReply(net::server::LoginReply::WrongUserPassword));
 		return;
 	}
 
 	if (client->server()->world->characters.size() >= static_cast<std::size_t>(static_cast<int>(client->server()->world->config["MaxPlayers"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_BUSY);
-		client->Send(reply);
+		client->Send(MakeLoginReply(net::server::LoginReply::Busy));
 		client->Close();
 		return;
 	}
@@ -100,9 +119,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		if (!c->player)
 		{
 			// Someone deleted the account between checking it and logging in
-			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-			reply.AddShort(LOGIN_WRONG_USER);
-			c->Send(reply);
+			c->Send(MakeLoginReply(net::server::LoginReply::WrongUser));
 		}
 		else
 		{
@@ -110,27 +127,16 @@ void Login_Request(EOClient *client, PacketReader &reader)
 			c->player->client = c;
 			c->state = EOClient::LoggedIn;
 
-			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + c->player->characters.size() * 34);
-			reply.AddShort(LOGIN_OK);
-			reply.AddChar(static_cast<unsigned char>(c->player->characters.size()));
-			reply.AddByte(2);
-			reply.AddByte(255);
+			net::server::LoginReplyServerPacket::ReplyCodeDataOk ok;
 
 			UTIL_FOREACH(c->player->characters, character)
 			{
-				reply.AddBreakString(character->SourceName());
-				reply.AddInt(character->id);
-				reply.AddChar(character->level);
-				reply.AddChar(character->gender);
-				reply.AddChar(character->hairstyle);
-				reply.AddChar(character->haircolor);
-				reply.AddChar(character->race);
-				reply.AddChar(character->admin);
-				character->AddPaperdollData(reply, "BAHSW");
-
-				reply.AddByte(255);
+				ok.characters.push_back(character->SelectionListEntry());
 			}
 
+			net::server::LoginReplyServerPacket reply;
+			reply.reply_code = net::server::LoginReply::Ok;
+			reply.reply_code_data = std::move(ok);
 			c->Send(reply);
 		}
 	};
@@ -139,9 +145,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 	{
 		c->server()->world->SetPendingLogin(username, false);
 
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(failureReason);
-		c->Send(reply);
+		c->Send(MakeLoginReply(static_cast<net::server::LoginReply>(failureReason)));
 
 		int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
 
@@ -170,7 +174,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOGIN)
-	Register(PACKET_REQUEST, Login_Request, Menu, 1.0);
+	Register(Login_Request, Menu, 1.0);
 PACKET_HANDLER_REGISTER_END(PACKET_LOGIN)
 
 }

@@ -16,6 +16,7 @@
 #include <exception>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -243,16 +244,31 @@ class Client
 		std::size_t send_buffer_ppos;
 		std::size_t send_buffer_used;
 
+		// Size the send buffer may grow to. It's never below the buffer's current size.
+		std::size_t send_buffer_limit;
+
+		// Send and DoSend can run on different threads, and Send may reallocate the send buffer
+		std::mutex send_buffer_mutex;
+
+		/**
+		 * Grows the send buffer to new_size, keeping the queued data in order.
+		 */
+		void GrowSendBuffer(std::size_t new_size);
+
 	public:
 		Client();
 		Client(const IPAddress &addr, std::uint16_t port);
 		Client(Server *);
 		Client(const Socket &, Server *);
 
-		virtual bool NeedTick() { return false; }
-
 		void SetRecvBuffer(std::size_t size);
 		void SetSendBuffer(std::size_t size);
+
+		/**
+		 * Sets the size the send buffer may grow to when data doesn't fit. The client is closed if data doesn't fit
+		 * even at that size. The limit is raised to the buffer size if it's smaller.
+		 */
+		void SetSendBufferLimit(std::size_t limit);
 
 		bool Connect(const IPAddress &addr, std::uint16_t port);
 		void Bind(const IPAddress &addr, std::uint16_t port);

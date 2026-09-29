@@ -18,6 +18,9 @@
 #include "../util.hpp"
 #include "../util/secure_string.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -27,24 +30,26 @@
 namespace Handlers
 {
 
-// Check if a character exists
-void Account_Request(EOClient *client, PacketReader &reader)
+template <typename TData> static net::server::AccountReplyServerPacket MakeAccountReply(net::server::AccountReply reply_code)
 {
-	std::string username = reader.GetEndString();
+	net::server::AccountReplyServerPacket reply;
+	reply.reply_code = reply_code;
+	reply.reply_code_data = TData();
+	return reply;
+}
 
-	username = util::lowercase(username);
-
-	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 5);
+// Check if a character exists
+void Account_Request(EOClient* client, const net::client::AccountRequestClientPacket& packet)
+{
+	std::string username = util::lowercase(packet.username);
 
 	if (!Player::ValidName(username))
 	{
-		reply.AddShort(ACCOUNT_NOT_APPROVED);
-		reply.AddString("NO");
+		client->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataNotApproved>(net::server::AccountReply::NotApproved));
 	}
 	else if (client->server()->world->PlayerExists(username))
 	{
-		reply.AddShort(ACCOUNT_EXISTS);
-		reply.AddString("NO");
+		client->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataExists>(net::server::AccountReply::Exists));
 	}
 	else
 	{
@@ -52,21 +57,21 @@ void Account_Request(EOClient *client, PacketReader &reader)
 
 		client->NewCreateID();
 
-		reply.AddShort(client->create_id);
-		reply.AddChar(sequence_start.Value());
-		reply.AddString("OK");
-	}
+		// A reply code above 9 is the account creation session ID
+		net::server::AccountReplyServerPacket::ReplyCodeDataDefault data;
+		data.sequence_start = sequence_start.Value();
 
-	client->Send(reply);
+		net::server::AccountReplyServerPacket reply;
+		reply.reply_code = static_cast<net::server::AccountReply>(client->create_id);
+		reply.reply_code_data = data;
+		client->Send(reply);
+	}
 }
 
 // Account creation
-void Account_Create(EOClient *client, PacketReader &reader)
+void Account_Create(EOClient* client, const net::client::AccountCreateClientPacket& packet)
 {
-	unsigned short create_id = reader.GetShort(); // Account creation "session ID"
-	unsigned char byte255 = reader.GetByte();
-
-	if (create_id != client->create_id || byte255 != 255)
+	if (packet.session_id != client->create_id)
 	{
 		client->Close();
 		return;
@@ -74,17 +79,17 @@ void Account_Create(EOClient *client, PacketReader &reader)
 
 	AccountCreateInfo accountInfo;
 
-	accountInfo.username = util::lowercase(reader.GetBreakString());
-	accountInfo.password = std::move(reader.GetBreakString());
-	accountInfo.fullname = reader.GetBreakString();
-	accountInfo.location = reader.GetBreakString();
-	accountInfo.email = reader.GetBreakString();
-	accountInfo.computer = reader.GetBreakString();
+	accountInfo.username = util::lowercase(packet.username);
+	accountInfo.password = util::secure_string(std::string(packet.password));
+	accountInfo.fullname = packet.full_name;
+	accountInfo.location = packet.location;
+	accountInfo.email = packet.email;
+	accountInfo.computer = packet.computer;
 	accountInfo.remoteIp = client->GetRemoteAddr();
 
 	try
 	{
-		accountInfo.hdid = static_cast<int>(util::to_uint_raw(reader.GetBreakString()));
+		accountInfo.hdid = static_cast<int>(util::to_uint_raw(packet.hdid));
 	}
 	catch (std::invalid_argument&)
 	{
@@ -106,19 +111,13 @@ void Account_Create(EOClient *client, PacketReader &reader)
 	if (client->server()->world->config["SeoseCompat"])
 		accountInfo.password = std::move(seose_str_hash(accountInfo.password.str(), client->server()->world->config["SeoseCompatKey"]));
 
-	PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-
 	if (!Player::ValidName(accountInfo.username))
 	{
-		reply.AddShort(ACCOUNT_NOT_APPROVED);
-		reply.AddString("NO");
-		client->Send(reply);
+		client->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataNotApproved>(net::server::AccountReply::NotApproved));
 	}
 	else if (client->server()->world->PlayerExists(accountInfo.username))
 	{
-		reply.AddShort(ACCOUNT_EXISTS);
-		reply.AddString("NO");
-		client->Send(reply);
+		client->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataExists>(net::server::AccountReply::Exists));
 	}
 	else
 	{
@@ -130,11 +129,7 @@ void Account_Create(EOClient *client, PacketReader &reader)
 			// The client may disconnect if the password generation takes too long
 			if (c->Connected())
 			{
-				PacketBuilder succeededReply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-				succeededReply.AddShort(ACCOUNT_CREATED);
-				succeededReply.AddString("OK");
-
-				c->Send(succeededReply);
+				c->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataCreated>(net::server::AccountReply::Created));
 
 				c->create_id = 0;
 			}
@@ -150,12 +145,12 @@ void Account_Create(EOClient *client, PacketReader &reader)
 }
 
 // Change password
-void Account_Agree(Player *player, PacketReader &reader)
+void Account_Agree(Player* player, const net::client::AccountAgreeClientPacket& packet)
 {
-	PasswordChangeInfo passwordChangeInfo;;
-	passwordChangeInfo.username = reader.GetBreakString();
-	passwordChangeInfo.oldpassword = std::move(reader.GetBreakString());
-	passwordChangeInfo.newpassword = std::move(reader.GetBreakString());
+	PasswordChangeInfo passwordChangeInfo;
+	passwordChangeInfo.username = packet.username;
+	passwordChangeInfo.oldpassword = util::secure_string(std::string(packet.old_password));
+	passwordChangeInfo.newpassword = util::secure_string(std::string(packet.new_password));
 
 	if (passwordChangeInfo.username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
 	 || passwordChangeInfo.username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
@@ -169,10 +164,7 @@ void Account_Agree(Player *player, PacketReader &reader)
 
 	if (!Player::ValidName(passwordChangeInfo.username))
 	{
-		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-		reply.AddShort(ACCOUNT_NOT_APPROVED);
-		reply.AddString("NO");
-		player->Send(reply);
+		player->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataNotApproved>(net::server::AccountReply::NotApproved));
 		return;
 	}
 	else if (!player->world->PlayerExists(passwordChangeInfo.username))
@@ -192,11 +184,7 @@ void Account_Agree(Player *player, PacketReader &reader)
 		if (!c->Connected())
 			return;
 
-		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-		reply.AddShort(ACCOUNT_CHANGED);
-		reply.AddString("OK");
-
-		c->Send(reply);
+		c->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataChanged>(net::server::AccountReply::Changed));
 	};
 
 	auto failureCallback = [](EOClient* c, int result)
@@ -207,11 +195,7 @@ void Account_Agree(Player *player, PacketReader &reader)
 		if (!c->Connected())
 			return;
 
-		PacketBuilder reply(PACKET_ACCOUNT, PACKET_REPLY, 4);
-		reply.AddShort(ACCOUNT_CHANGE_FAILED);
-		reply.AddString("NO");
-
-		c->Send(reply);
+		c->Send(MakeAccountReply<net::server::AccountReplyServerPacket::ReplyCodeDataChangeFailed>(net::server::AccountReply::ChangeFailed));
 	};
 
 	player->world->ChangePassword(player->client)
@@ -221,9 +205,9 @@ void Account_Agree(Player *player, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)
-	Register(PACKET_REQUEST, Account_Request, Menu, 0.5);
-	Register(PACKET_CREATE, Account_Create, Menu, 1.0);
-	Register(PACKET_AGREE, Account_Agree, Character_Menu, 1.0);
+	Register(Account_Request, Menu, 0.5);
+	Register(Account_Create, Menu, 1.0);
+	Register(Account_Agree, Character_Menu, 1.0);
 PACKET_HANDLER_REGISTER_END(PACKET_ACCOUNT)
 
 }

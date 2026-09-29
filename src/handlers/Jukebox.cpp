@@ -17,7 +17,6 @@
 #include "../util.hpp"
 
 #include <algorithm>
-#include <functional>
 
 namespace Handlers
 {
@@ -52,8 +51,6 @@ void Jukebox_Msg(Character *character, PacketReader &reader)
 {
 	if (character->trading) return;
 
-	using namespace std::placeholders;
-
 	reader.GetChar();
 	reader.GetChar();
 	short track = reader.GetShort();
@@ -80,7 +77,7 @@ void Jukebox_Msg(Character *character, PacketReader &reader)
 
 	PacketBuilder builder(PACKET_JUKEBOX, PACKET_USE, 2);
 	builder.AddShort(track + 1);
-	std::for_each(UTIL_CRANGE(character->map->characters), std::bind(&Character::Send, _1, builder));
+	std::for_each(UTIL_CRANGE(character->map->characters), [&](Character* c) { c->Send(builder); });
 }
 
 // Bard skill music

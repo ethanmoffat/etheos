@@ -16,6 +16,7 @@
 #include "timer.hpp"
 #include "world.hpp"
 #include "handlers/handlers.hpp"
+#include "map.hpp"
 
 #include "console.hpp"
 #include "socket.hpp"
@@ -27,12 +28,15 @@
 #include <eolib/encrypt/data_encrypter.hpp>
 #include <eolib/errors.hpp>
 #include <eolib/protocol/net/enums.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -109,7 +113,7 @@ ActionQueue::~ActionQueue()
 
 void EOClient::Initialize()
 {
-	this->upload_fh = 0;
+	this->SetSendBufferLimit(EOClient::SendBufferLimit);
 	this->server_encryption_multiple = 0;
 	this->client_encryption_multiple = 0;
 	this->id = this->server()->world->GenerateClientID();
@@ -154,121 +158,67 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz, co
 	}
 }
 
-bool EOClient::NeedTick()
-{
-	return this->upload_fh;
-}
-
 void EOClient::Tick()
 {
 	std::string data;
 	int done = false;
 	int oldlength;
 
-	if (this->upload_fh)
+	data = this->Recv((this->packet_state == EOClient::ReadData) ? this->length : 1);
+
+	while (data.length() > 0 && !done)
 	{
-		// Send more of the file instead of doing other tasks
-		std::size_t upload_available = std::min(this->upload_size - this->upload_pos, Client::SendBufferRemaining());
-
-		if (upload_available != 0)
+		switch (this->packet_state)
 		{
-			upload_available = std::fread(&this->send_buffer[this->send_buffer_ppos + 1], 1, upload_available, this->upload_fh);
+			case EOClient::ReadLen1:
+				this->raw_length[0] = data[0];
+				data[0] = '\0';
+				data.erase(0, 1);
+				this->packet_state = EOClient::ReadLen2;
 
-			// Dynamically rewrite the bytes of the map to enable PK
-			if (this->upload_type == FILE_MAP && this->server()->world->config["GlobalPK"] && !this->server()->world->PKExcept(player->character->mapid))
-			{
-				if (this->upload_pos <= 0x03 && this->upload_pos + upload_available > 0x03)
-					this->send_buffer[this->send_buffer_ppos + 1 + 0x03 - this->upload_pos] = (char)0xFF;
-
-				if (this->upload_pos <= 0x03 && this->upload_pos + upload_available > 0x04)
-					this->send_buffer[this->send_buffer_ppos + 1 + 0x04 - this->upload_pos] = static_cast<char>(0x01);
-
-				if (this->upload_pos <= 0x1F && this->upload_pos + upload_available > 0x1F)
-					this->send_buffer[this->send_buffer_ppos + 1 + 0x1F - this->upload_pos] = static_cast<char>(0x04);
-			}
-
-			this->upload_pos += upload_available;
-			this->send_buffer_ppos += upload_available;
-			this->send_buffer_used += upload_available;
-		}
-		else if (this->upload_pos == this->upload_size && this->SendBufferRemaining() == this->send_buffer.length())
-		{
-			using std::swap;
-
-			std::fclose(this->upload_fh);
-			this->upload_fh = 0;
-			this->upload_pos = 0;
-			this->upload_size = 0;
-
-			// Place our temporary buffer back as the real one
-			swap(this->send_buffer, this->send_buffer2);
-			swap(this->send_buffer_gpos, this->send_buffer2_gpos);
-			swap(this->send_buffer_ppos, this->send_buffer2_ppos);
-			swap(this->send_buffer_used, this->send_buffer2_used);
-
-			// We're not using this anymore...
-			std::string empty;
-			swap(this->send_buffer2, empty);
-		}
-	}
-	else
-	{
-		data = this->Recv((this->packet_state == EOClient::ReadData) ? this->length : 1);
-
-		while (data.length() > 0 && !done)
-		{
-			switch (this->packet_state)
-			{
-				case EOClient::ReadLen1:
-					this->raw_length[0] = data[0];
-					data[0] = '\0';
-					data.erase(0, 1);
-					this->packet_state = EOClient::ReadLen2;
-
-					if (data.length() == 0)
-					{
-						break;
-					}
-					// fall through
-				case EOClient::ReadLen2:
-					this->raw_length[1] = data[0];
-					data[0] = '\0';
-					data.erase(0, 1);
-					this->length = eolib::data::NumberEncoder::DecodeNumber(this->raw_length, 2);
-					this->packet_state = EOClient::ReadData;
-
-					if (data.length() == 0)
-					{
-						break;
-					}
-					// fall through
-				case EOClient::ReadData:
-					oldlength = this->data.length();
-					this->data += data.substr(0, this->length);
-					std::fill(data.begin(), data.begin() + std::min<std::size_t>(data.length(), this->length), '\0');
-					data.erase(0, this->length);
-					this->length -= this->data.length() - oldlength;
-
-					if (this->length == 0)
-					{
-						this->Execute(this->data);
-
-						std::fill(UTIL_RANGE(this->data), '\0');
-						this->data.erase();
-						this->packet_state = EOClient::ReadLen1;
-
-						done = true;
-					}
+				if (data.length() == 0)
+				{
 					break;
+				}
+				// fall through
+			case EOClient::ReadLen2:
+				this->raw_length[1] = data[0];
+				data[0] = '\0';
+				data.erase(0, 1);
+				this->length = eolib::data::NumberEncoder::DecodeNumber(this->raw_length, 2);
+				this->packet_state = EOClient::ReadData;
 
-				default:
-					// If the code ever gets here, something is broken, so we just reset the client's state.
-					std::fill(UTIL_RANGE(data), '\0');
+				if (data.length() == 0)
+				{
+					break;
+				}
+				// fall through
+			case EOClient::ReadData:
+				oldlength = this->data.length();
+				this->data += data.substr(0, this->length);
+				std::fill(data.begin(), data.begin() + std::min<std::size_t>(data.length(), this->length), '\0');
+				data.erase(0, this->length);
+				this->length -= this->data.length() - oldlength;
+
+				if (this->length == 0)
+				{
+					this->Execute(this->data);
+
 					std::fill(UTIL_RANGE(this->data), '\0');
-					data.erase();
 					this->data.erase();
 					this->packet_state = EOClient::ReadLen1;
-			}
+
+					done = true;
+				}
+				break;
+
+			default:
+				// If the code ever gets here, something is broken, so we just reset the client's state.
+				std::fill(UTIL_RANGE(data), '\0');
+				std::fill(UTIL_RANGE(this->data), '\0');
+				data.erase();
+				this->data.erase();
+				this->packet_state = EOClient::ReadLen1;
 		}
 	}
 }
@@ -378,74 +328,103 @@ void EOClient::Execute(const std::string &data)
 	queue.AddAction(QueuedPacket{family, action, decrypted.substr(payload_start)}, 0.02, true);
 }
 
-bool EOClient::Upload(FileType type, int id, InitReply init_reply)
+template <typename TData> static TData WithMapFile(net::server::MapFile map_file)
 {
-	char mapbuf[7];
-	std::sprintf(mapbuf, "%05i", int(std::abs(id)));
-
-	switch (type)
-	{
-		case FILE_MAP: return EOClient::Upload(type, std::string(server()->world->config["MapDir"]) + mapbuf + ".emf", init_reply);
-		case FILE_ITEM: return EOClient::Upload(type, std::string(this->server()->world->config["EIF"]), init_reply);
-		case FILE_NPC: return EOClient::Upload(type, std::string(this->server()->world->config["ENF"]),init_reply);
-		case FILE_SPELL: return EOClient::Upload(type, std::string(this->server()->world->config["ESF"]), init_reply);
-		case FILE_CLASS: return EOClient::Upload(type, std::string(this->server()->world->config["ECF"]), init_reply);
-		default: return false;
-	}
+	TData data;
+	data.map_file = std::move(map_file);
+	return data;
 }
 
-bool EOClient::Upload(FileType type, const std::string &filename, InitReply init_reply)
+template <typename TData> static TData WithPubFile(net::server::PubFile pub_file)
 {
-	using std::swap;
+	TData data;
+	data.pub_file = std::move(pub_file);
+	return data;
+}
 
-	if (this->upload_fh)
-		throw std::runtime_error("Already uploading file");
+bool EOClient::ReadFile(const std::string& filename, std::vector<std::uint8_t>& content)
+{
+	std::ifstream file(filename, std::ios::binary);
 
-	this->upload_fh = std::fopen(filename.c_str(), "rb");
-
-	if (!this->upload_fh)
+	if (!file)
 		return false;
 
-	if (std::fseek(this->upload_fh, 0, SEEK_END) != 0)
+	content.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+
+	return !file.bad();
+}
+
+bool EOClient::UploadMap(int map_id, net::server::InitReply reply_code)
+{
+	char mapbuf[7];
+	std::snprintf(mapbuf, sizeof mapbuf, "%05i", int(std::abs(map_id)));
+
+	net::server::MapFile map_file;
+
+	if (!EOClient::ReadFile(std::string(this->server()->world->config["MapDir"]) + mapbuf + ".emf", map_file.content))
+		return false;
+
+	if (this->server()->world->config["GlobalPK"] && !this->server()->world->PKExcept(map_id))
+		Map::PatchGlobalPK(map_file.content);
+
+	net::server::InitInitServerPacket packet;
+	packet.reply_code = reply_code;
+
+	switch (reply_code)
 	{
-		std::fclose(this->upload_fh);
-		return false;
+		case net::server::InitReply::FileEmf:
+			packet.reply_code_data = WithMapFile<net::server::InitInitServerPacket::ReplyCodeDataFileEmf>(std::move(map_file));
+			break;
+		case net::server::InitReply::WarpMap:
+			packet.reply_code_data = WithMapFile<net::server::InitInitServerPacket::ReplyCodeDataWarpMap>(std::move(map_file));
+			break;
+		case net::server::InitReply::MapMutation:
+			packet.reply_code_data = WithMapFile<net::server::InitInitServerPacket::ReplyCodeDataMapMutation>(std::move(map_file));
+			break;
+		default:
+			throw std::invalid_argument("Reply code " + net::server::ToString(reply_code) + " isn't a map upload");
 	}
 
-	this->upload_type = type;
-	this->upload_pos = 0;
-	this->upload_size = std::ftell(this->upload_fh);
+	this->Send(packet);
 
-	std::fseek(this->upload_fh, 0, SEEK_SET);
+	return true;
+}
 
-	std::size_t temp_buffer_size = this->send_buffer.size();
+bool EOClient::UploadPubFile(net::client::FileType file_type)
+{
+	// etheos serves each pub type as a single file
+	constexpr int pub_file_id = 1;
 
-	// Allocate a power-of-two buffer size large enough to hold the file
-	while (temp_buffer_size < this->upload_size + 6)
-		temp_buffer_size *= 2;
+	std::string filename;
+	net::server::InitReply reply_code;
 
-	this->send_buffer2.resize(temp_buffer_size);
-	this->send_buffer2_gpos = 0;
-	this->send_buffer2_ppos = 0;
-	this->send_buffer2_used = 0;
+	switch (file_type)
+	{
+		case net::client::FileType::Eif: filename = std::string(this->server()->world->config["EIF"]); reply_code = net::server::InitReply::FileEif; break;
+		case net::client::FileType::Enf: filename = std::string(this->server()->world->config["ENF"]); reply_code = net::server::InitReply::FileEnf; break;
+		case net::client::FileType::Esf: filename = std::string(this->server()->world->config["ESF"]); reply_code = net::server::InitReply::FileEsf; break;
+		case net::client::FileType::Ecf: filename = std::string(this->server()->world->config["ECF"]); reply_code = net::server::InitReply::FileEcf; break;
+		default: return false;
+	}
 
-	swap(this->send_buffer, this->send_buffer2);
-	swap(this->send_buffer_gpos, this->send_buffer2_gpos);
-	swap(this->send_buffer_ppos, this->send_buffer2_ppos);
-	swap(this->send_buffer_used, this->send_buffer2_used);
+	net::server::PubFile pub_file;
+	pub_file.file_id = pub_file_id;
 
-	// Build the file upload header packet
-	PacketBuilder builder(PACKET_F_INIT, PACKET_A_INIT, 2);
-	builder.AddChar(init_reply);
+	if (!EOClient::ReadFile(filename, pub_file.content))
+		return false;
 
-	if (type != FILE_MAP)
-		builder.AddChar(1);
+	net::server::InitInitServerPacket packet;
+	packet.reply_code = reply_code;
 
-	builder.AddSize(this->upload_size);
+	switch (file_type)
+	{
+		case net::client::FileType::Eif: packet.reply_code_data = WithPubFile<net::server::InitInitServerPacket::ReplyCodeDataFileEif>(std::move(pub_file)); break;
+		case net::client::FileType::Enf: packet.reply_code_data = WithPubFile<net::server::InitInitServerPacket::ReplyCodeDataFileEnf>(std::move(pub_file)); break;
+		case net::client::FileType::Esf: packet.reply_code_data = WithPubFile<net::server::InitInitServerPacket::ReplyCodeDataFileEsf>(std::move(pub_file)); break;
+		default: packet.reply_code_data = WithPubFile<net::server::InitInitServerPacket::ReplyCodeDataFileEcf>(std::move(pub_file)); break;
+	}
 
-	LogPacket(PACKET_F_INIT, PACKET_A_INIT, builder.Length(), "UPLD");
-
-	Client::Send(builder);
+	this->Send(packet);
 
 	return true;
 }
@@ -496,38 +475,11 @@ void EOClient::SendBody(std::string body)
 	data += char(length[1]);
 	data += body;
 
-	if (this->upload_fh)
-	{
-		// Stick any incoming data in to our temporary buffer
-		if (data.length() > this->send_buffer2.length() - this->send_buffer2_used)
-		{
-			this->Close(true);
-			return;
-		}
-
-		const std::size_t mask = this->send_buffer2.length() - 1;
-
-		for (std::size_t i = 0; i < data.length(); ++i)
-		{
-			this->send_buffer2_ppos = (this->send_buffer2_ppos + 1) & mask;
-			this->send_buffer2[this->send_buffer2_ppos] = data[i];
-		}
-
-		this->send_buffer2_used += data.length();
-	}
-	else
-	{
-		Client::Send(data);
-	}
+	Client::Send(data);
 }
 
 EOClient::~EOClient()
 {
-	if (this->upload_fh)
-	{
-		std::fclose(this->upload_fh);
-	}
-
 	if (this->player)
 	{
 		delete this->player;

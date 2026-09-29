@@ -243,6 +243,7 @@ Client::Client()
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, send_buffer_limit(0)
 { }
 
 Client::Client(const IPAddress &addr, uint16_t port)
@@ -257,6 +258,7 @@ Client::Client(const IPAddress &addr, uint16_t port)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, send_buffer_limit(0)
 {
 	this->Connect(addr, port);
 }
@@ -273,6 +275,7 @@ Client::Client(Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, send_buffer_limit(0)
 { }
 
 Client::Client(const Socket &sock, Server *server)
@@ -287,6 +290,7 @@ Client::Client(const Socket &sock, Server *server)
 	, send_buffer_gpos(0)
 	, send_buffer_ppos(0)
 	, send_buffer_used(0)
+	, send_buffer_limit(0)
 { }
 
 inline void assert_power_of_two(std::size_t size)
@@ -310,6 +314,26 @@ void Client::SetSendBuffer(std::size_t size)
 {
 	assert_power_of_two(size);
 	this->send_buffer.resize(size);
+	this->send_buffer_limit = std::max(this->send_buffer_limit, size);
+}
+
+void Client::SetSendBufferLimit(std::size_t limit)
+{
+	this->send_buffer_limit = std::max(limit, this->send_buffer.length());
+}
+
+void Client::GrowSendBuffer(std::size_t new_size)
+{
+	const std::size_t mask = this->send_buffer.length() - 1;
+	std::string grown(new_size, char());
+
+	// Queued data starts after send_buffer_gpos. It's moved to the start of the new buffer, after position 0.
+	for (std::size_t i = 1; i <= this->send_buffer_used; ++i)
+		grown[i] = this->send_buffer[(this->send_buffer_gpos + i) & mask];
+
+	this->send_buffer.swap(grown);
+	this->send_buffer_gpos = 0;
+	this->send_buffer_ppos = this->send_buffer_used;
 }
 
 bool Client::Connect(const IPAddress &addr, uint16_t port)
@@ -375,10 +399,23 @@ std::string Client::Recv(std::size_t length)
 
 void Client::Send(const std::string &data)
 {
+	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
+
 	if (data.length() > this->send_buffer.length() - this->send_buffer_used)
 	{
-		this->Close(true);
-		return;
+		const std::size_t required = this->send_buffer_used + data.length();
+		std::size_t new_size = std::max<std::size_t>(this->send_buffer.length(), 1);
+
+		while (new_size < required)
+			new_size *= 2;
+
+		if (new_size > this->send_buffer_limit)
+		{
+			this->Close(true);
+			return;
+		}
+
+		this->GrowSendBuffer(new_size);
 	}
 
 	const std::size_t mask = this->send_buffer.length() - 1;
@@ -425,6 +462,8 @@ bool Client::DoRecv()
 
 bool Client::DoSend()
 {
+	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
+
 	char buf[8192];
 
 	const std::size_t mask = this->send_buffer.length() - 1;
@@ -848,7 +887,7 @@ std::vector<Client *> *Server::Select(double timeout)
 
 	UTIL_FOREACH(this->clients, client)
 	{
-		if (client->recv_buffer_used > 0 || client->NeedTick())
+		if (client->recv_buffer_used > 0)
 		{
 			selected.push_back(client);
 		}
@@ -935,7 +974,7 @@ std::vector<Client *> *Server::Select(double timeout)
 
 	UTIL_FOREACH(this->clients, client)
 	{
-		if (client->recv_buffer_used > 0 || client->NeedTick())
+		if (client->recv_buffer_used > 0)
 		{
 			selected.push_back(client);
 		}

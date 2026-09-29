@@ -28,6 +28,10 @@
 #include "util/rpn.hpp"
 #include "util/variant.hpp"
 
+#include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+#include <eolib/protocol/net/server/structs.hpp>
+
 #include <algorithm>
 #include <array>
 #include <ctime>
@@ -2005,43 +2009,248 @@ void Character::Undress(EquipLocation loc)
 	}
 }
 
-void Character::AddPaperdollData(PacketBuilder& builder, const char* format)
-{
-	const EIF_Data& wep = this->world->eif->Get(this->paperdoll[Character::Weapon]);
+namespace net = eolib::protocol::net;
 
-	unsigned short boots = this->world->eif->Get(this->paperdoll[Character::Boots]).dollgraphic;
-	unsigned short armor = this->world->eif->Get(this->paperdoll[Character::Armor]).dollgraphic;
-	unsigned short hat = this->world->eif->Get(this->paperdoll[Character::Hat]).dollgraphic;
-	unsigned short weapon = wep.dollgraphic;
-	unsigned short shield = this->world->eif->Get(this->paperdoll[Character::Shield]).dollgraphic;
+// Graphic IDs of the equipment shown on a character
+struct PaperdollGraphics
+{
+	unsigned short boots;
+	unsigned short armor;
+	unsigned short hat;
+	unsigned short weapon;
+	unsigned short shield;
+};
+
+static PaperdollGraphics GetPaperdollGraphics(Character* character)
+{
+	const EIF_Data& wep = character->world->eif->Get(character->paperdoll[Character::Weapon]);
+
+	PaperdollGraphics graphics;
+	graphics.boots = character->world->eif->Get(character->paperdoll[Character::Boots]).dollgraphic;
+	graphics.armor = character->world->eif->Get(character->paperdoll[Character::Armor]).dollgraphic;
+	graphics.hat = character->world->eif->Get(character->paperdoll[Character::Hat]).dollgraphic;
+	graphics.weapon = wep.dollgraphic;
+	graphics.shield = character->world->eif->Get(character->paperdoll[Character::Shield]).dollgraphic;
 
 	if (wep.subtype == EIF::TwoHanded && wep.dual_wield_dollgraphic)
-		shield = wep.dual_wield_dollgraphic;
+		graphics.shield = wep.dual_wield_dollgraphic;
 
-	if (this->cosmetic_paperdoll[Character::Boots])  boots = this->cosmetic_paperdoll[Character::Boots];
-	if (this->cosmetic_paperdoll[Character::Armor])  armor = this->cosmetic_paperdoll[Character::Armor];
-	if (this->cosmetic_paperdoll[Character::Hat])    hat = this->cosmetic_paperdoll[Character::Hat];
-	if (this->cosmetic_paperdoll[Character::Weapon]) weapon = this->cosmetic_paperdoll[Character::Weapon];
-	if (this->cosmetic_paperdoll[Character::Shield]) shield = this->cosmetic_paperdoll[Character::Shield];
+	if (character->cosmetic_paperdoll[Character::Boots])  graphics.boots = character->cosmetic_paperdoll[Character::Boots];
+	if (character->cosmetic_paperdoll[Character::Armor])  graphics.armor = character->cosmetic_paperdoll[Character::Armor];
+	if (character->cosmetic_paperdoll[Character::Hat])    graphics.hat = character->cosmetic_paperdoll[Character::Hat];
+	if (character->cosmetic_paperdoll[Character::Weapon]) graphics.weapon = character->cosmetic_paperdoll[Character::Weapon];
+	if (character->cosmetic_paperdoll[Character::Shield]) graphics.shield = character->cosmetic_paperdoll[Character::Shield];
 
-	if (boots == 65535)  boots = 0;
-	if (armor == 65535)  armor = 0;
-	if (hat == 65535)    hat = 0;
-	if (weapon == 65535) weapon = 0;
-	if (shield == 65535) shield = 0;
+	if (graphics.boots == 65535)  graphics.boots = 0;
+	if (graphics.armor == 65535)  graphics.armor = 0;
+	if (graphics.hat == 65535)    graphics.hat = 0;
+	if (graphics.weapon == 65535) graphics.weapon = 0;
+	if (graphics.shield == 65535) graphics.shield = 0;
+
+	return graphics;
+}
+
+void Character::AddPaperdollData(PacketBuilder& builder, const char* format)
+{
+	const PaperdollGraphics graphics = GetPaperdollGraphics(this);
 
 	for (const char* p = format; *p != '\0'; ++p)
 	{
 		switch (*p)
 		{
-			case 'B': builder.AddShort(boots); break;
-			case 'A': builder.AddShort(armor); break;
-			case 'H': builder.AddShort(hat); break;
-			case 'W': builder.AddShort(weapon); break;
-			case 'S': builder.AddShort(shield); break;
+			case 'B': builder.AddShort(graphics.boots); break;
+			case 'A': builder.AddShort(graphics.armor); break;
+			case 'H': builder.AddShort(graphics.hat); break;
+			case 'W': builder.AddShort(graphics.weapon); break;
+			case 'S': builder.AddShort(graphics.shield); break;
 			case '0': builder.AddShort(0); break;
 		}
 	}
+}
+
+net::server::CharacterSelectionListEntry Character::SelectionListEntry()
+{
+	const PaperdollGraphics graphics = GetPaperdollGraphics(this);
+
+	net::server::CharacterSelectionListEntry entry;
+	entry.name = this->SourceName();
+	entry.id = this->id;
+	entry.level = this->level;
+	entry.gender = static_cast<eolib::protocol::Gender>(this->gender);
+	entry.hair_style = this->hairstyle;
+	entry.hair_color = this->haircolor;
+	entry.skin = this->race;
+	entry.admin = static_cast<eolib::protocol::AdminLevel>(this->admin);
+	entry.equipment.boots = graphics.boots;
+	entry.equipment.armor = graphics.armor;
+	entry.equipment.hat = graphics.hat;
+	entry.equipment.shield = graphics.shield;
+	entry.equipment.weapon = graphics.weapon;
+	return entry;
+}
+
+net::server::CharacterMapInfo Character::MapInfo()
+{
+	const PaperdollGraphics graphics = GetPaperdollGraphics(this);
+
+	net::server::CharacterMapInfo info;
+	info.name = this->SourceName();
+	info.player_id = this->PlayerID();
+	info.map_id = this->mapid;
+	info.coords.x = this->x;
+	info.coords.y = this->y;
+	info.direction = static_cast<eolib::protocol::Direction>(this->direction);
+	info.class_id = this->clas;
+	info.guild_tag = this->PaddedGuildTag();
+	info.level = this->level;
+	info.gender = static_cast<eolib::protocol::Gender>(this->gender);
+	info.hair_style = this->hairstyle;
+	info.hair_color = this->haircolor;
+	info.skin = this->race;
+	info.max_hp = this->maxhp;
+	info.hp = this->hp;
+	info.max_tp = this->maxtp;
+	info.tp = this->tp;
+	info.equipment.boots = graphics.boots;
+	info.equipment.armor = graphics.armor;
+	info.equipment.hat = graphics.hat;
+	info.equipment.shield = graphics.shield;
+	info.equipment.weapon = graphics.weapon;
+	info.sit_state = static_cast<net::server::SitState>(this->sitting);
+	info.invisible = this->IsHideInvisible();
+	return info;
+}
+
+// Decodes a pub file's RID (two shorts)
+static std::vector<int> DecodeRid(const std::array<unsigned char, 4>& rid)
+{
+	return {
+		eolib::data::NumberEncoder::DecodeNumber(rid.data(), 2),
+		eolib::data::NumberEncoder::DecodeNumber(rid.data() + 2, 2)
+	};
+}
+
+static int DecodeLength(const std::array<unsigned char, 2>& len)
+{
+	return eolib::data::NumberEncoder::DecodeNumber(len.data(), 2);
+}
+
+net::server::WelcomeReplyServerPacket Character::SelectCharacterReply(bool login_warning)
+{
+	Map* map = this->world->GetMap(this->mapid);
+
+	net::server::WelcomeReplyServerPacket::WelcomeCodeDataSelectCharacter data;
+	data.session_id = this->PlayerID();
+	data.character_id = this->id;
+	data.map_id = this->mapid;
+	data.map_rid = map->ClientRid();
+	data.map_file_size = map->filesize;
+	data.eif_rid = DecodeRid(this->world->eif->rid);
+	data.eif_length = DecodeLength(this->world->eif->len);
+	data.enf_rid = DecodeRid(this->world->enf->rid);
+	data.enf_length = DecodeLength(this->world->enf->len);
+	data.esf_rid = DecodeRid(this->world->esf->rid);
+	data.esf_length = DecodeLength(this->world->esf->len);
+	data.ecf_rid = DecodeRid(this->world->ecf->rid);
+	data.ecf_length = DecodeLength(this->world->ecf->len);
+	data.name = this->SourceName();
+	data.title = this->title;
+	data.guild_name = this->GuildNameString();
+	data.guild_rank_name = this->GuildRankString();
+	data.class_id = this->clas;
+	data.guild_tag = this->PaddedGuildTag();
+
+	// Tell a player's client they're a higher level admin than they are to enable some features
+
+	AdminLevel lowest_command = ADMIN_HGM;
+
+	UTIL_FOREACH(this->world->admin_config, ac)
+	{
+		if (ac.first == "killnpc" || ac.first == "reports")
+		{
+			continue;
+		}
+
+		lowest_command = std::min<AdminLevel>(lowest_command, static_cast<AdminLevel>(util::to_int(ac.second)));
+	}
+
+	AdminLevel client_admin = this->SourceAccess();
+
+	if (this->SourceAccess() >= static_cast<int>(this->world->admin_config["seehide"])
+	 && this->SourceAccess() < ADMIN_HGM)
+	{
+		client_admin = ADMIN_HGM;
+	}
+	else if (this->SourceDutyAccess() >= static_cast<int>(this->world->admin_config["nowall"])
+	 && this->SourceDutyAccess() < ADMIN_GM)
+	{
+		client_admin = ADMIN_GM;
+	}
+	else if (this->SourceAccess() >= lowest_command && this->SourceAccess() < ADMIN_GUIDE)
+	{
+		client_admin = ADMIN_GUIDE;
+	}
+
+	data.admin = static_cast<eolib::protocol::AdminLevel>(client_admin);
+	data.level = this->level;
+	data.experience = this->exp;
+	data.usage = this->usage;
+
+	data.stats.hp = this->hp;
+	data.stats.max_hp = this->maxhp;
+	data.stats.tp = this->tp;
+	data.stats.max_tp = this->maxtp;
+	data.stats.max_sp = this->maxsp;
+	data.stats.stat_points = this->statpoints;
+	data.stats.skill_points = this->skillpoints;
+	data.stats.karma = this->karma;
+	data.stats.secondary.min_damage = this->mindam;
+	data.stats.secondary.max_damage = this->maxdam;
+	data.stats.secondary.accuracy = this->accuracy;
+	data.stats.secondary.evade = this->evade;
+	data.stats.secondary.armor = this->armor;
+	data.stats.base.str = this->display_str;
+	data.stats.base.wis = this->display_wis;
+	data.stats.base.intl = this->display_intl;
+	data.stats.base.agi = this->display_agi;
+	data.stats.base.con = this->display_con;
+	data.stats.base.cha = this->display_cha;
+
+	// Filled by wire position. eo-protocol names positions 1-4 gloves, accessory, armor and belt, where etheos (and
+	// EndlessClient) have Accessory, Gloves, Belt and Armor.
+	data.equipment.boots = this->paperdoll[0];
+	data.equipment.gloves = this->paperdoll[1];
+	data.equipment.accessory = this->paperdoll[2];
+	data.equipment.armor = this->paperdoll[3];
+	data.equipment.belt = this->paperdoll[4];
+	data.equipment.necklace = this->paperdoll[5];
+	data.equipment.hat = this->paperdoll[6];
+	data.equipment.shield = this->paperdoll[7];
+	data.equipment.weapon = this->paperdoll[8];
+	data.equipment.ring = {this->paperdoll[9], this->paperdoll[10]};
+	data.equipment.armlet = {this->paperdoll[11], this->paperdoll[12]};
+	data.equipment.bracer = {this->paperdoll[13], this->paperdoll[14]};
+
+	int leader_rank = std::max(std::max(std::max(static_cast<int>(this->world->config["GuildEditRank"]), static_cast<int>(this->world->config["GuildKickRank"])),
+							   static_cast<int>(this->world->config["GuildPromoteRank"])), static_cast<int>(this->world->config["GuildDemoteRank"]));
+
+	// A guild rank of 1 allows client access to the guild management tools
+	data.guild_rank = (this->guild_rank <= leader_rank && this->guild) ? 1 : this->guild_rank;
+
+	data.settings.jail_map = static_cast<int>(this->world->config["JailMap"]);
+	data.settings.rescue_map = 4;
+	data.settings.rescue_coords.x = 24;
+	data.settings.rescue_coords.y = 24;
+	data.settings.spy_and_light_guide_flood_rate = 0;
+	data.settings.guardian_flood_rate = 0;
+	data.settings.game_master_flood_rate = 0;
+	data.settings.high_game_master_flood_rate = 2;
+	data.login_message_code = login_warning ? net::server::LoginMessageCode::Yes : net::server::LoginMessageCode::No;
+
+	net::server::WelcomeReplyServerPacket reply;
+	reply.welcome_code = net::server::WelcomeCode::SelectCharacter;
+	reply.welcome_code_data = std::move(data);
+	return reply;
 }
 
 void Character::AddChatLog(std::string marker, std::string name, std::string msg)
@@ -2068,6 +2277,11 @@ std::string Character::GetChatLogDump()
 void Character::Send(const PacketBuilder &builder)
 {
 	this->player->Send(builder);
+}
+
+void Character::Send(const eolib::protocol::net::Packet& packet)
+{
+	this->player->Send(packet);
 }
 
 // thanks cirras <3

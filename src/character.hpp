@@ -23,6 +23,8 @@
 #include "eodata.hpp"
 #include "map.hpp"
 
+#include <eolib/protocol/net/packet.hpp>
+
 #include <array>
 #include <deque>
 #include <list>
@@ -31,6 +33,13 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+
+namespace eolib::protocol::net::server
+{
+	class CharacterMapInfo;
+	class CharacterSelectionListEntry;
+	class WelcomeReplyServerPacket;
+}
 
 struct Timestamp
 {
@@ -366,10 +375,27 @@ class Character : public Command_Source
 		void Undress(EquipLocation);
 		void AddPaperdollData(PacketBuilder&, const char* format);
 
+		/**
+		 * Gets the character as shown in the character selection list.
+		 */
+		eolib::protocol::net::server::CharacterSelectionListEntry SelectionListEntry();
+
+		/**
+		 * Gets the character as shown to nearby players.
+		 */
+		eolib::protocol::net::server::CharacterMapInfo MapInfo();
+
+		/**
+		 * Creates the Welcome_Reply sent when the character is selected, with the data files the client needs and the
+		 * character's details.
+		 */
+		eolib::protocol::net::server::WelcomeReplyServerPacket SelectCharacterReply(bool login_warning);
+
 		void AddChatLog(std::string marker, std::string name, std::string msg);
 		std::string GetChatLogDump();
 
 		void Send(const PacketBuilder &);
+		void Send(const eolib::protocol::net::Packet& packet);
 
 		void ShowInfoBox(const std::string& title, const std::vector<std::string>& lines);
 		void ShowInfoBox(const std::string& title, const std::string& content);

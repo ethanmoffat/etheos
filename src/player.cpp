@@ -130,6 +130,11 @@ void Player::Send(const PacketBuilder &builder)
 	this->client->Send(builder);
 }
 
+void Player::Send(const eolib::protocol::net::Packet& packet)
+{
+	this->client->Send(packet);
+}
+
 void Player::Logout()
 {
 	UTIL_FOREACH(this->characters, character)

@@ -20,6 +20,8 @@
 #include "hash.hpp"
 #include "socket.hpp"
 
+#include <eolib/protocol/net/packet.hpp>
+
 #include <string>
 #include <vector>
 
@@ -89,6 +91,7 @@ class Player
 		AdminLevel Admin() const;
 
 		void Send(const PacketBuilder &);
+		void Send(const eolib::protocol::net::Packet& packet);
 
 		void Logout();
 

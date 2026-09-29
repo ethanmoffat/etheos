@@ -1,4 +1,5 @@
 #include "../testhelper/mocks.hpp"
+#include "../testhelper/packets.hpp"
 #include "../testhelper/setup.hpp"
 
 // include the CPP file with the Login functions in it for testing
@@ -6,7 +7,25 @@
 
 #include "console.hpp"
 
+namespace net = eolib::protocol::net;
+
 static constexpr unsigned short TestServerPort = 38078;
+
+static net::client::LoginRequestClientPacket LoginRequest(const std::string& username, const std::string& password)
+{
+    net::client::LoginRequestClientPacket packet;
+    packet.username = username;
+    packet.password = password;
+    return packet;
+}
+
+template <typename TData> static net::server::LoginReplyServerPacket ExpectedLoginReply(net::server::LoginReply reply_code)
+{
+    net::server::LoginReplyServerPacket reply;
+    reply.reply_code = reply_code;
+    reply.reply_code_data = TData();
+    return reply;
+}
 
 GTEST_TEST(LoginTests, BasicParameterTests)
 {
@@ -38,9 +57,7 @@ GTEST_TEST(LoginTests, BasicParameterTests)
         EXPECT_CALL(client, Send(An<const eolib::protocol::net::Packet &>())).Times(0);
         EXPECT_CALL(client, Close(_)).Times(0);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString(std::string(AccountMaxLength + 1, 'a')).AddBreakString("test_pass").Get());
-        r.GetShort();
+        auto r = LoginRequest(std::string(AccountMaxLength + 1, 'a'), "test_pass");
         Handlers::Login_Request(&client, r);
     }
 
@@ -52,9 +69,7 @@ GTEST_TEST(LoginTests, BasicParameterTests)
         EXPECT_CALL(client, Send(An<const eolib::protocol::net::Packet &>())).Times(0);
         EXPECT_CALL(client, Close(_)).Times(0);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString(std::string(PasswordMaxLength + 1, 'a')).Get());
-        r.GetShort();
+        auto r = LoginRequest("test_user", std::string(PasswordMaxLength + 1, 'a'));
         Handlers::Login_Request(&client, r);
     }
 
@@ -62,14 +77,11 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-        expectedResponse.AddShort(LOGIN_WRONG_USER);
-        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataWrongUser>(net::server::LoginReply::WrongUser);
+        EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(0);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString(std::string(AccountMinLength - 1, 'a')).AddBreakString("test_pass").Get());
-        r.GetShort();
+        auto r = LoginRequest(std::string(AccountMinLength - 1, 'a'), "test_pass");
         Handlers::Login_Request(&client, r);
     }
 
@@ -77,14 +89,11 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-        expectedResponse.AddShort(LOGIN_WRONG_USERPASS);
-        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataWrongUserPassword>(net::server::LoginReply::WrongUserPassword);
+        EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(0);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString(std::string(PasswordMinLength - 1, 'a')).Get());
-        r.GetShort();
+        auto r = LoginRequest("test_user", std::string(PasswordMinLength - 1, 'a'));
         Handlers::Login_Request(&client, r);
     }
 
@@ -92,14 +101,11 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-        expectedResponse.AddShort(LOGIN_BUSY);
-        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataBusy>(net::server::LoginReply::Busy);
+        EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
-        r.GetShort();
+        auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(&client, r);
     }
 }
@@ -130,15 +136,16 @@ GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
         server.world->config["InitLoginBan"] = true;
         MockClient client(&server);
 
-        PacketBuilder expectedResponse(PACKET_F_INIT, PACKET_A_INIT, 2);
-        expectedResponse.AddByte(INIT_BANNED);
-        expectedResponse.AddByte(INIT_BAN_PERM);
-        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        net::server::InitInitServerPacket::ReplyCodeDataBanned banned;
+        banned.ban_type = net::server::InitBanType::Permanent;
+
+        net::server::InitInitServerPacket expectedResponse;
+        expectedResponse.reply_code = net::server::InitReply::Banned;
+        expectedResponse.reply_code_data = banned;
+        EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
-        r.GetShort();
+        auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(&client, r);
     }
 
@@ -147,14 +154,11 @@ GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
         server.world->config["InitLoginBan"] = false;
         MockClient client(&server);
 
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-        expectedResponse.AddShort(LOGIN_ACCOUNT_BANNED);
-        EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+        auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataBanned>(net::server::LoginReply::Banned);
+        EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
-        r.GetShort();
+        auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(&client, r);
     }
 }
@@ -180,16 +184,16 @@ GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
         std::shared_ptr<MockClient> client(new MockClient(&server));
         clientRefs.push_back(client); // keep reference to client so it doesn't get deallocated
 
-        // Only expect a packet with LOGIN_BUSY if we exceed max concurrent logins
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-        expectedResponse.AddShort(i == MaxConcurrentLogins ? LOGIN_BUSY : LOGIN_WRONG_USER);
-        EXPECT_CALL(*client, Send(expectedResponse)).Times(1);
+        // Only expect a packet with Busy if we exceed max concurrent logins
+        auto expectedResponse = i == MaxConcurrentLogins
+            ? ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataBusy>(net::server::LoginReply::Busy)
+            : ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataWrongUser>(net::server::LoginReply::WrongUser);
+        EXPECT_CALL(*client, Send(PacketEq(expectedResponse))).Times(1);
 
         // client should never be closed
         EXPECT_CALL(*client, Close(false)).Times(0);
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
+        auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(client.get(), r);
     }
 
@@ -213,18 +217,16 @@ GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
     MockClient client(&server);
 
-    // Expect a packet with LOGIN_WRONG_USER for each attempt
-    PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-    expectedResponse.AddShort(LOGIN_WRONG_USER);
-    EXPECT_CALL(client, Send(expectedResponse)).Times(MaxLoginAttempts);
+    // Expect a WrongUser reply for each attempt
+    auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataWrongUser>(net::server::LoginReply::WrongUser);
+    EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(MaxLoginAttempts);
 
     // expect the client to be closed once
     EXPECT_CALL(client, Close(_)).Times(1);
 
     for (auto i = 0; i < MaxLoginAttempts; i++)
     {
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, 20);
-        PacketReader r(b.AddBreakString("test_user").AddBreakString("test_pass").Get());
+        auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(&client, r);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -248,7 +250,7 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
     Database_Result oldVersionResult;
     std::unordered_map<std::string, util::variant> oldVersionColumns;
     oldVersionColumns["password_version"] = util::variant(HashFunc::SHA256);
-    oldVersionColumns["password"] = UnhashedPassword; // use this as a database password so we get LOGIN_WRONG_USERPASS
+    oldVersionColumns["password"] = UnhashedPassword; // use this as a database password so we get WrongUserPassword
     oldVersionResult.push_back(oldVersionColumns);
 
     // return password result to login manager for any given username
@@ -265,14 +267,11 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
 
     MockClient client(&server);
 
-    // Expect a packet with LOGIN_OK for each attempt
-    PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 2);
-    expectedResponse.AddShort(LOGIN_WRONG_USERPASS);
-    EXPECT_CALL(client, Send(expectedResponse)).Times(1);
+    // Expect a WrongUserPassword reply
+    auto expectedResponse = ExpectedLoginReply<net::server::LoginReplyServerPacket::ReplyCodeDataWrongUserPassword>(net::server::LoginReply::WrongUserPassword);
+    EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
 
-    PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, ExpectedUsername.size() + UnhashedPassword.size() + 2);
-    PacketReader r(b.AddBreakString(ExpectedUsername).AddBreakString(UnhashedPassword).Get());
-    r.GetShort(); // skip first two bytes (Family/Action - packet id, normally consumed from the reader when selecting the handler)
+    auto r = LoginRequest(ExpectedUsername, UnhashedPassword);
     Handlers::Login_Request(&client, r);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -352,20 +351,16 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
         std::shared_ptr<MockClient> client(new MockClient(&server));
         clientRefs.push_back(client);
 
-        // Expect a packet with LOGIN_OK for each attempt
-        PacketBuilder expectedResponse(PACKET_LOGIN, PACKET_REPLY, 5);
-        expectedResponse.AddShort(LOGIN_OK);
-        expectedResponse.AddChar(0);
-        expectedResponse.AddByte(2);
-        expectedResponse.AddByte(255);
-        EXPECT_CALL(*dynamic_cast<MockClient*>(client.get()), Send(expectedResponse)).Times(1);
+        // Expect an Ok reply for each attempt
+        net::server::LoginReplyServerPacket expectedResponse;
+        expectedResponse.reply_code = net::server::LoginReply::Ok;
+        expectedResponse.reply_code_data = net::server::LoginReplyServerPacket::ReplyCodeDataOk();
+        EXPECT_CALL(*dynamic_cast<MockClient*>(client.get()), Send(PacketEq(expectedResponse))).Times(1);
 
-        // always connected - ensures LOGIN_OK response is sent
+        // always connected - ensures the Ok reply is sent
         EXPECT_CALL(*dynamic_cast<MockClient*>(client.get()), Connected()).WillRepeatedly(Return(true));
 
-        PacketBuilder b(PACKET_LOGIN, PACKET_REQUEST, ExpectedUsername.size() + UnhashedPassword.size() + 2);
-        PacketReader r(b.AddBreakString(ExpectedUsername).AddBreakString(UnhashedPassword).Get());
-        r.GetShort(); // skip first two bytes (Family/Action - packet id, normally consumed from the reader when selecting the handler)
+        auto r = LoginRequest(ExpectedUsername, UnhashedPassword);
         Handlers::Login_Request(client.get(), r);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));

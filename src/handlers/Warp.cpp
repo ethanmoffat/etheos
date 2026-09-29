@@ -127,7 +127,7 @@ void Warp_Take(Character *character, PacketReader &reader)
 {
 	(void)reader;
 
-	if (!character->player->client->Upload(FILE_MAP, character->mapid, INIT_BANNED))
+	if (!character->player->client->UploadMap(character->mapid, net::server::InitReply::WarpMap))
 		throw std::runtime_error("Failed to upload file");
 }
 

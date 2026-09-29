@@ -19,10 +19,13 @@
 
 #include <eolib/packet/packet_sequencer.hpp>
 #include <eolib/packet/sequence_start.hpp>
+#include <eolib/protocol/net/client/enums.hpp>
 #include <eolib/protocol/net/enums.hpp>
 #include <eolib/protocol/net/packet.hpp>
+#include <eolib/protocol/net/server/enums.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <functional>
 #include <memory>
@@ -30,6 +33,7 @@
 #include <queue>
 #include <string>
 #include <utility>
+#include <vector>
 #include <mutex>
 
 /**
@@ -149,16 +153,6 @@ class EOClient : public Client
 
 		void LogPacket(PacketFamily family, PacketAction action, size_t sz, const char * const actionStr);
 
-		FileType upload_type;
-		std::FILE *upload_fh;
-		std::size_t upload_pos;
-		std::size_t upload_size;
-
-		std::string send_buffer2;
-		std::size_t send_buffer2_gpos;
-		std::size_t send_buffer2_ppos;
-		std::size_t send_buffer2_used;
-
 		eolib::packet::PacketSequencer sequencer;
 
 		// Sent with the last server ping, and used once the client replies to it
@@ -171,7 +165,15 @@ class EOClient : public Client
 		 */
 		void SendBody(std::string body);
 
+		/**
+		 * Reads a whole file. Returns false if it can't be read.
+		 */
+		static bool ReadFile(const std::string& filename, std::vector<std::uint8_t>& content);
+
 	public:
+		// Size the send buffer may grow to, which fits the largest file upload
+		static constexpr std::size_t SendBufferLimit = 128 * 1024;
+
 		EOServer *server() { return static_cast<EOServer *>(Client::server); };
 		int version;
 		Player *player;
@@ -210,8 +212,6 @@ class EOClient : public Client
 			this->Initialize();
 		}
 
-		virtual bool NeedTick();
-
 		void Tick();
 
 		/**
@@ -245,8 +245,16 @@ class EOClient : public Client
 		 */
 		static void DecryptPacket(std::string& data, int multiple);
 
-		bool Upload(FileType type, int id, InitReply init_reply);
-		bool Upload(FileType type, const std::string &filename, InitReply init_reply);
+		/**
+		 * Sends a map file with the given reply code (FileEmf, WarpMap or MapMutation). Returns false if the file can't
+		 * be read.
+		 */
+		bool UploadMap(int map_id, eolib::protocol::net::server::InitReply reply_code);
+
+		/**
+		 * Sends a pub file (Eif, Enf, Esf or Ecf). Returns false if the file can't be read or the type isn't a pub file.
+		 */
+		bool UploadPubFile(eolib::protocol::net::client::FileType file_type);
 		virtual void Send(const PacketBuilder &packet);
 
 		/**

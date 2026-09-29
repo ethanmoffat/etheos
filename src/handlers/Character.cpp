@@ -16,6 +16,10 @@
 #include "../console.hpp"
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+#include <eolib/protocol/net/server/structs.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <string>
@@ -23,40 +27,37 @@
 namespace Handlers
 {
 
-void Character_Request(Player *player, PacketReader &reader)
+template <typename TData> static net::server::CharacterReplyServerPacket MakeCharacterReply(net::server::CharacterReply reply_code, TData data = TData())
 {
-	auto content = reader.GetBreakString();
-	if (content != "NEW")
-	{
-		player->client->Close();
-		return;
-	}
+	net::server::CharacterReplyServerPacket reply;
+	reply.reply_code = reply_code;
+	reply.reply_code_data = std::move(data);
+	return reply;
+}
+
+void Character_Request(Player* player, const net::client::CharacterRequestClientPacket& packet)
+{
+	(void)packet;
 
 	player->NewCharacterOp();
 
-	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 4);
-	reply.AddShort(player->char_op_id);
-	reply.AddString("OK");
-
-	player->Send(reply);
+	// A reply code above 9 is the character creation session ID
+	player->Send(MakeCharacterReply<net::server::CharacterReplyServerPacket::ReplyCodeDataDefault>(static_cast<net::server::CharacterReply>(player->char_op_id)));
 }
 
-void Character_Create(Player *player, PacketReader &reader)
+void Character_Create(Player* player, const net::client::CharacterCreateClientPacket& packet)
 {
-	auto create_id = reader.GetShort();
-	if (create_id != player->char_op_id)
+	if (packet.session_id != player->char_op_id)
 	{
 		player->client->Close();
 		return;
 	}
 
-	Gender gender = static_cast<Gender>(reader.GetShort());
-	int hairstyle = reader.GetShort();
-	int haircolor = reader.GetShort();
-	Skin race = static_cast<Skin>(reader.GetShort());
-	reader.GetByte();
-	std::string name = reader.GetBreakString();
-	name = util::lowercase(name);
+	Gender gender = static_cast<Gender>(packet.gender);
+	int hairstyle = packet.hair_style;
+	int haircolor = packet.hair_color;
+	Skin race = static_cast<Skin>(packet.skin);
+	std::string name = util::lowercase(packet.name);
 
 	if ((gender != GENDER_MALE && gender != GENDER_FEMALE)
 		|| hairstyle < static_cast<int>(player->world->config["CreateMinHairStyle"])
@@ -70,62 +71,45 @@ void Character_Create(Player *player, PacketReader &reader)
 		return;
 	 }
 
-	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 2);
-
 	if (player->characters.size() >= static_cast<std::size_t>(static_cast<int>(player->world->config["MaxCharacters"])))
 	{
-		reply.AddShort(CHARACTER_FULL); // Reply code
+		player->Send(MakeCharacterReply<net::server::CharacterReplyServerPacket::ReplyCodeDataFull>(net::server::CharacterReply::Full));
 	}
 	else if (!Character::ValidName(name))
 	{
-		reply.AddShort(CHARACTER_NOT_APPROVED); // Reply code
+		player->Send(MakeCharacterReply<net::server::CharacterReplyServerPacket::ReplyCodeDataNotApproved>(net::server::CharacterReply::NotApproved));
 	}
 	else if (player->world->CharacterExists(name))
 	{
-		reply.AddShort(CHARACTER_EXISTS); // Reply code
+		player->Send(MakeCharacterReply<net::server::CharacterReplyServerPacket::ReplyCodeDataExists>(net::server::CharacterReply::Exists));
 	}
 	else
 	{
 		player->AddCharacter(name, gender, hairstyle, haircolor, race);
-		reply.ReserveMore(5 + player->characters.size() * 34);
 		Console::Out("New character: %s (%s)", name.c_str(), player->username.c_str());
 
-		reply.AddShort(CHARACTER_OK);
-		reply.AddChar(static_cast<unsigned char>(player->characters.size()));
-		reply.AddByte(1); // ??
-		reply.AddByte(255);
+		net::server::CharacterReplyServerPacket::ReplyCodeDataOk ok;
+
 		UTIL_FOREACH(player->characters, character)
 		{
-			reply.AddBreakString(character->SourceName());
-			reply.AddInt(character->id);
-			reply.AddChar(character->level);
-			reply.AddChar(character->gender);
-			reply.AddChar(character->hairstyle);
-			reply.AddChar(character->haircolor);
-			reply.AddChar(character->race);
-			reply.AddChar(character->admin);
-			character->AddPaperdollData(reply, "BAHSW");
-
-			reply.AddByte(255);
+			ok.characters.push_back(character->SelectionListEntry());
 		}
+
+		player->Send(MakeCharacterReply(net::server::CharacterReply::Ok, std::move(ok)));
 	}
 
-	player->Send(reply);
 	player->char_op_id = 0;
 }
 
 // Delete a character from an account
-void Character_Remove(Player *player, PacketReader &reader)
+void Character_Remove(Player* player, const net::client::CharacterRemoveClientPacket& packet)
 {
-	int deleteid = reader.GetShort();
-	unsigned int id = reader.GetInt();
-
 	auto it = std::find_if(UTIL_RANGE(player->characters), [&](Character *c) -> bool
 	{
-		return (c->id == id);
+		return (c->id == static_cast<unsigned int>(packet.character_id));
 	});
 
-	if (deleteid != player->char_op_id || it == player->characters.end())
+	if (packet.session_id != player->char_op_id || it == player->characters.end())
 	{
 		player->client->Close();
 		return;
@@ -155,38 +139,23 @@ void Character_Remove(Player *player, PacketReader &reader)
 
 	player->characters.erase(it);
 
-	PacketBuilder reply(PACKET_CHARACTER, PACKET_REPLY, 5 + player->characters.size() * 34);
-	reply.AddShort(CHARACTER_DELETED); // Reply code
-	reply.AddChar(static_cast<unsigned char>(player->characters.size()));
-	reply.AddByte(1); // ??
-	reply.AddByte(255);
+	net::server::CharacterReplyServerPacket::ReplyCodeDataDeleted deleted;
+
 	UTIL_FOREACH(player->characters, character)
 	{
-		reply.AddBreakString(character->SourceName());
-		reply.AddInt(character->id);
-		reply.AddChar(character->level);
-		reply.AddChar(character->gender);
-		reply.AddChar(character->hairstyle);
-		reply.AddChar(character->haircolor);
-		reply.AddChar(character->race);
-		reply.AddChar(character->admin);
-		character->AddPaperdollData(reply, "BAHSW");
-
-		reply.AddByte(255);
+		deleted.characters.push_back(character->SelectionListEntry());
 	}
 
-	player->Send(reply);
+	player->Send(MakeCharacterReply(net::server::CharacterReply::Deleted, std::move(deleted)));
 	player->char_op_id = 0;
 }
 
 // Request to delete a character from an account
-void Character_Take(Player *player, PacketReader &reader)
+void Character_Take(Player* player, const net::client::CharacterTakeClientPacket& packet)
 {
-	unsigned int id = reader.GetInt();
-
 	auto it = std::find_if(UTIL_CRANGE(player->characters), [&](Character *c) -> bool
 	{
-		return (c->id == id);
+		return (c->id == static_cast<unsigned int>(packet.character_id));
 	});
 
 	if (it == player->characters.end())
@@ -197,18 +166,17 @@ void Character_Take(Player *player, PacketReader &reader)
 
 	player->NewCharacterOp();
 
-	PacketBuilder reply(PACKET_CHARACTER, PACKET_PLAYER, 6);
-	reply.AddShort(player->char_op_id);
-	reply.AddInt(id);
-
+	net::server::CharacterPlayerServerPacket reply;
+	reply.session_id = player->char_op_id;
+	reply.character_id = packet.character_id;
 	player->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CHARACTER)
-	Register(PACKET_REQUEST, Character_Request, Character_Menu);
-	Register(PACKET_CREATE, Character_Create, Character_Menu, 1.0);
-	Register(PACKET_REMOVE, Character_Remove, Character_Menu, 1.0);
-	Register(PACKET_TAKE, Character_Take, Character_Menu);
+	Register(Character_Request, Character_Menu);
+	Register(Character_Create, Character_Menu, 1.0);
+	Register(Character_Remove, Character_Menu, 1.0);
+	Register(Character_Take, Character_Menu);
 PACKET_HANDLER_REGISTER_END(PACKET_CHARACTER)
 
 }

@@ -25,6 +25,10 @@
 #include "util.hpp"
 #include "util/rpn.hpp"
 
+#include <eolib/data/eo_numeric_limits.hpp>
+#include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/map/enums.hpp>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -39,6 +43,10 @@
 #include <vector>
 
 static const char *map_safe_fail_filename;
+
+// Offsets in an EMF file
+static constexpr std::size_t emf_rid_offset = 0x03;
+static constexpr std::size_t emf_type_offset = 0x1F;
 
 static void map_safe_fail(int line)
 {
@@ -2504,6 +2512,39 @@ bool Map::Evacuate()
 	}
 }
 
+std::vector<int> Map::ClientRid()
+{
+	const auto* rid_bytes = reinterpret_cast<const std::uint8_t*>(this->rid);
+
+	std::vector<int> result{
+		eolib::data::NumberEncoder::DecodeNumber(rid_bytes, 2),
+		eolib::data::NumberEncoder::DecodeNumber(rid_bytes + 2, 2)
+	};
+
+	if (this->world->config["GlobalPK"] && !this->world->PKExcept(this->id))
+		result[0] = Map::GlobalPKRid(result[0]);
+
+	return result;
+}
+
+int Map::GlobalPKRid(int rid)
+{
+	return (rid + 1) % static_cast<int>(eolib::data::EoNumericLimits::ShortMax);
+}
+
+void Map::PatchGlobalPK(std::vector<std::uint8_t>& content)
+{
+	if (content.size() <= emf_type_offset)
+		return;
+
+	const int rid = eolib::data::NumberEncoder::DecodeNumber(&content[emf_rid_offset], 2);
+	const auto encoded_rid = eolib::data::NumberEncoder::EncodeNumber(Map::GlobalPKRid(rid));
+	content[emf_rid_offset] = encoded_rid[0];
+	content[emf_rid_offset + 1] = encoded_rid[1];
+
+	content[emf_type_offset] = eolib::data::NumberEncoder::EncodeNumber(static_cast<int>(eolib::protocol::map::MapType::Pk))[0];
+}
+
 bool Map::Reload()
 {
 	char namebuf[7];
@@ -2549,7 +2590,7 @@ bool Map::Reload()
 
 	UTIL_FOREACH(temp, character)
 	{
-		character->player->client->Upload(FILE_MAP, character->mapid, INIT_MAP_MUTATION);
+		character->player->client->UploadMap(character->mapid, eolib::protocol::net::server::InitReply::MapMutation);
 		character->Refresh(); // TODO: Find a better way to reload NPCs
 	}
 
