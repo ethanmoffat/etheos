@@ -22,8 +22,10 @@
 #include "util.hpp"
 
 #include <eolib/data/eo_numeric_limits.hpp>
+#include <eolib/data/eo_writer.hpp>
 #include <eolib/data/number_encoder.hpp>
 #include <eolib/encrypt/data_encrypter.hpp>
+#include <eolib/errors.hpp>
 #include <eolib/protocol/net/enums.hpp>
 
 #include <algorithm>
@@ -451,6 +453,31 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 void EOClient::Send(const PacketBuilder &builder)
 {
 	this->SendBody(builder.Get().substr(2));
+}
+
+void EOClient::Send(const net::Packet& packet)
+{
+	eolib::data::EoWriter writer;
+
+	try
+	{
+		packet.Serialize(writer);
+	}
+	catch (const eolib::SerializationError& e)
+	{
+		Console::Err("Failed to serialize packet %s_%s for %s: %s", net::ToString(packet.Family()).c_str(), net::ToString(packet.Action()).c_str(), static_cast<std::string>(this->GetRemoteAddr()).c_str(), e.what());
+		return;
+	}
+
+	const auto& bytes = writer.Data();
+
+	std::string body;
+	body.reserve(bytes.size() + 2);
+	body += char(packet.Action());
+	body += char(packet.Family());
+	body.append(bytes.begin(), bytes.end());
+
+	this->SendBody(std::move(body));
 }
 
 void EOClient::SendBody(std::string body)

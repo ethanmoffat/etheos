@@ -53,8 +53,21 @@ class MockClient : public EOClient
 public:
     MockClient(EOServer * server) : EOClient(server) { }
     MOCK_METHOD(void, Send, (const PacketBuilder &packet), (override));
+    MOCK_METHOD(void, Send, (const eolib::protocol::net::Packet& packet), (override));
     MOCK_METHOD(void, Close, (bool force), (override));
     MOCK_METHOD(bool, Connected, (), (const override));
+
+    // Gets the bytes waiting in the send buffer, for tests that call the real EOClient::Send
+    std::string PendingSendData() const
+    {
+        std::string result;
+        const std::size_t mask = this->send_buffer.length() - 1;
+
+        for (std::size_t i = 1; i <= this->send_buffer_used; ++i)
+            result += this->send_buffer[(this->send_buffer_gpos + i) & mask];
+
+        return result;
+    }
 };
 
 class MockDatabaseFactory : public DatabaseFactory
