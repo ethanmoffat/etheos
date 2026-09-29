@@ -6,10 +6,10 @@ cmake_minimum_required(VERSION 3.5)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0054 NEW)
 
-project(etheos VERSION 0.7.1 LANGUAGES C CXX)
+project(etheos VERSION 0.8.0 LANGUAGES C CXX)
 
 # Pre-release suffix (rc.N), or empty for a release. Set both with scripts/prepare-release.sh.
-set(ETHEOS_VERSION_SUFFIX "")
+set(ETHEOS_VERSION_SUFFIX "rc.1")
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
