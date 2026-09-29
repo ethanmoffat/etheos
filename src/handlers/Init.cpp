@@ -135,18 +135,18 @@ void Init_Init(EOClient *client, PacketReader &reader)
 	int emulti_e = util::rand(6,12);
 	int emulti_d = util::rand(6,12);
 
-	client->InitNewSequence();
-	auto seq_bytes = client->GetSeqInitBytes();
+	auto sequence_start = client->InitNewSequence();
 
 	reply.AddByte(INIT_OK);
-	reply.AddByte(seq_bytes.first);
-	reply.AddByte(seq_bytes.second);
+	reply.AddByte(sequence_start.Seq1());
+	reply.AddByte(sequence_start.Seq2());
 	reply.AddByte(emulti_e);
 	reply.AddByte(emulti_d);
 	reply.AddShort(client->id);
 	reply.AddThree(response);
 
-	client->processor.SetEMulti(emulti_e, emulti_d);
+	client->server_encryption_multiple = emulti_e;
+	client->client_encryption_multiple = emulti_d;
 
 	client->Send(reply);
 

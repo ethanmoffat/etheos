@@ -21,6 +21,11 @@
 #include "socket.hpp"
 #include "util.hpp"
 
+#include <eolib/data/eo_numeric_limits.hpp>
+#include <eolib/data/number_encoder.hpp>
+#include <eolib/encrypt/data_encrypter.hpp>
+#include <eolib/protocol/net/enums.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -64,9 +69,8 @@ ActionQueue::~ActionQueue()
 void EOClient::Initialize()
 {
 	this->upload_fh = 0;
-	this->seq_start = 0;
-	this->upcoming_seq_start = -1;
-	this->seq = 0;
+	this->server_encryption_multiple = 0;
+	this->client_encryption_multiple = 0;
 	this->id = this->server()->world->GenerateClientID();
 	this->create_id = 0;
 	this->length = 0;
@@ -189,7 +193,7 @@ void EOClient::Tick()
 					this->raw_length[1] = data[0];
 					data[0] = '\0';
 					data.erase(0, 1);
-					this->length = PacketProcessor::Number(this->raw_length[0], this->raw_length[1]);
+					this->length = eolib::data::NumberEncoder::DecodeNumber(this->raw_length, 2);
 					this->packet_state = EOClient::ReadData;
 
 					if (data.length() == 0)
@@ -228,74 +232,58 @@ void EOClient::Tick()
 	}
 }
 
-void EOClient::InitNewSequence()
+eolib::packet::InitSequenceStart EOClient::InitNewSequence()
 {
-	this->seq_start = util::rand(0, 1757);
+	auto start = eolib::packet::InitSequenceStart::Generate();
+	this->sequencer.SetSequenceStart(start);
+	return start;
 }
 
-void EOClient::PingNewSequence()
+eolib::packet::PingSequenceStart EOClient::PingNewSequence()
 {
-	this->upcoming_seq_start = util::rand(0, 1757);
+	auto start = eolib::packet::PingSequenceStart::Generate();
+	this->upcoming_sequence_start = start;
+	return start;
 }
 
-void EOClient::PongNewSequence()
+eolib::packet::AccountReplySequenceStart EOClient::AccountReplyNewSequence()
 {
-	this->seq_start = this->upcoming_seq_start;
-}
-
-void EOClient::AccountReplyNewSequence()
-{
-	this->seq_start = util::rand(0, 240);
-}
-
-int EOClient::GetSeqStart()
-{
-	return this->seq_start;
-}
-
-std::pair<unsigned char, unsigned char> EOClient::GetSeqInitBytes()
-{
-	int s1_max = (this->seq_start + 13) / 7;
-	int s1_min = std::max(0, (this->seq_start - 252 + 13 + 6) / 7);
-
-	unsigned char s1 = util::rand(s1_min, s1_max);
-	unsigned char s2 = this->seq_start - s1 * 7 + 13;
-
-	return {s1, s2};
-}
-
-std::pair<unsigned short, unsigned char> EOClient::GetSeqUpdateBytes()
-{
-	int s1_max = this->upcoming_seq_start + 252;
-	int s1_min = this->upcoming_seq_start;
-
-	unsigned short s1 = util::rand(s1_min, s1_max);
-	unsigned char s2 = s1 - this->upcoming_seq_start;
-
-	return {s1, s2};
-}
-
-int EOClient::GenSequence()
-{
-	int result = std::uint32_t(this->seq_start + this->seq);
-
-	this->seq = (this->seq + 1) % 10;
-
-	return result;
-}
-
-int EOClient::GenUpcomingSequence()
-{
-	int result = std::uint32_t(this->upcoming_seq_start + this->seq);
-
-	this->seq = (this->seq + 1) % 10;
-
-	return result;
+	auto start = eolib::packet::AccountReplySequenceStart::Generate();
+	this->sequencer.SetSequenceStart(start);
+	return start;
 }
 
 void EOClient::NewCreateID()
 {
 	this->create_id = this->server()->world->GenerateOperationID([](const EOClient* c) { return c->create_id; });
+}
+
+// Init_Init is exchanged before encryption is set up, so it's never encrypted
+static bool IsInitInit(const std::string& data)
+{
+	return data.length() >= 2
+		&& static_cast<unsigned char>(data[0]) == static_cast<unsigned char>(eolib::protocol::net::PacketAction::Init)
+		&& static_cast<unsigned char>(data[1]) == static_cast<unsigned char>(eolib::protocol::net::PacketFamily::Init);
+}
+
+void EOClient::EncryptPacket(std::string& body, int multiple)
+{
+	if (multiple == 0 || IsInitInit(body))
+		return;
+
+	eolib::encrypt::DataEncrypter::SwapMultiples(body, multiple);
+	eolib::encrypt::DataEncrypter::Interleave(body);
+	eolib::encrypt::DataEncrypter::FlipMsb(body);
+}
+
+void EOClient::DecryptPacket(std::string& data, int multiple)
+{
+	if (multiple == 0 || IsInitInit(data))
+		return;
+
+	eolib::encrypt::DataEncrypter::FlipMsb(data);
+	eolib::encrypt::DataEncrypter::Deinterleave(data);
+	eolib::encrypt::DataEncrypter::SwapMultiples(data, multiple);
 }
 
 void EOClient::Execute(const std::string &data)
@@ -306,7 +294,10 @@ void EOClient::Execute(const std::string &data)
 	if (!this->Connected())
 		return;
 
-	PacketReader reader(processor.Decode(data));
+	std::string decrypted = data;
+	EOClient::DecryptPacket(decrypted, this->client_encryption_multiple);
+
+	PacketReader reader(decrypted);
 
 	this->LogPacket(reader.Family(), reader.Action(), reader.Length(), "RECV");
 
@@ -322,13 +313,14 @@ void EOClient::Execute(const std::string &data)
 	{
 		bool ping_reply = (reader.Family() == PACKET_CONNECTION && reader.Action() == PACKET_PING);
 
-		if (ping_reply)
-			this->PongNewSequence();
+		// A client that replies before it has been pinged keeps its current sequence start
+		if (ping_reply && this->upcoming_sequence_start)
+			this->sequencer.SetSequenceStart(*this->upcoming_sequence_start);
 
 		int client_seq;
-		int server_seq = this->GenSequence();
+		int server_seq = this->sequencer.NextSequence();
 
-		if (server_seq >= 253)
+		if (server_seq >= int(eolib::data::EoNumericLimits::CharMax))
 			client_seq = reader.GetShort();
 		else
 			client_seq = reader.GetChar();
@@ -346,7 +338,7 @@ void EOClient::Execute(const std::string &data)
 	}
 	else
 	{
-		this->GenSequence();
+		this->sequencer.NextSequence();
 	}
 
 	queue.AddAction(reader, 0.02, true);
@@ -426,13 +418,24 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 
 void EOClient::Send(const PacketBuilder &builder)
 {
+	this->SendBody(builder.Get().substr(2));
+}
+
+void EOClient::SendBody(std::string body)
+{
 	std::lock_guard<std::mutex> lock(send_mutex);
 
-	auto fam = PacketFamily(PacketProcessor::EPID(builder.GetID())[1]);
-	auto act = PacketAction(PacketProcessor::EPID(builder.GetID())[0]);
-	this->LogPacket(fam, act, builder.Length(), "SEND");
+	this->LogPacket(PacketFamily(static_cast<unsigned char>(body[1])), PacketAction(static_cast<unsigned char>(body[0])), body.length() - 2, "SEND");
 
-	std::string data = this->processor.Encode(builder);
+	EOClient::EncryptPacket(body, this->server_encryption_multiple);
+
+	auto length = eolib::data::NumberEncoder::EncodeNumber(int(body.length()));
+
+	std::string data;
+	data.reserve(body.length() + 2);
+	data += char(length[0]);
+	data += char(length[1]);
+	data += body;
 
 	if (this->upload_fh)
 	{
