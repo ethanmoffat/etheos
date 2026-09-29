@@ -18,8 +18,7 @@ void Connection_Accept(EOClient *client, PacketReader &reader)
 	auto emulti_e = reader.GetShort();
 	auto client_id = reader.GetShort();
 
-	auto multis = client->processor.GetEMulti();
-	if (multis.first != emulti_e || multis.second != emulti_d || client->id != client_id)
+	if (client->server_encryption_multiple != emulti_e || client->client_encryption_multiple != emulti_d || client->id != client_id)
 	{
 		client->Close();
 		return;

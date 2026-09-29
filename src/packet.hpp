@@ -14,22 +14,10 @@
 #include <string>
 
 /**
- * Encodes and Decodes packets for a Client.
- * Each Client needs an instance of this because it holds connection-specific data required to function correctly.
+ * Legacy helpers for EO numbers and packet IDs.
  */
 class PacketProcessor
 {
-	protected:
-		/**
-		 * "EMulti" variable for Encoding.
-		 */
-		unsigned char emulti_e;
-
-		/**
-		 * "EMulti" variable for Decoding.
-		 */
-		unsigned char emulti_d;
-
 	public:
 		/**
 		 * Highest number EO can represent with 1 byte.
@@ -46,8 +34,6 @@ class PacketProcessor
 		 */
 		static const unsigned int MAX3 = 16194277;
 
-		PacketProcessor();
-
 		/**
 		 * Return a string describing a packet's family ID.
 		 */
@@ -57,15 +43,6 @@ class PacketProcessor
 		 * Return a string describing a packet's action ID.
 		 */
 		static std::string GetActionName(PacketAction action);
-
-		std::string Decode(const std::string &);
-		std::string Encode(const std::string &);
-		static std::string DickWinder(const std::string &, unsigned char emulti);
-		std::string DickWinderE(const std::string &);
-		std::string DickWinderD(const std::string &);
-
-		void SetEMulti(unsigned char emulti_e, unsigned char emulti_d);
-		std::pair<unsigned char, unsigned char> GetEMulti() const { return std::make_pair(this->emulti_e, this->emulti_d); }
 
 		static unsigned int Number(unsigned char, unsigned char = 254, unsigned char = 254, unsigned char = 254);
 		static std::array<unsigned char, 4> ENumber(unsigned int);

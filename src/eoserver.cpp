@@ -43,12 +43,11 @@ void server_ping_all(void *server_void)
 		}
 		else
 		{
-			client->PingNewSequence();
-			auto seq_bytes = client->GetSeqUpdateBytes();
+			auto sequence_start = client->PingNewSequence();
 
 			PacketBuilder builder(PACKET_CONNECTION, PACKET_PLAYER, 3);
-			builder.AddShort(seq_bytes.first);
-			builder.AddChar(seq_bytes.second);
+			builder.AddShort(sequence_start.Seq1());
+			builder.AddChar(sequence_start.Seq2());
 
 			client->needpong = true;
 			client->Send(builder);
