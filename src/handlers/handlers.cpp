@@ -12,9 +12,34 @@
 #include "../console.hpp"
 
 #include <stdexcept>
+#include <string>
 
 namespace Handlers
 {
+
+template <> EOClient* GetHandlerTarget<EOClient>(EOClient* client)
+{
+	return client;
+}
+
+template <> Player* GetHandlerTarget<Player>(EOClient* client)
+{
+	if (!client->player)
+		throw std::runtime_error("Player-handled packet before login");
+
+	return client->player;
+}
+
+template <> Character* GetHandlerTarget<Character>(EOClient* client)
+{
+	if (!client->player)
+		throw std::runtime_error("Character-handled packet before login");
+
+	if (!client->player->character)
+		throw std::runtime_error("Character-handled packet before character selection");
+
+	return client->player->character;
+}
 
 bool packet_handler_register::StateCheck(EOClient *client, unsigned short allow_states)
 {
@@ -71,15 +96,14 @@ void packet_handler_register::Register(PacketFamily family, PacketAction action,
 	handlers[(unsigned char)family][(unsigned char)action] = handler;
 }
 
-void packet_handler_register::Handle(PacketFamily family, PacketAction action, EOClient *client, PacketReader &reader, bool from_queue) const
+void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packet, bool from_queue) const
 {
-	packet_handler handler;
+	auto family = PacketFamily(packet.family);
+	auto action = PacketAction(packet.action);
 
-	if (handlers[(unsigned char)family][(unsigned char)action])
-	{
-		handler = handlers[(unsigned char)family][(unsigned char)action];
-	}
-	else
+	const packet_handler& handler = handlers[(unsigned char)family][(unsigned char)action];
+
+	if (!handler)
 	{
 #ifdef DEBUG
 		Console::Dbg("Unhandled packet: %s_%s (not registered)", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
@@ -97,9 +121,11 @@ void packet_handler_register::Handle(PacketFamily family, PacketAction action, E
 
 	if (!from_queue && (handler.allow_states & Playing) && !(handler.allow_states & OutOfBand))
 	{
-		client->queue.AddAction(reader, handler.delay);
+		client->queue.AddAction(packet, handler.delay);
 		return;
 	}
+
+	PacketReader reader(std::string{char(packet.action), char(packet.family)} + packet.payload);
 
 	switch (handler.fn_type)
 	{
@@ -111,20 +137,11 @@ void packet_handler_register::Handle(PacketFamily family, PacketAction action, E
 			break;
 
 		case packet_handler::PlayerFn:
-			if (!client->player)
-				throw std::runtime_error("Player-handled packet before login");
-
-			reinterpret_cast<player_handler_t>(handler.f)(client->player, reader);
+			reinterpret_cast<player_handler_t>(handler.f)(GetHandlerTarget<Player>(client), reader);
 			break;
 
 		case packet_handler::CharacterFn:
-			if (!client->player)
-				throw std::runtime_error("Character-handled packet before login");
-
-			if (!client->player->character)
-				throw std::runtime_error("Character-handled packet before character selection");
-
-			reinterpret_cast<character_handler_t>(handler.f)(client->player->character, reader);
+			reinterpret_cast<character_handler_t>(handler.f)(GetHandlerTarget<Character>(client), reader);
 			break;
 	}
 }

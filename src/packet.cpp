@@ -21,7 +21,6 @@ std::string PacketProcessor::GetFamilyName(PacketFamily family)
 {
 	switch (family)
 	{
-		case PACKET_INTERNAL: return "INTERNAL";
 		case PACKET_CONNECTION: return "Connection";
 		case PACKET_ACCOUNT: return "Account";
 		case PACKET_CHARACTER: return "Character";
@@ -111,8 +110,6 @@ std::string PacketProcessor::GetActionName(PacketAction action)
 		case PACKET_TARGET_OTHER: return "TargetOther";
 		case PACKET_TARGET_GROUP: return "TargetGroup";
 		case PACKET_DIALOG: return "Dialog";
-		case PACKET_INTERNAL_NULL: return "INTERNAL_NULL";
-		case PACKET_INTERNAL_WARP: return "INTERNAL_WARP";
 		case PACKET_PING: return "Ping";
 		case PACKET_PONG: return "Pong";
 		case PACKET_NET3: return "Net3";

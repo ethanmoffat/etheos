@@ -22,7 +22,6 @@
 #include "../src/handlers/Global.cpp"
 #include "../src/handlers/Guild.cpp"
 #include "../src/handlers/Init.cpp"
-#include "../src/handlers/Internal.cpp"
 #include "../src/handlers/Item.cpp"
 #include "../src/handlers/Jukebox.cpp"
 #include "../src/handlers/Locker.cpp"
