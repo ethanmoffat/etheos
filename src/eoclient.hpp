@@ -100,6 +100,17 @@ class EOClient : public Client
 
 		std::mutex send_mutex;
 
+		// WebSocket state
+		bool websocket_ = false;
+		bool ws_handshake_done_ = false;
+		std::string ws_buf_;          // HTTP upgrade accumulation / partial WS frame bytes
+		std::string ws_payload_buf_;  // Decoded WS payload ready for EO packet processing
+		std::size_t ws_payload_pos_ = 0;
+
+		void DoWsHandshake();
+		void DecodeWsFrames();
+		std::string WsRecv(std::size_t length);
+
 	public:
 		EOServer *server() { return static_cast<EOServer *>(Client::server); };
 		int version;
@@ -134,6 +145,9 @@ class EOClient : public Client
 		virtual bool NeedTick();
 
 		void Tick();
+
+		void SetWebSocket(bool ws) { this->websocket_ = ws; }
+		bool IsWebSocket() const { return this->websocket_; }
 
 		void InitNewSequence();
 		void PingNewSequence();

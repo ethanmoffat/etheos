@@ -123,6 +123,7 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util/async.hpp
 	src/util/rpn.cpp
 	src/util/rpn.hpp
+	src/websocket.hpp
 	src/util/secure_string.hpp
 	src/util/semaphore.cpp
 	src/util/semaphore.hpp

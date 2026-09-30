@@ -374,6 +374,9 @@ Julian Smythe  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═
 		server->Listen(int(config["MaxConnections"]), int(config["ListenBacklog"]));
 		Console::Out("Listening on %s:%i (0/%i connections)", std::string(config["Host"]).c_str(), int(config["Port"]), int(config["MaxConnections"]));
 
+		if (int(config["WebSocketPort"]) > 0)
+			Console::Out("Listening for WebSocket connections on %s:%i", std::string(config["Host"]).c_str(), int(config["WebSocketPort"]));
+
 		bool tables_exist = false;
 		bool tried_install = false;
 

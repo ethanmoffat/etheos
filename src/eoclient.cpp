@@ -19,6 +19,7 @@
 #include "console.hpp"
 #include "socket.hpp"
 #include "util.hpp"
+#include "websocket.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -92,7 +93,111 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz, co
 
 bool EOClient::NeedTick()
 {
-	return this->upload_fh;
+	return this->upload_fh
+	    || (this->websocket_ && this->ws_payload_pos_ < this->ws_payload_buf_.size());
+}
+
+void EOClient::DoWsHandshake()
+{
+	// Drain recv_buffer into ws_buf_ to accumulate the HTTP upgrade request
+	while (this->recv_buffer_used > 0)
+		ws_buf_ += this->Recv(std::min(this->recv_buffer_used, std::size_t(256)));
+
+	// Wait until we have the full HTTP request (ends with blank line)
+	if (ws_buf_.find("\r\n\r\n") == std::string::npos)
+		return;
+
+	// Parse Sec-WebSocket-Key header
+	std::size_t key_pos = ws_buf_.find("Sec-WebSocket-Key:");
+	if (key_pos == std::string::npos)
+	{
+		// Not a valid WebSocket upgrade request
+		this->Close(true);
+		return;
+	}
+
+	key_pos += 18; // skip "Sec-WebSocket-Key:"
+	while (key_pos < ws_buf_.size() && ws_buf_[key_pos] == ' ')
+		++key_pos;
+
+	std::size_t key_end = ws_buf_.find_first_of("\r\n", key_pos);
+	if (key_end == std::string::npos)
+	{
+		this->Close(true);
+		return;
+	}
+
+	std::string key = ws_buf_.substr(key_pos, key_end - key_pos);
+
+	// Preserve any WS frame bytes that arrived after the HTTP headers
+	std::size_t header_end = ws_buf_.find("\r\n\r\n");
+	ws_buf_ = ws_buf_.substr(header_end + 4);
+
+	// Send HTTP 101 response (goes directly to socket send buffer)
+	Client::Send(websocket::build_handshake_response(key));
+
+	ws_handshake_done_ = true;
+}
+
+void EOClient::DecodeWsFrames()
+{
+	if (!this->Connected())
+		return;
+
+	// Drain new raw bytes from recv_buffer into ws_buf_
+	while (this->recv_buffer_used > 0)
+		ws_buf_ += this->Recv(std::min(this->recv_buffer_used, std::size_t(4096)));
+
+	// Parse complete frames from ws_buf_
+	std::size_t pos = 0;
+	while (pos < ws_buf_.size())
+	{
+		std::string payload;
+		uint8_t opcode = 0;
+		std::size_t consumed = 0;
+
+		if (!websocket::decode_frame(ws_buf_.c_str() + pos, ws_buf_.size() - pos, payload, opcode, consumed))
+			break; // incomplete frame — wait for more data
+
+		if (opcode == websocket::WS_OPCODE_CLOSE)
+		{
+			// RFC 6455: echo the close frame, then close
+			Client::Send(websocket::wrap_close_frame());
+			ws_buf_.clear();
+			this->Close(true);
+			return;
+		}
+		else if (opcode == websocket::WS_OPCODE_BINARY || opcode == websocket::WS_OPCODE_CONTINUATION)
+		{
+			ws_payload_buf_ += payload;
+		}
+		// Silently discard ping / pong / text frames
+
+		pos += consumed;
+	}
+
+	if (pos > 0)
+		ws_buf_.erase(0, pos);
+}
+
+std::string EOClient::WsRecv(std::size_t length)
+{
+	// Periodically compact the decoded payload buffer
+	if (ws_payload_pos_ > 4096)
+	{
+		ws_payload_buf_.erase(0, ws_payload_pos_);
+		ws_payload_pos_ = 0;
+	}
+
+	std::size_t available = ws_payload_buf_.size() - ws_payload_pos_;
+	length = std::min(length, available);
+
+	if (length == 0)
+		return std::string();
+
+	std::string ret = ws_payload_buf_.substr(ws_payload_pos_, length);
+	ws_payload_pos_ += length;
+	return ret;
 }
 
 void EOClient::Tick()
@@ -104,6 +209,7 @@ void EOClient::Tick()
 	if (this->upload_fh)
 	{
 		// Send more of the file instead of doing other tasks
+		// (WebSocket clients use the single-packet path in Upload(), so this is TCP only)
 		std::size_t upload_available = std::min(this->upload_size - this->upload_pos, Client::SendBufferRemaining());
 
 		if (upload_available != 0)
@@ -149,7 +255,21 @@ void EOClient::Tick()
 	}
 	else
 	{
-		data = this->Recv((this->packet_state == EOClient::ReadData) ? this->length : 1);
+		if (this->websocket_)
+		{
+			if (!this->ws_handshake_done_)
+			{
+				this->DoWsHandshake();
+				return;
+			}
+
+			this->DecodeWsFrames();
+			data = this->WsRecv((this->packet_state == EOClient::ReadData) ? this->length : 1);
+		}
+		else
+		{
+			data = this->Recv((this->packet_state == EOClient::ReadData) ? this->length : 1);
+		}
 
 		while (data.length() > 0 && !done)
 		{
@@ -356,6 +476,47 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 	if (this->upload_fh)
 		throw std::runtime_error("Already uploading file");
 
+	// For WebSocket clients, embed the entire file in one packet (reoserv-compatible).
+	// Browsers receive each WS message as a discrete blob, so raw streaming bytes sent
+	// as separate WS messages would not be recognizable as file data by the web client.
+	if (this->websocket_)
+	{
+		FILE* fh = std::fopen(filename.c_str(), "rb");
+		if (!fh)
+			return false;
+
+		if (std::fseek(fh, 0, SEEK_END) != 0)
+		{
+			std::fclose(fh);
+			return false;
+		}
+
+		std::size_t file_size = static_cast<std::size_t>(std::ftell(fh));
+		std::fseek(fh, 0, SEEK_SET);
+
+		std::string file_data(file_size, '\0');
+		std::fread(&file_data[0], 1, file_size, fh);
+		std::fclose(fh);
+
+		// Apply PK patch bytes directly into the raw file data before sending
+		if (type == FILE_MAP && this->server()->world->config["GlobalPK"] && !this->server()->world->PKExcept(player->character->mapid))
+		{
+			if (file_size > 0x03) file_data[0x03] = static_cast<char>(0xFF);
+			if (file_size > 0x04) file_data[0x04] = static_cast<char>(0x01);
+			if (file_size > 0x1F) file_data[0x1F] = static_cast<char>(0x04);
+		}
+
+		PacketBuilder builder(PACKET_F_INIT, PACKET_A_INIT, 1 + (type != FILE_MAP ? 1 : 0) + file_size);
+		builder.AddChar(init_reply);
+		if (type != FILE_MAP)
+			builder.AddChar(1);
+		builder.AddString(file_data);
+
+		LogPacket(PACKET_F_INIT, PACKET_A_INIT, builder.Length(), "UPLD");
+		Client::Send(websocket::wrap_frame(this->processor.Encode(builder)));
+		return true;
+	}
+
 	this->upload_fh = std::fopen(filename.c_str(), "rb");
 
 	if (!this->upload_fh)
@@ -389,7 +550,7 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 	swap(this->send_buffer_ppos, this->send_buffer2_ppos);
 	swap(this->send_buffer_used, this->send_buffer2_used);
 
-	// Build the file upload header packet
+	// Build the file upload header packet (TCP: size announced, data streamed separately)
 	PacketBuilder builder(PACKET_F_INIT, PACKET_A_INIT, 2);
 	builder.AddChar(init_reply);
 
@@ -399,7 +560,6 @@ bool EOClient::Upload(FileType type, const std::string &filename, InitReply init
 	builder.AddSize(this->upload_size);
 
 	LogPacket(PACKET_F_INIT, PACKET_A_INIT, builder.Length(), "UPLD");
-
 	Client::Send(builder);
 
 	return true;
@@ -414,6 +574,9 @@ void EOClient::Send(const PacketBuilder &builder)
 	this->LogPacket(fam, act, builder.Length(), "SEND");
 
 	std::string data = this->processor.Encode(builder);
+
+	if (this->websocket_)
+		data = websocket::wrap_frame(data);
 
 	if (this->upload_fh)
 	{
