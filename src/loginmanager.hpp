@@ -36,7 +36,7 @@ public:
 
     void UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials);
 
-    bool LoginBusy() const { return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]); };
+    bool LoginBusy() const;
 
 private:
     std::shared_ptr<DatabaseFactory> _databaseFactory;

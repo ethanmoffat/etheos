@@ -9,6 +9,7 @@
 #include "util/threadpool.hpp"
 
 #include "loginmanager.hpp"
+#include "config.hpp"
 #include "player.hpp"
 #include "world.hpp"
 
@@ -47,6 +48,11 @@ void LoginManager::SetPassword(const std::string& username, util::secure_string&
         password.str().c_str(),
         int(passwordVersion),
         username.c_str());
+}
+
+bool LoginManager::LoginBusy() const
+{
+    return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]);
 }
 
 AsyncOperation<AccountCreateInfo, bool>* LoginManager::CreateAccountAsync(EOClient* client)
