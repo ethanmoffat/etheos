@@ -29,7 +29,6 @@
 
 #include "console.hpp"
 #include "util.hpp"
-#include "util/secure_string.hpp"
 
 #include <algorithm>
 #include <array>
@@ -46,6 +45,9 @@
 #include <vector>
 
 #include "json.hpp"
+
+namespace server = eolib::protocol::net::server;
+namespace client = eolib::protocol::net::client;
 
 void world_spawn_npcs(void *world_void)
 {
@@ -1741,22 +1743,22 @@ Player *World::PlayerFactory(std::string username)
 	return new Player(username, this, database.get());
 }
 
-AsyncOperation<AccountCredentials, LoginReply>* World::CheckCredential(EOClient* client)
+AsyncOperation<client::LoginRequestClientPacket, LoginResult>* World::CheckCredential(EOClient* client)
 {
 	if (this->loginManager->LoginBusy())
 	{
-		return AsyncOperation<AccountCredentials, LoginReply>::FromResult(LOGIN_BUSY, client, LOGIN_OK);
+		return AsyncOperation<client::LoginRequestClientPacket, LoginResult>::FromResult(server::LoginReplyServerPacket::ForBusy(), client);
 	}
 
 	return this->loginManager->CheckLoginAsync(client);
 }
 
-AsyncOperation<PasswordChangeInfo, bool>* World::ChangePassword(EOClient* client)
+AsyncOperation<client::AccountAgreeClientPacket, bool>* World::ChangePassword(EOClient* client)
 {
 	return this->loginManager->SetPasswordAsync(client);
 }
 
-AsyncOperation<AccountCreateInfo, bool>* World::CreateAccount(EOClient * client)
+AsyncOperation<client::AccountCreateClientPacket, bool>* World::CreateAccount(EOClient * client)
 {
 	return this->loginManager->CreateAccountAsync(client);
 }

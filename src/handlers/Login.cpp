@@ -7,17 +7,20 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
+#include "../converters.hpp"
 #include "../eoclient.hpp"
 #include "../eodata.hpp"
 #include "../eoserver.hpp"
-#include "../hash.hpp"
 #include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
-#include "../extra/seose_compat.hpp"
 
 #include "../util.hpp"
 #include "../util/secure_string.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+#include <eolib/protocol/net/server/structs.hpp>
 
 #include <cstddef>
 #include <string>
@@ -27,63 +30,49 @@ namespace Handlers
 {
 
 // Log in to an account
-void Login_Request(EOClient *client, PacketReader &reader)
+void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket& packet)
 {
-	std::string username = reader.GetBreakString();
-	util::secure_string password(std::move(reader.GetBreakString()));
-
-	if (username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
-	 || password.str().length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"])))
+	if (packet.username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
+	 || packet.password.length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"])))
 	{
 		return;
 	}
 
-	username = util::lowercase(username);
-
-	if (client->server()->world->config["SeoseCompat"])
-		password = std::move(seose_str_hash(password.str(), client->server()->world->config["SeoseCompatKey"]));
+	std::string username = util::lowercase(packet.username);
 
 	if (client->server()->world->CheckBan(&username, 0, 0) != -1)
 	{
-		PacketBuilder reply(PACKET_F_INIT, PACKET_A_INIT, 2);
-
 		if (static_cast<bool>(client->server()->world->config["InitLoginBan"]))
 		{
-			reply.AddByte(INIT_BANNED);
-			reply.AddByte(INIT_BAN_PERM);
+			client->Send(net::server::InitInitServerPacket::ForBannedPermanent());
 		}
 		else
 		{
-			reply.SetID(PACKET_LOGIN, PACKET_REPLY);
-			reply.AddShort(LOGIN_ACCOUNT_BANNED);
+			client->Send(net::server::LoginReplyServerPacket::ForBanned());
 		}
 
-		client->Send(reply);
 		client->Close();
 		return;
 	}
 
 	if (username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USER);
-		client->Send(reply);
+		client->Send(net::server::LoginReplyServerPacket::ForWrongUser());
 		return;
 	}
 
-	if (password.str().length() < std::size_t(int(client->server()->world->config["PasswordMinLength"])))
+	// The password used to be SeoseCompat hashed (now done by LoginManager) before this check. The hash is far longer than
+	// any practical minimum, so the check is skipped for SeoseCompat to keep accepting short passwords.
+	if (!client->server()->world->config["SeoseCompat"]
+	 && packet.password.length() < std::size_t(int(client->server()->world->config["PasswordMinLength"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_WRONG_USERPASS);
-		client->Send(reply);
+		client->Send(net::server::LoginReplyServerPacket::ForWrongUserPassword());
 		return;
 	}
 
 	if (client->server()->world->characters.size() >= static_cast<std::size_t>(static_cast<int>(client->server()->world->config["MaxPlayers"])))
 	{
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(LOGIN_BUSY);
-		client->Send(reply);
+		client->Send(net::server::LoginReplyServerPacket::ForBusy());
 		client->Close();
 		return;
 	}
@@ -100,9 +89,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 		if (!c->player)
 		{
 			// Someone deleted the account between checking it and logging in
-			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-			reply.AddShort(LOGIN_WRONG_USER);
-			c->Send(reply);
+			c->Send(net::server::LoginReplyServerPacket::ForWrongUser());
 		}
 		else
 		{
@@ -110,38 +97,22 @@ void Login_Request(EOClient *client, PacketReader &reader)
 			c->player->client = c;
 			c->state = EOClient::LoggedIn;
 
-			PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 5 + c->player->characters.size() * 34);
-			reply.AddShort(LOGIN_OK);
-			reply.AddChar(static_cast<unsigned char>(c->player->characters.size()));
-			reply.AddByte(2);
-			reply.AddByte(255);
+			net::server::LoginReplyServerPacket::ReplyCodeDataOk ok;
 
 			UTIL_FOREACH(c->player->characters, character)
 			{
-				reply.AddBreakString(character->SourceName());
-				reply.AddInt(character->id);
-				reply.AddChar(character->level);
-				reply.AddChar(character->gender);
-				reply.AddChar(character->hairstyle);
-				reply.AddChar(character->haircolor);
-				reply.AddChar(character->race);
-				reply.AddChar(character->admin);
-				character->AddPaperdollData(reply, "BAHSW");
-
-				reply.AddByte(255);
+				ok.characters.push_back(Converters::CharacterSelectionListEntryFrom(character));
 			}
 
-			c->Send(reply);
+			c->Send(net::server::LoginReplyServerPacket::ForOk(std::move(ok)));
 		}
 	};
 
-	auto failureCallback = [username](EOClient* c, int failureReason)
+	auto failureCallback = [username](EOClient* c, const LoginResult& reply)
 	{
 		c->server()->world->SetPendingLogin(username, false);
 
-		PacketBuilder reply(PACKET_LOGIN, PACKET_REPLY, 2);
-		reply.AddShort(failureReason);
-		c->Send(reply);
+		c->Send(*reply);
 
 		int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
 
@@ -157,7 +128,7 @@ void Login_Request(EOClient *client, PacketReader &reader)
 	// PlayerOnline will also check for a pending login of 'username', preventing concurrent logins for the same account
 	if (client->server()->world->PlayerOnline(username))
 	{
-		failureCallback(client, LOGIN_LOGGEDIN);
+		failureCallback(client, net::server::LoginReplyServerPacket::ForLoggedIn());
 		return;
 	}
 
@@ -166,11 +137,11 @@ void Login_Request(EOClient *client, PacketReader &reader)
 	client->server()->world->CheckCredential(client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
-		->Execute(std::shared_ptr<AccountCredentials>(new AccountCredentials { username, std::move(password), HashFunc::NONE }));
+		->Execute(util::make_secure_shared(packet, &net::client::LoginRequestClientPacket::password));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOGIN)
-	Register(PACKET_REQUEST, Login_Request, Menu, 1.0);
+	Register(Login_Request, Menu, 1.0);
 PACKET_HANDLER_REGISTER_END(PACKET_LOGIN)
 
 }

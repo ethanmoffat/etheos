@@ -28,10 +28,4 @@ enum InitReply : unsigned char
 	INIT_FILE_ECF = 11
 };
 
-enum InitBanType : unsigned char
-{
-	INIT_BAN_TEMP = 0,
-	INIT_BAN_PERM = 2
-};
-
 #endif // FWD_EOCLIENT_HPP_INCLUDED

@@ -18,6 +18,8 @@
 #include "socket.hpp"
 #include "util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <array>
 #include <cerrno>
 #include <cstddef>
@@ -43,14 +45,14 @@ void server_ping_all(void *server_void)
 		}
 		else
 		{
-			auto sequence_start = client->PingNewSequence();
+			auto ping_seq = client->PingNewSequence();
 
-			PacketBuilder builder(PACKET_CONNECTION, PACKET_PLAYER, 3);
-			builder.AddShort(sequence_start.Seq1());
-			builder.AddChar(sequence_start.Seq2());
+			eolib::protocol::net::server::ConnectionPlayerServerPacket ping;
+			ping.seq1 = ping_seq.Seq1();
+			ping.seq2 = ping_seq.Seq2();
 
 			client->needpong = true;
-			client->Send(builder);
+			client->Send(ping);
 		}
 	}
 }

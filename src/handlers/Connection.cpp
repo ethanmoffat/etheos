@@ -8,17 +8,17 @@
 
 #include "../eoclient.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+
 namespace Handlers
 {
 
 // Confirmation of initialization data
-void Connection_Accept(EOClient *client, PacketReader &reader)
+void Connection_Accept(EOClient* client, const net::client::ConnectionAcceptClientPacket& packet)
 {
-	auto emulti_d = reader.GetShort();
-	auto emulti_e = reader.GetShort();
-	auto client_id = reader.GetShort();
-
-	if (client->server_encryption_multiple != emulti_e || client->client_encryption_multiple != emulti_d || client->id != client_id)
+	if (client->server_encryption_multiple != packet.server_encryption_multiple
+	 || client->client_encryption_multiple != packet.client_encryption_multiple
+	 || client->id != static_cast<unsigned int>(packet.player_id))
 	{
 		client->Close();
 		return;
@@ -28,13 +28,9 @@ void Connection_Accept(EOClient *client, PacketReader &reader)
 }
 
 // Ping reply
-void Connection_Ping(EOClient *client, PacketReader &reader)
+void Connection_Ping(EOClient* client, const net::client::ConnectionPingClientPacket& packet)
 {
-	if (reader.GetEndString() != "k")
-	{
-		client->Close();
-		return;
-	}
+	(void)packet;
 
 	if (client->needpong)
 	{
@@ -43,8 +39,8 @@ void Connection_Ping(EOClient *client, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CONNECTION)
-	Register(PACKET_ACCEPT, Connection_Accept, Menu);
-	Register(PACKET_PING, Connection_Ping, Any | OutOfBand);
+	Register(Connection_Accept, Menu);
+	Register(Connection_Ping, Any | OutOfBand);
 PACKET_HANDLER_REGISTER_END(PACKET_CONNECTION)
 
 }

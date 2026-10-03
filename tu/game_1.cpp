@@ -6,6 +6,7 @@
 
 #include "../src/character.cpp"
 #include "../src/command_source.cpp"
+#include "../src/converters.cpp"
 #include "../src/map.cpp"
 #include "../src/npc.cpp"
 #include "../src/npc_data.cpp"

@@ -366,6 +366,20 @@ class Character : public Command_Source
 		void Undress(EquipLocation);
 		void AddPaperdollData(PacketBuilder&, const char* format);
 
+		struct PaperdollGraphics
+		{
+			unsigned short boots;
+			unsigned short armor;
+			unsigned short hat;
+			unsigned short weapon;
+			unsigned short shield;
+		};
+
+		/**
+		 * Gets the graphic IDs of the equipment shown on the character, including cosmetic overrides. Empty slots are 0.
+		 */
+		PaperdollGraphics GetPaperdollGraphics();
+
 		void AddChatLog(std::string marker, std::string name, std::string msg);
 		std::string GetChatLogDump();
 

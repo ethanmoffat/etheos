@@ -29,6 +29,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/config.hpp
 	src/console.cpp
 	src/console.hpp
+	src/converters.cpp
+	src/converters.hpp
 	src/database.cpp
 	src/database.hpp
 	src/database_impl.hpp
@@ -283,7 +285,12 @@ set(TestFiles
 	src/test/eoclient_test.cpp
 	src/test/packet_dispatch_test.cpp
 	src/test/worlddump_test.cpp
+	src/test/handlers/Account_test.cpp
+	src/test/handlers/Character_test.cpp
+	src/test/handlers/Connection_test.cpp
+	src/test/handlers/Init_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp
 )

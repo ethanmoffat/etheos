@@ -17,6 +17,8 @@
 #include "../util.hpp"
 
 #include <eolib/encrypt/server_verifier.hpp>
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -28,24 +30,13 @@
 namespace Handlers
 {
 
-void Init_Init(EOClient *client, PacketReader &reader)
+void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet)
 {
-	PacketBuilder reply(PACKET_F_INIT, PACKET_A_INIT, 10);
-
-	unsigned int challenge;
-	unsigned int response;
-
-	challenge = reader.GetThree();
-
-	reader.GetChar(); // ?
-	reader.GetChar(); // ?
-	client->version = reader.GetChar();
-	reader.GetChar(); // ?
-	reader.GetChar(); // ?
+	client->version = packet.version.patch;
 
 	try
 	{
-		client->hdid = int(util::to_uint_raw(reader.GetEndString()));
+		client->hdid = int(util::to_uint_raw(packet.hdid));
 	}
 	catch (std::invalid_argument&)
 	{
@@ -84,18 +75,17 @@ void Init_Init(EOClient *client, PacketReader &reader)
 	IPAddress remote_addr = client->GetRemoteAddr();
 	if ((ban_expires = client->server()->world->CheckBan(0, &remote_addr, ignore_hdid ? 0 : &client->hdid)) != -1)
 	{
-		reply.AddByte(INIT_BANNED);
 		if (ban_expires == 0)
 		{
-			reply.AddByte(INIT_BAN_PERM);
+			client->Send(net::server::InitInitServerPacket::ForBannedPermanent());
 		}
 		else
 		{
-			int mins_remaining = int(std::min(255.0, std::ceil(double(ban_expires - std::time(0)) / 60.0)));
-			reply.AddByte(INIT_BAN_TEMP);
-			reply.AddByte(mins_remaining);
+			net::server::InitInitServerPacket::ReplyCodeDataBanned::BanTypeDataTemporary temporary;
+			temporary.minutes_remaining = int(std::min(255.0, std::ceil(double(ban_expires - std::time(0)) / 60.0)));
+			client->Send(net::server::InitInitServerPacket::ForBannedTemporary(temporary));
 		}
-		client->Send(reply);
+
 		client->Close();
 		return;
 	}
@@ -112,38 +102,37 @@ void Init_Init(EOClient *client, PacketReader &reader)
 		maxversion = 28;
 	}
 
-	bool accepted_version = client->version >= minversion && (maxversion < 0 || client->version <= maxversion);
+	// The official server also rejects any protocol version other than 112
+	bool accepted_version = (client->version >= minversion)
+	                     && ((maxversion < 0) || (client->version <= maxversion))
+	                     && (packet.protocol_version == net::client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION);
 
 	if (client->server()->world->config["CheckVersion"] && !accepted_version)
 	{
-		reply.AddByte(INIT_OUT_OF_DATE);
-		reply.AddChar(0);
-		reply.AddChar(0);
-		reply.AddChar(minversion);
-		client->Send(reply);
+		net::server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
+		out_of_date.version.major = 0;
+		out_of_date.version.minor = 0;
+		out_of_date.version.patch = minversion;
+
+		client->Send(net::server::InitInitServerPacket::ForOutOfDate(out_of_date));
 		client->Close();
 		return;
 	}
 
-	response = static_cast<unsigned int>(eolib::encrypt::ServerVerifier::Hash(static_cast<int>(challenge)));
-
-	int emulti_e = util::rand(6,12);
-	int emulti_d = util::rand(6,12);
+	client->server_encryption_multiple = util::rand(6,12);
+	client->client_encryption_multiple = util::rand(6,12);
 
 	auto sequence_start = client->InitNewSequence();
 
-	reply.AddByte(INIT_OK);
-	reply.AddByte(sequence_start.Seq1());
-	reply.AddByte(sequence_start.Seq2());
-	reply.AddByte(emulti_e);
-	reply.AddByte(emulti_d);
-	reply.AddShort(client->id);
-	reply.AddThree(response);
+	net::server::InitInitServerPacket::ReplyCodeDataOk ok;
+	ok.seq1 = sequence_start.Seq1();
+	ok.seq2 = sequence_start.Seq2();
+	ok.server_encryption_multiple = client->server_encryption_multiple;
+	ok.client_encryption_multiple = client->client_encryption_multiple;
+	ok.player_id = client->id;
+	ok.challenge_response = eolib::encrypt::ServerVerifier::Hash(packet.challenge);
 
-	client->server_encryption_multiple = emulti_e;
-	client->client_encryption_multiple = emulti_d;
-
-	client->Send(reply);
+	client->Send(net::server::InitInitServerPacket::ForOk(ok));
 
 	client->state = EOClient::Initialized;
 
@@ -151,7 +140,7 @@ void Init_Init(EOClient *client, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_F_INIT)
-	Register(PACKET_A_INIT, Init_Init, Uninitialized);
+	Register(Init_Init, Uninitialized);
 PACKET_HANDLER_REGISTER_END(PACKET_F_INIT)
 
 }

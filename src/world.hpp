@@ -28,7 +28,6 @@
 #include "timer.hpp"
 
 #include "fwd/socket.hpp"
-#include "util/secure_string.hpp"
 #include "util/async.hpp"
 
 #include <array>
@@ -196,10 +195,10 @@ class World
 		void DeleteCharacter(std::string name);
 
 		Player *PlayerFactory(std::string username);
-		AsyncOperation<AccountCredentials, LoginReply>* CheckCredential(EOClient* client);
-		AsyncOperation<PasswordChangeInfo, bool>* ChangePassword(EOClient* client);
+		AsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>* CheckCredential(EOClient* client);
+		AsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>* ChangePassword(EOClient* client);
 
-		AsyncOperation<AccountCreateInfo, bool>* CreateAccount(EOClient* client);
+		AsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>* CreateAccount(EOClient* client);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);

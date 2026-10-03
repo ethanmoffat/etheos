@@ -10,6 +10,7 @@
 #include "../util.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 namespace util
@@ -79,6 +80,35 @@ struct secure_string
 			erase();
 		}
 };
+
+/**
+ * Zeros the buffers of the given string members of an object and clears them
+ */
+template <typename T, typename... Members>
+void wipe_members(T& object, Members... members)
+{
+	auto wipe = [](std::string& s)
+	{
+		std::fill(UTIL_RANGE(s), '\0');
+		s.erase();
+	};
+
+	(wipe(object.*members), ...);
+}
+
+/**
+ * Creates a shared copy of an object that zeros the given string members (such as passwords) when it is destroyed,
+ * like secure_string does
+ */
+template <typename T, typename... Members>
+std::shared_ptr<T> make_secure_shared(const T& value, Members... members)
+{
+	return std::shared_ptr<T>(new T(value), [members...](T* object)
+	{
+		wipe_members(*object, members...);
+		delete object;
+	});
+}
 
 }
 

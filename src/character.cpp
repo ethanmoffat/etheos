@@ -2005,40 +2005,48 @@ void Character::Undress(EquipLocation loc)
 	}
 }
 
-void Character::AddPaperdollData(PacketBuilder& builder, const char* format)
+Character::PaperdollGraphics Character::GetPaperdollGraphics()
 {
 	const EIF_Data& wep = this->world->eif->Get(this->paperdoll[Character::Weapon]);
 
-	unsigned short boots = this->world->eif->Get(this->paperdoll[Character::Boots]).dollgraphic;
-	unsigned short armor = this->world->eif->Get(this->paperdoll[Character::Armor]).dollgraphic;
-	unsigned short hat = this->world->eif->Get(this->paperdoll[Character::Hat]).dollgraphic;
-	unsigned short weapon = wep.dollgraphic;
-	unsigned short shield = this->world->eif->Get(this->paperdoll[Character::Shield]).dollgraphic;
+	PaperdollGraphics graphics;
+	graphics.boots = this->world->eif->Get(this->paperdoll[Character::Boots]).dollgraphic;
+	graphics.armor = this->world->eif->Get(this->paperdoll[Character::Armor]).dollgraphic;
+	graphics.hat = this->world->eif->Get(this->paperdoll[Character::Hat]).dollgraphic;
+	graphics.weapon = wep.dollgraphic;
+	graphics.shield = this->world->eif->Get(this->paperdoll[Character::Shield]).dollgraphic;
 
 	if (wep.subtype == EIF::TwoHanded && wep.dual_wield_dollgraphic)
-		shield = wep.dual_wield_dollgraphic;
+		graphics.shield = wep.dual_wield_dollgraphic;
 
-	if (this->cosmetic_paperdoll[Character::Boots])  boots = this->cosmetic_paperdoll[Character::Boots];
-	if (this->cosmetic_paperdoll[Character::Armor])  armor = this->cosmetic_paperdoll[Character::Armor];
-	if (this->cosmetic_paperdoll[Character::Hat])    hat = this->cosmetic_paperdoll[Character::Hat];
-	if (this->cosmetic_paperdoll[Character::Weapon]) weapon = this->cosmetic_paperdoll[Character::Weapon];
-	if (this->cosmetic_paperdoll[Character::Shield]) shield = this->cosmetic_paperdoll[Character::Shield];
+	if (this->cosmetic_paperdoll[Character::Boots])  graphics.boots = this->cosmetic_paperdoll[Character::Boots];
+	if (this->cosmetic_paperdoll[Character::Armor])  graphics.armor = this->cosmetic_paperdoll[Character::Armor];
+	if (this->cosmetic_paperdoll[Character::Hat])    graphics.hat = this->cosmetic_paperdoll[Character::Hat];
+	if (this->cosmetic_paperdoll[Character::Weapon]) graphics.weapon = this->cosmetic_paperdoll[Character::Weapon];
+	if (this->cosmetic_paperdoll[Character::Shield]) graphics.shield = this->cosmetic_paperdoll[Character::Shield];
 
-	if (boots == 65535)  boots = 0;
-	if (armor == 65535)  armor = 0;
-	if (hat == 65535)    hat = 0;
-	if (weapon == 65535) weapon = 0;
-	if (shield == 65535) shield = 0;
+	if (graphics.boots == 65535)  graphics.boots = 0;
+	if (graphics.armor == 65535)  graphics.armor = 0;
+	if (graphics.hat == 65535)    graphics.hat = 0;
+	if (graphics.weapon == 65535) graphics.weapon = 0;
+	if (graphics.shield == 65535) graphics.shield = 0;
+
+	return graphics;
+}
+
+void Character::AddPaperdollData(PacketBuilder& builder, const char* format)
+{
+	const PaperdollGraphics graphics = this->GetPaperdollGraphics();
 
 	for (const char* p = format; *p != '\0'; ++p)
 	{
 		switch (*p)
 		{
-			case 'B': builder.AddShort(boots); break;
-			case 'A': builder.AddShort(armor); break;
-			case 'H': builder.AddShort(hat); break;
-			case 'W': builder.AddShort(weapon); break;
-			case 'S': builder.AddShort(shield); break;
+			case 'B': builder.AddShort(graphics.boots); break;
+			case 'A': builder.AddShort(graphics.armor); break;
+			case 'H': builder.AddShort(graphics.hat); break;
+			case 'W': builder.AddShort(graphics.weapon); break;
+			case 'S': builder.AddShort(graphics.shield); break;
 			case '0': builder.AddShort(0); break;
 		}
 	}

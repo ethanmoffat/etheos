@@ -15,7 +15,6 @@
 #include "console.hpp"
 #include "hash.hpp"
 #include "util.hpp"
-#include "util/secure_string.hpp"
 
 #include <algorithm>
 #include <ctime>
@@ -128,6 +127,11 @@ AdminLevel Player::Admin() const
 void Player::Send(const PacketBuilder &builder)
 {
 	this->client->Send(builder);
+}
+
+void Player::Send(const eolib::protocol::net::Packet& packet)
+{
+	this->client->Send(packet);
 }
 
 void Player::Logout()

@@ -15,12 +15,12 @@ template<typename TState, typename TResult = int>
 class AsyncOperation
 {
 public:
-    static AsyncOperation<TState, TResult>* FromResult(TResult result, EOClient* client, TResult successCode = 0)
+    static AsyncOperation<TState, TResult>* FromResult(TResult result, EOClient* client, TResult successCode = TResult{})
     {
         return new AsyncOperation(result, client, successCode);
     }
 
-    AsyncOperation(EOClient* client, std::function<TResult(std::shared_ptr<TState>)> operation, TResult successCode = 0)
+    AsyncOperation(EOClient* client, std::function<TResult(std::shared_ptr<TState>)> operation, TResult successCode = TResult{})
         : _client(client), _operation(operation), _successCode(successCode), _result(successCode) { }
 
     AsyncOperation* OnSuccess(std::function<void(EOClient*)> successCallback)
@@ -51,7 +51,7 @@ public:
     }
 
 private:
-    AsyncOperation(TResult result, EOClient* client, TResult successCode = 0)
+    AsyncOperation(TResult result, EOClient* client, TResult successCode = TResult{})
         : _client(client), _operation(nullptr), _successCode(successCode), _result(result) { }
 
     EOClient* _client;

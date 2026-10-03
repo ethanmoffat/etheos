@@ -15,51 +15,10 @@
 #include "fwd/packet.hpp"
 #include "fwd/world.hpp"
 
-#include "util/secure_string.hpp"
-
-#include "hash.hpp"
-#include "socket.hpp"
+#include <eolib/protocol/net/packet.hpp>
 
 #include <string>
 #include <vector>
-
-struct AccountCreateInfo
-{
-	std::string username;
-	util::secure_string password;
-	std::string fullname;
-	std::string location;
-	std::string email;
-	std::string computer;
-	int hdid;
-	IPAddress remoteIp;
-
-	AccountCreateInfo()
-		: password(""), hdid(0) { }
-};
-
-struct PasswordChangeInfo
-{
-	std::string username;
-	util::secure_string oldpassword;
-	util::secure_string newpassword;
-
-	PasswordChangeInfo()
-		: oldpassword(""), newpassword("") { }
-};
-
-struct AccountCredentials
-{
-	std::string username;
-	util::secure_string password;
-	HashFunc hashFunc;
-
-	AccountCredentials()
-		: username(""), password(""), hashFunc(NONE) { }
-
-	AccountCredentials(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
-		: username(username), password(password), hashFunc(hashFunc) { }
-};
 
 /**
  * Object representing a player, but not a character
@@ -89,6 +48,7 @@ class Player
 		AdminLevel Admin() const;
 
 		void Send(const PacketBuilder &);
+		void Send(const eolib::protocol::net::Packet& packet);
 
 		void Logout();
 

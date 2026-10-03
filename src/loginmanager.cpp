@@ -12,6 +12,12 @@
 #include "config.hpp"
 #include "player.hpp"
 #include "world.hpp"
+#include "extra/seose_compat.hpp"
+
+#include "util.hpp"
+
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 LoginManager::LoginManager(std::shared_ptr<DatabaseFactory> databaseFactory, Config& config, const std::unordered_map<HashFunc, std::shared_ptr<Hasher>>& passwordHashers)
     : _databaseFactory(databaseFactory)
@@ -55,88 +61,82 @@ bool LoginManager::LoginBusy() const
     return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]);
 }
 
-AsyncOperation<AccountCreateInfo, bool>* LoginManager::CreateAccountAsync(EOClient* client)
+AsyncOperation<client::AccountCreateClientPacket, bool>* LoginManager::CreateAccountAsync(EOClient* client)
 {
-    auto createAccountThreadProc = [this](std::shared_ptr<AccountCreateInfo> accountCreateInfo)
+    auto createAccountThreadProc = [this, remoteIp = client->GetRemoteAddr()](std::shared_ptr<client::AccountCreateClientPacket> packet)
     {
         auto passwordVersion = static_cast<HashFunc>(int(this->_config["PasswordCurrentVersion"]));
+        auto username = util::lowercase(packet->username);
 
-        auto password = std::move(accountCreateInfo->password);
-        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), accountCreateInfo->username, std::move(password)));
+        auto password = this->Secure(packet->password);
+        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
         password = std::move(this->_passwordHashers[passwordVersion]->hash(password.str()));
 
         auto db_res = this->_databaseFactory->CreateDatabase(this->_config)->Query(
             "INSERT INTO `accounts` (`username`, `password`, `fullname`, `location`, `email`, `computer`, `hdid`, `regip`, `created`, `password_version`)"
             " VALUES ('$','$','$','$','$','$',#,'$',#,#)",
-            accountCreateInfo->username.c_str(),
+            username.c_str(),
             password.str().c_str(),
-            accountCreateInfo->fullname.c_str(),
-            accountCreateInfo->location.c_str(),
-            accountCreateInfo->email.c_str(),
-            accountCreateInfo->computer.c_str(),
-            accountCreateInfo->hdid,
-            static_cast<std::string>(accountCreateInfo->remoteIp).c_str(),
+            packet->full_name.c_str(),
+            packet->location.c_str(),
+            packet->email.c_str(),
+            packet->computer.c_str(),
+            static_cast<int>(util::to_uint_raw(packet->hdid)),
+            static_cast<std::string>(remoteIp).c_str(),
             int(std::time(0)),
             int(passwordVersion));
 
         return !db_res.Error();
     };
 
-    return new AsyncOperation<AccountCreateInfo, bool>(client, createAccountThreadProc, true);
+    return new AsyncOperation<client::AccountCreateClientPacket, bool>(client, createAccountThreadProc, true);
 }
 
-AsyncOperation<PasswordChangeInfo, bool>* LoginManager::SetPasswordAsync(EOClient* client)
+AsyncOperation<client::AccountAgreeClientPacket, bool>* LoginManager::SetPasswordAsync(EOClient* client)
 {
-    auto setPasswordThreadProc = [this](std::shared_ptr<PasswordChangeInfo> passwordChangeInfo)
+    auto setPasswordThreadProc = [this](std::shared_ptr<client::AccountAgreeClientPacket> packet)
     {
-        auto oldPassword = std::move(passwordChangeInfo->oldpassword);
-        auto newPassword = std::move(passwordChangeInfo->newpassword);
+        auto oldPassword = this->Secure(packet->old_password);
+        auto newPassword = this->Secure(packet->new_password);
 
-        if (this->CheckLogin(passwordChangeInfo->username, std::move(oldPassword)))
+        if (this->CheckLogin(packet->username, std::move(oldPassword)))
         {
-            this->SetPassword(passwordChangeInfo->username, std::move(newPassword));
+            this->SetPassword(packet->username, std::move(newPassword));
             return true;
         }
 
         return false;
     };
 
-    return new AsyncOperation<PasswordChangeInfo, bool>(client, setPasswordThreadProc, true);
+    return new AsyncOperation<client::AccountAgreeClientPacket, bool>(client, setPasswordThreadProc, true);
 }
 
 // This doesn't return AsyncOperation because it doesn't operate within the context of sending a client response
-void LoginManager::UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials)
+void LoginManager::UpdatePasswordVersionInBackground(const std::string& username, util::secure_string&& password, HashFunc hashFunc)
 {
-    auto updateThreadProc = [this](const void * state)
+    if (hashFunc == NONE)
+        return;
+
+    auto updateThreadProc = [this, username, password, hashFunc](const void*) mutable
     {
-        auto updateState = static_cast<const AccountCredentials*>(state);
-        auto username = updateState->username;
-        auto password = std::move(updateState->password);
-        auto hashFunc = updateState->hashFunc;
-        delete updateState;
+        password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
+        password = std::move(this->_passwordHashers[hashFunc]->hash(std::move(password.str())));
 
-        if (hashFunc != NONE)
-        {
-            password = std::move(Hasher::SaltPassword(std::string(this->_config["PasswordSalt"]), username, std::move(password)));
-            password = std::move(this->_passwordHashers[hashFunc]->hash(std::move(password.str())));
-
-            this->_databaseFactory->CreateDatabase(this->_config)->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
-                password.str().c_str(),
-                hashFunc,
-                username.c_str());
-        }
+        this->_databaseFactory->CreateDatabase(this->_config)->Query("UPDATE `accounts` SET `password` = '$', `password_version` = # WHERE `username` = '$'",
+            password.str().c_str(),
+            hashFunc,
+            username.c_str());
     };
 
-    auto state = static_cast<void*>(new AccountCredentials(std::move(accountCredentials)));
-    util::ThreadPool::Queue(updateThreadProc, state);
+    util::ThreadPool::Queue(updateThreadProc, nullptr);
 }
 
-AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EOClient* client)
+AsyncOperation<client::LoginRequestClientPacket, LoginResult>* LoginManager::CheckLoginAsync(EOClient* client)
 {
-    auto loginThreadProc = [this, client](std::shared_ptr<AccountCredentials> updateState)
+    auto loginThreadProc = [this](std::shared_ptr<client::LoginRequestClientPacket> packet) -> LoginResult
     {
-        auto username = updateState->username;
-        auto password = std::move(updateState->password);
+        auto username = util::lowercase(packet->username);
+        auto password = this->Secure(packet->password);
 
         auto database = this->_databaseFactory->CreateDatabase(this->_config);
         Database_Result res = database->Query("SELECT `password`, `password_version` FROM `accounts` WHERE `username` = '$'", username.c_str());
@@ -160,24 +160,34 @@ AsyncOperation<AccountCredentials, LoginReply>* LoginManager::CheckLoginAsync(EO
                     // 2. Password version starts update in background thread
                     // 3. User changes password while updating version in background
                     // 4. Password version completes update; overwrites changed password
-                    this->UpdatePasswordVersionInBackground(std::move(AccountCredentials { username, std::move(password), currentPasswordVersion }));
+                    this->UpdatePasswordVersionInBackground(username, std::move(password), currentPasswordVersion);
                 }
 
-                return LOGIN_OK;
+                return std::nullopt;
             }
             else
             {
-                return LOGIN_WRONG_USERPASS;
+                return server::LoginReplyServerPacket::ForWrongUserPassword();
             }
         }
         else
         {
-            return LOGIN_WRONG_USER;
+            return server::LoginReplyServerPacket::ForWrongUser();
         }
     };
 
     this->_processCount++;
 
-    auto asyncOp = new AsyncOperation<AccountCredentials, LoginReply>(client, loginThreadProc, LOGIN_OK);
+    auto asyncOp = new AsyncOperation<client::LoginRequestClientPacket, LoginResult>(client, loginThreadProc);
     return asyncOp->OnComplete([this]() { this->_processCount--; });
+}
+
+util::secure_string LoginManager::Secure(std::string& input)
+{
+    util::secure_string result(std::move(input));
+
+    if (this->_config["SeoseCompat"])
+        result = seose_str_hash(result.str(), this->_config["SeoseCompatKey"]);
+
+    return result;
 }

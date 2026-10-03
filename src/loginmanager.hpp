@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
@@ -22,6 +23,12 @@
 #include "util/semaphore.hpp"
 #include "util/async.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
+// The reply to send when a login fails, or nothing when it succeeds
+using LoginResult = std::optional<eolib::protocol::net::server::LoginReplyServerPacket>;
+
 class LoginManager
 {
 public:
@@ -30,15 +37,18 @@ public:
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
 
-    AsyncOperation<AccountCreateInfo, bool>* CreateAccountAsync(EOClient* client);
-    AsyncOperation<PasswordChangeInfo, bool>* SetPasswordAsync(EOClient* client);
-    AsyncOperation<AccountCredentials, LoginReply>* CheckLoginAsync(EOClient* client);
+    AsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>* CreateAccountAsync(EOClient* client);
+    AsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>* SetPasswordAsync(EOClient* client);
+    AsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>* CheckLoginAsync(EOClient* client);
 
-    void UpdatePasswordVersionInBackground(AccountCredentials&& accountCredentials);
+    void UpdatePasswordVersionInBackground(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 
     bool LoginBusy() const;
 
 private:
+    // Moves a password out of a client packet, wiping the packet's copy, and applies SeoseCompat hashing if enabled
+    util::secure_string Secure(std::string& input);
+
     std::shared_ptr<DatabaseFactory> _databaseFactory;
 
     Config& _config;
