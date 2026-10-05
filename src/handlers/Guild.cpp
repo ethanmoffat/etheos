@@ -38,7 +38,7 @@ void Guild_Request(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (!character->guild)
 		{
@@ -142,7 +142,7 @@ void Guild_Remove(Character *character, PacketReader &reader)
 	(void)reader;
 	/*int session = reader.GetInt();*/
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -157,7 +157,7 @@ void Guild_Agree(Character *character, PacketReader &reader)
 	/*int session = */reader.GetInt();
 	GuildInfoType info = static_cast<GuildInfoType>(reader.GetShort());
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -231,7 +231,7 @@ void Guild_Create(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (!character->guild
 		 && character->HasItem(1) >= static_cast<int>(character->world->config["GuildPrice"]))
@@ -275,7 +275,7 @@ void Guild_Player(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (!character->guild)
 		{
@@ -334,7 +334,7 @@ void Guild_Take(Character *character, PacketReader &reader)
 	/*int session = */reader.GetInt();
 	GuildInfoType info = static_cast<GuildInfoType>(reader.GetShort());
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -426,7 +426,7 @@ void Guild_Buy(Character *character, PacketReader &reader)
 	if (gold < 0)
 		return;
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -457,10 +457,10 @@ void Guild_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && npc->ENF().type == ENF::Guild)
+		if (npc->index == id && npc->PubData().type == pub::NpcType::Guild)
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Guild;
+			character->npc_type = pub::NpcType::Guild;
 
 			PacketBuilder reply(PACKET_GUILD, PACKET_OPEN, 3);
 			reply.AddThree(0); // Session token
@@ -483,7 +483,7 @@ void Guild_Tell(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		std::shared_ptr<Guild> guild;
 
@@ -540,7 +540,7 @@ void Guild_Report(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		std::shared_ptr<Guild> guild;
 
@@ -644,7 +644,7 @@ void Guild_Junk(Character *character, PacketReader &reader)
 	(void)reader;
 	/*int session = reader.GetInt();*/
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -667,7 +667,7 @@ void Guild_Kick(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{
@@ -714,7 +714,7 @@ void Guild_Rank(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Guild)
+	if (character->npc_type == pub::NpcType::Guild)
 	{
 		if (character->guild)
 		{

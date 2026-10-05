@@ -13,6 +13,8 @@
 #include "fwd/eodata.hpp"
 #include "fwd/world.hpp"
 
+#include <eolib/protocol/pub/structs.hpp>
+
 #include <array>
 #include <memory>
 #include <string>
@@ -100,7 +102,7 @@ class NPC_Data
 
 		World* world;
 
-		const ENF_Data& ENF() const;
+		const eolib::protocol::pub::EnfRecord& PubData() const;
 
 		void Load();
 		void Unload();

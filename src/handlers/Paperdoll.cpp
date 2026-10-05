@@ -98,7 +98,7 @@ void Paperdoll_Remove(Character *character, PacketReader &reader)
 	int itemid = reader.GetShort();
 	int subloc = reader.GetChar(); // Used for double slot items (rings etc)
 
-	if (character->world->eif->Get(itemid).special == EIF::Cursed)
+	if (character->world->eif->Get(itemid).special == pub::ItemSpecial::Cursed)
 	{
 		return;
 	}

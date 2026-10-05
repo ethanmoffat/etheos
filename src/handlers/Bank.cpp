@@ -30,10 +30,10 @@ void Bank_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && npc->ENF().type == ENF::Bank)
+		if (npc->index == id && npc->PubData().type == pub::NpcType::Bank)
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Bank;
+			character->npc_type = pub::NpcType::Bank;
 
 			PacketBuilder reply(PACKET_BANK, PACKET_OPEN, 8);
 			reply.AddInt(character->goldbank);
@@ -58,7 +58,7 @@ void Bank_Add(Character *character, PacketReader &reader)
 
 	amount = std::min(amount, character->HasItem(1));
 
-	if (character->npc_type == ENF::Bank)
+	if (character->npc_type == pub::NpcType::Bank)
 	{
 		int newgold = character->goldbank + amount;
 
@@ -84,7 +84,7 @@ void Bank_Take(Character *character, PacketReader &reader)
 
 	if (amount <= 0) return;
 
-	if (character->npc_type == ENF::Bank)
+	if (character->npc_type == pub::NpcType::Bank)
 	{
 		int newgold = character->goldbank - amount;
 

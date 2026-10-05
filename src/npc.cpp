@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+namespace pub = eolib::protocol::pub;
+
 static double speed_table[8] = {0.9, 0.6, 1.3, 1.9, 3.7, 7.5, 15.0, 0.0};
 
 void NPC::SetSpeedTable(std::array<double, 7> speeds)
@@ -83,9 +85,9 @@ const NPC_Data& NPC::Data() const
 	return *this->map->world->GetNpcData(this->id);
 }
 
-const ENF_Data& NPC::ENF() const
+const pub::EnfRecord& NPC::PubData() const
 {
-	return this->Data().ENF();
+	return this->Data().PubData();
 }
 
 void NPC::Spawn(NPC *parent)
@@ -93,11 +95,11 @@ void NPC::Spawn(NPC *parent)
 	if (this->alive)
 		return;
 
-	if (this->ENF().boss && !parent)
+	if (this->PubData().boss && !parent)
 	{
 		UTIL_FOREACH(this->map->npcs, npc)
 		{
-			if (npc->ENF().child)
+			if (npc->PubData().child)
 			{
 				npc->Spawn(this);
 			}
@@ -158,7 +160,7 @@ void NPC::Spawn(NPC *parent)
 	}
 
 	this->alive = true;
-	this->hp = this->ENF().hp;
+	this->hp = this->PubData().hp;
 	this->last_act = Timer::GetTime();
 	this->last_talk = Timer::GetTime();
 	this->act_speed = speed_table[this->spawn_type];
@@ -184,11 +186,11 @@ void NPC::Spawn(NPC *parent)
 void NPC::Act()
 {
 	// Needed for the server startup spawn to work properly
-	if (this->ENF().child && !this->parent)
+	if (this->PubData().child && !this->parent)
 	{
 		UTIL_FOREACH(this->map->npcs, npc)
 		{
-			if (npc->ENF().boss)
+			if (npc->PubData().boss)
 			{
 				this->parent = npc;
 				break;
@@ -207,7 +209,7 @@ void NPC::Act()
 	unsigned char attacker_distance = static_cast<int>(this->map->world->config["NPCChaseDistance"]);
 	unsigned short attacker_damage = 0;
 
-	if (this->ENF().type == ENF::Passive || this->ENF().type == ENF::Aggressive)
+	if (this->PubData().type == pub::NpcType::Passive || this->PubData().type == pub::NpcType::Aggressive)
 	{
 		UTIL_FOREACH_CREF(this->damagelist, opponent)
 		{
@@ -253,7 +255,7 @@ void NPC::Act()
 		}
 	}
 
-	if (this->ENF().type == ENF::Aggressive || (this->parent && attacker))
+	if (this->PubData().type == pub::NpcType::Aggressive || (this->parent && attacker))
 	{
 		Character *closest = 0;
 		unsigned char closest_distance = static_cast<int>(this->map->world->config["NPCChaseDistance"]);
@@ -439,7 +441,7 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 		amount = limitamount;
 	}
 
-	if (this->ENF().type == ENF::Passive || this->ENF().type == ENF::Aggressive)
+	if (this->PubData().type == pub::NpcType::Passive || this->PubData().type == pub::NpcType::Aggressive)
 	{
 		this->hp -= amount;
 	}
@@ -488,7 +490,7 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 		builder.AddChar(from->direction);
 		builder.AddShort(this->index);
 		builder.AddThree(amount);
-		builder.AddShort(static_cast<short>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->ENF().hp) * 100.0), 0, 100)));
+		builder.AddShort(static_cast<short>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->PubData().hp) * 100.0), 0, 100)));
 
 		if (spell_id != -1)
 			builder.AddShort(from->tp);
@@ -628,7 +630,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 		dropid = drop->id;
 		dropamount = std::min<int>(util::rand(drop->min, drop->max), this->map->world->config["MaxItem"]);
 
-		if (dropid <= 0 || static_cast<std::size_t>(dropid) >= this->map->world->eif->data.size() || dropamount <= 0)
+		if (!this->map->world->eif->Exists(dropid) || dropamount <= 0)
 			goto abort_drop;
 
 		dropuid = this->map->GenerateItemID();
@@ -702,7 +704,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 
 			PacketBuilder builder(spell_id == -1 ? PACKET_NPC : PACKET_CAST, PACKET_SPEC, 26);
 
-			if (this->ENF().exp != 0)
+			if (this->PubData().experience != 0)
 			{
 				if (findopp != this->damagelist.end())
 				{
@@ -712,7 +714,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 						case 0:
 							if (character == from)
 							{
-								reward = int(std::ceil(double(this->ENF().exp) * exprate));
+								reward = int(std::ceil(double(this->PubData().experience) * exprate));
 
 								if (reward > 0)
 								{
@@ -738,7 +740,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 						case 1:
 							if (character == most_damage)
 							{
-								reward = int(std::ceil(double(this->ENF().exp) * exprate));
+								reward = int(std::ceil(double(this->PubData().experience) * exprate));
 
 								if (reward > 0)
 								{
@@ -762,7 +764,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 							break;
 
 						case 2:
-							reward = int(std::ceil(double(this->ENF().exp) * exprate * (double((*findopp)->damage) / double(this->totaldamage))));
+							reward = int(std::ceil(double(this->PubData().experience) * exprate * (double((*findopp)->damage) / double(this->totaldamage))));
 
 							if (reward > 0)
 							{
@@ -786,7 +788,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 							break;
 
 						case 3:
-							reward = int(std::ceil(double(this->ENF().exp) * exprate * (double(this->damagelist.size()) / 1.0)));
+							reward = int(std::ceil(double(this->PubData().experience) * exprate * (double(this->damagelist.size()) / 1.0)));
 
 							if (reward > 0)
 							{
@@ -893,13 +895,13 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 
 	short childid = -1;
 
-	if (this->ENF().boss)
+	if (this->PubData().boss)
 	{
 		std::vector<NPC*> child_npcs;
 
 		UTIL_FOREACH(this->map->npcs, npc)
 		{
-			if (npc->ENF().child && !npc->ENF().boss && npc->alive)
+			if (npc->PubData().child && !npc->PubData().boss && npc->alive)
 			{
 				child_npcs.push_back(npc);
 			}
@@ -943,7 +945,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 		if (!q.second || q.second->GetQuest()->Disabled())
 			continue;
 
-		q.second->KilledNPC(this->ENF().id);
+		q.second->KilledNPC(this->id);
 	}
 
 	if (this->temporary)
@@ -1008,7 +1010,7 @@ void NPC::Die(bool show)
 
 void NPC::Attack(Character *target)
 {
-	int amount = util::rand(this->ENF().mindam, this->ENF().maxdam + static_cast<int>(this->map->world->config["NPCAdjustMaxDam"]));
+	int amount = util::rand(this->PubData().min_damage, this->PubData().max_damage + static_cast<int>(this->map->world->config["NPCAdjustMaxDam"]));
 	double rand = util::rand(0.0, 1.0);
 	// Checks if target is facing you
 	bool critical = std::abs(int(target->direction) - this->direction) != 2 || rand < static_cast<double>(this->map->world->config["CriticalRate"]);
@@ -1113,9 +1115,9 @@ void NPC::Say(const std::string& message)
 
 void NPC::FormulaVars(std::unordered_map<std::string, double> &vars, std::string prefix)
 {
-	const ENF_Data& data = this->ENF();
+	const pub::EnfRecord& data = this->PubData();
 	vv(1, "npc") v(hp) vv(data.hp, "maxhp")
-	vd(mindam) vd(maxdam)
+	vv(data.min_damage, "mindam") vv(data.max_damage, "maxdam")
 	vd(accuracy) vd(evade) vd(armor)
 	v(x) v(y) v(direction) vv(map->id, "mapid")
 }
@@ -1131,7 +1133,7 @@ NPC::~NPC()
 		if (character->npc == this)
 		{
 			character->npc = 0;
-			character->npc_type = ENF::NPC;
+			character->npc_type = pub::NpcType::Friendly;
 		}
 	}
 

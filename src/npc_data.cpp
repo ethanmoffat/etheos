@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+namespace pub = eolib::protocol::pub;
+
 NPC_Data::NPC_Data(World* world, short id)
 	: id(id)
 	, drops_chance_total(0.0)
@@ -21,7 +23,7 @@ NPC_Data::NPC_Data(World* world, short id)
 	this->Load();
 }
 
-const ENF_Data& NPC_Data::ENF() const
+const pub::EnfRecord& NPC_Data::PubData() const
 {
 	return this->world->enf->Get(this->id);
 }
@@ -100,10 +102,10 @@ void NPC_Data::Load()
 	}
 	else
 	{
-		shop_vend_id = this->ENF().vendor_id;
+		shop_vend_id = this->PubData().behavior_id;
 	}
 
-	if (this->ENF().type == ENF::Type::Shop && shop_vend_id > 0)
+	if (this->PubData().type == pub::NpcType::Shop && shop_vend_id > 0)
 	{
 		this->shop_name = static_cast<std::string>(this->world->shops_config[util::to_string(shop_vend_id) + ".name"]);
 		Config::iterator shops = this->world->shops_config.find(util::to_string(shop_vend_id) + ".trade");
@@ -185,10 +187,10 @@ void NPC_Data::Load()
 	}
 	else
 	{
-		skills_vend_id = this->ENF().vendor_id;
+		skills_vend_id = this->PubData().behavior_id;
 	}
 
-	if (this->ENF().type == ENF::Type::Skills && skills_vend_id > 0)
+	if (this->PubData().type == pub::NpcType::Trainer && skills_vend_id > 0)
 	{
 		this->skill_name = static_cast<std::string>(this->world->skills_config[util::to_string(skills_vend_id) + ".name"]);
 		Config::iterator skills = this->world->skills_config.find(util::to_string(skills_vend_id) + ".learn");
@@ -241,10 +243,10 @@ void NPC_Data::Load()
 	}
 	else
 	{
-		home_vend_id = this->ENF().vendor_id;
+		home_vend_id = this->PubData().behavior_id;
 	}
 
-	if (this->ENF().type == ENF::Type::Inn && home_vend_id > 0)
+	if (this->PubData().type == pub::NpcType::Inn && home_vend_id > 0)
 	{
 		restart_loop:
 		UTIL_FOREACH(this->world->home_config, hc)
@@ -263,7 +265,7 @@ void NPC_Data::Load()
 				auto home = this->world->GetHome(this->citizenship->home);
 
 				if (home)
-					home->innkeeper_vend = this->ENF().vendor_id;
+					home->innkeeper_vend = this->PubData().behavior_id;
 				else
 					Console::Wrn("Vendor #%i's innkeeper set on non-existent home: %s", home_vend_id, this->citizenship->home.c_str());
 

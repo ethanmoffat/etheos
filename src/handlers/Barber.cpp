@@ -27,10 +27,10 @@ void Barber_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && npc->ENF().type == ENF::Barber)
+		if (npc->index == id && npc->PubData().type == pub::NpcType::Barber)
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Barber;
+			character->npc_type = pub::NpcType::Barber;
 
 			PacketBuilder reply(PACKET_BARBER, PACKET_OPEN, 4);
 			reply.AddInt(0); // Session token
@@ -64,7 +64,7 @@ void Barber_Buy(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (character->npc_type == ENF::Barber)
+	if (character->npc_type == pub::NpcType::Barber)
 	{
 		character->DelItem(1, price);
 

@@ -92,7 +92,7 @@ void SpawnNPC(const std::vector<std::string>& arguments, Character* from)
 		direction = util::to_int(arguments[3]);
 	}
 
-	if (id <= 0 || std::size_t(id) > from->world->enf->data.size())
+	if (!from->world->enf->Exists(id))
 		return;
 
 	for (int i = 0; i < amount; ++i)

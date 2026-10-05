@@ -14,6 +14,8 @@
 #include "fwd/map.hpp"
 #include "fwd/npc_data.hpp"
 
+#include <eolib/protocol/pub/structs.hpp>
+
 #include <array>
 #include <list>
 #include <memory>
@@ -65,7 +67,7 @@ class NPC
 		NPC(Map *map, short id, unsigned char x, unsigned char y, unsigned char spawn_type, short spawn_time, unsigned char index, bool temporary = false);
 
 		const NPC_Data& Data() const;
-		const ENF_Data& ENF() const;
+		const eolib::protocol::pub::EnfRecord& PubData() const;
 
 		void Spawn(NPC *parent = 0);
 		void Act();

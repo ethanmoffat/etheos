@@ -28,10 +28,10 @@ void Marriage_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && (npc->ENF().type == ENF::Law))
+		if (npc->index == id && (npc->PubData().type == pub::NpcType::Lawyer))
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Law;
+			character->npc_type = pub::NpcType::Lawyer;
 
 			PacketBuilder reply(PACKET_MARRIAGE, PACKET_OPEN, 3);
 			reply.AddThree(npc->id);
@@ -57,7 +57,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 	reader.GetByte();
 	std::string name = util::lowercase(reader.GetEndString());
 
-	if (character->npc_type != ENF::Law)
+	if (character->npc_type != pub::NpcType::Lawyer)
 		return;
 
 	switch (request_type)

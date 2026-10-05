@@ -135,10 +135,10 @@ TEST_F(WelcomeTests, Request_KnownCharacter_SendsSelectCharacter)
     EXPECT_EQ(player()->id, data->session_id);
     EXPECT_EQ(1, data->character_id);
     EXPECT_EQ(TestMapId, data->map_id);
-    EXPECT_EQ(server->world->eif->rid, data->eif_rid);
-    EXPECT_EQ(server->world->eif->length, data->eif_length);
-    EXPECT_EQ(server->world->ecf->rid, data->ecf_rid);
-    EXPECT_EQ(server->world->ecf->length, data->ecf_length);
+    EXPECT_EQ(server->world->eif->Rid(), data->eif_rid);
+    EXPECT_EQ(server->world->eif->Length(), data->eif_length);
+    EXPECT_EQ(server->world->ecf->Rid(), data->ecf_rid);
+    EXPECT_EQ(server->world->ecf->Length(), data->ecf_length);
     EXPECT_EQ(character->SourceName(), data->name);
     EXPECT_EQ(server::LoginMessageCode::Yes, data->login_message_code);
 }

@@ -30,7 +30,7 @@ void Chest_Add(Character *character, PacketReader &reader)
 	int id = reader.GetShort();
 	int amount = reader.GetThree();
 
-	if (character->world->eif->Get(id).special == EIF::Lore)
+	if (character->world->eif->Get(id).special == pub::ItemSpecial::Lore)
 	{
 		return;
 	}
@@ -145,7 +145,7 @@ void Chest_Open(Character *character, PacketReader &reader)
 						// Thanks daddy Sausage
 						// https://discord.com/channels/723989119503696013/787685796055482368/1046490342834315325
 
-						unsigned int key_item = character->world->eif->GetKey(chest->key);
+						int key_item = character->world->eif->GetKey(chest->key);
 						if (!key_item)
 						{
 							reply.SetID(PACKET_CHEST, PACKET_CLOSE);

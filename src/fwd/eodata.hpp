@@ -12,16 +12,4 @@ class ENF;
 class ESF;
 class ECF;
 
-template <class EIF> struct EIF_Data_Base;
-typedef EIF_Data_Base<EIF> EIF_Data;
-
-template <class ENF> struct ENF_Data_Base;
-typedef ENF_Data_Base<ENF> ENF_Data;
-
-template <class ESF> struct ESF_Data_Base;
-typedef ESF_Data_Base<ESF> ESF_Data;
-
-template <class ECF> struct ECF_Data_Base;
-typedef ECF_Data_Base<ECF> ECF_Data;
-
 #endif // FWD_EODATA_HPP_INCLUDED

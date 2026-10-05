@@ -42,11 +42,9 @@ template <typename TPub> static TPub ReadPub(const std::string& filename)
 	return file;
 }
 
-// Converts each record into data, after the empty placeholder at data[0] that Get returns for an unknown id. Ids
-// start at 1. A trailing record named "eof" is the end-of-file marker some editors write, and isn't loaded.
-template <typename TData, typename TRecord, typename TConvert>
-static void LoadRecords(const std::string& filename, int length, const std::vector<TRecord>& records,
-	std::vector<TData>& data, TConvert convert)
+// Warns on a header count mismatch and drops the trailing "eof" marker record some editors write
+template <typename TRecord>
+static void CheckRecords(const std::string& filename, int length, std::vector<TRecord>& records)
 {
 	if (static_cast<int>(records.size()) != length)
 	{
@@ -54,107 +52,103 @@ static void LoadRecords(const std::string& filename, int length, const std::vect
 			length);
 	}
 
-	data.clear();
-	data.resize(records.size() + 1);
-
-	for (std::size_t i = 0; i < records.size(); ++i)
+	if (!records.empty() && records.back().name == "eof")
 	{
-		TData& newdata = data[i + 1];
-		newdata.id = static_cast<int>(i + 1);
-		newdata.name = records[i].name;
-		convert(records[i], newdata);
-	}
-
-	if (data.size() > 1 && data.back().name == "eof")
-	{
-		data.pop_back();
+		records.pop_back();
 	}
 }
+
+template <typename TRecord>
+static bool RecordExists(const std::vector<TRecord>& records, int id)
+{
+	return id >= 1 && id <= static_cast<int>(records.size());
+}
+
+template <typename TRecord>
+static const TRecord& GetRecord(const std::vector<TRecord>& records, int id, const TRecord& empty)
+{
+	return RecordExists(records, id) ? records[id - 1] : empty;
+}
+
+template <typename TRecord>
+static bool TryGetRecord(const std::vector<TRecord>& records, int id, const TRecord*& record)
+{
+	record = RecordExists(records, id) ? &records[id - 1] : nullptr;
+	return record != nullptr;
+}
+
+static pub::EifRecord MakeEmptyItem()
+{
+	pub::EifRecord item;
+	item.special = pub::ItemSpecial::Lore;
+	return item;
+}
+
+static pub::EsfRecord MakeEmptySpell()
+{
+	pub::EsfRecord spell;
+	spell.type = pub::SkillType::Attack;
+	return spell;
+}
+
+// Classless characters (class 0) use the Peasant stat group's formulas
+static pub::EcfRecord MakeEmptyClass()
+{
+	pub::EcfRecord record;
+	record.parent_type = 4;
+	record.stat_group = 4;
+	return record;
+}
+
+static const pub::EifRecord empty_item = MakeEmptyItem();
+static const pub::EnfRecord empty_npc;
+static const pub::EsfRecord empty_spell = MakeEmptySpell();
+static const pub::EcfRecord empty_class = MakeEmptyClass();
 
 void EIF::Read(const std::string& filename)
 {
-	const auto file = ReadPub<pub::Eif>(filename);
-	this->rid = file.rid;
-	this->length = file.total_items_count;
+	this->file = ReadPub<pub::Eif>(filename);
+	CheckRecords(filename, this->file.total_items_count, this->file.items);
 
-	LoadRecords(filename, this->length, file.items, this->data, [](const pub::EifRecord& record, EIF_Data& newdata)
+	// Ranged gun hack
+	constexpr int gun_id = 365;
+
+	if (RecordExists(this->file.items, gun_id) && this->file.items[gun_id - 1].name == "Gun")
 	{
-		newdata.graphic = record.graphic_id;
-		newdata.type = static_cast<EIF::Type>(record.type);
-		newdata.subtype = static_cast<EIF::SubType>(record.subtype);
-		// Ranged gun hack
-		if (newdata.id == 365 && newdata.name == "Gun")
-		{
-			newdata.subtype = EIF::Ranged;
-		}
-		// / Ranged gun hack
-		newdata.special = static_cast<EIF::Special>(record.special);
-		newdata.hp = record.hp;
-		newdata.tp = record.tp;
-		newdata.mindam = record.min_damage;
-		newdata.maxdam = record.max_damage;
-		newdata.accuracy = record.accuracy;
-		newdata.evade = record.evade;
-		newdata.armor = record.armor;
+		this->file.items[gun_id - 1].subtype = pub::ItemSubtype::Ranged;
+	}
 
-		newdata.str = record.str;
-		newdata.intl = record.intl;
-		newdata.wis = record.wis;
-		newdata.agi = record.agi;
-		newdata.con = record.con;
-		newdata.cha = record.cha;
-
-		newdata.light = record.light_resistance;
-		newdata.dark = record.dark_resistance;
-		newdata.earth = record.earth_resistance;
-		newdata.air = record.air_resistance;
-		newdata.water = record.water_resistance;
-		newdata.fire = record.fire_resistance;
-
-		newdata.scrollmap = record.spec1;
-		newdata.scrollx = record.spec2;
-		newdata.scrolly = record.spec3;
-
-		newdata.levelreq = record.level_requirement;
-		newdata.classreq = record.class_requirement;
-
-		newdata.strreq = record.str_requirement;
-		newdata.intreq = record.int_requirement;
-		newdata.wisreq = record.wis_requirement;
-		newdata.agireq = record.agi_requirement;
-		newdata.conreq = record.con_requirement;
-		newdata.chareq = record.cha_requirement;
-
-		newdata.weight = record.weight;
-
-		newdata.size = static_cast<EIF::Size>(record.size);
-	});
-
-	Console::Out("%i items loaded.", this->data.size()-1);
+	Console::Out("%i items loaded.", this->Count());
 }
 
-EIF_Data& EIF::Get(unsigned int id)
+const pub::EifRecord& EIF::Get(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return GetRecord(this->file.items, id, empty_item);
 }
 
-const EIF_Data& EIF::Get(unsigned int id) const
+bool EIF::Exists(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return RecordExists(this->file.items, id);
 }
 
-unsigned int EIF::GetKey(int keynum) const
+bool EIF::TryGet(int id, const pub::EifRecord*& record) const
 {
-	for (std::size_t i = 0; i < this->data.size(); ++i)
+	return TryGetRecord(this->file.items, id, record);
+}
+
+int EIF::Count() const
+{
+	return static_cast<int>(this->file.items.size());
+}
+
+int EIF::GetKey(int keynum) const
+{
+	for (int id = 1; id <= this->Count(); ++id)
 	{
-		if (this->Get(i).type == EIF::Key && this->Get(i).key == keynum)
-			return i;
+		const pub::EifRecord& item = this->Get(id);
+
+		if (item.type == pub::ItemType::Key && AsKey(item).key == keynum)
+			return id;
 	}
 
 	return 0;
@@ -162,128 +156,84 @@ unsigned int EIF::GetKey(int keynum) const
 
 void ENF::Read(const std::string& filename)
 {
-	const auto file = ReadPub<pub::Enf>(filename);
-	this->rid = file.rid;
-	this->length = file.total_npcs_count;
+	this->file = ReadPub<pub::Enf>(filename);
+	CheckRecords(filename, this->file.total_npcs_count, this->file.npcs);
 
-	LoadRecords(filename, this->length, file.npcs, this->data, [](const pub::EnfRecord& record, ENF_Data& newdata)
-	{
-		newdata.graphic = record.graphic_id;
-
-		newdata.boss = record.boss;
-		newdata.child = record.child;
-		newdata.type = static_cast<ENF::Type>(record.type);
-		newdata.vendor_id = record.behavior_id;
-		newdata.hp = record.hp;
-
-		newdata.mindam = record.min_damage;
-		newdata.maxdam = record.max_damage;
-
-		newdata.accuracy = record.accuracy;
-		newdata.evade = record.evade;
-		newdata.armor = record.armor;
-
-		newdata.exp = record.experience;
-	});
-
-	Console::Out("%i npc types loaded.", this->data.size()-1);
+	Console::Out("%i npc types loaded.", this->Count());
 }
 
-ENF_Data& ENF::Get(unsigned int id)
+const pub::EnfRecord& ENF::Get(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return GetRecord(this->file.npcs, id, empty_npc);
 }
 
-const ENF_Data& ENF::Get(unsigned int id) const
+bool ENF::Exists(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return RecordExists(this->file.npcs, id);
+}
+
+bool ENF::TryGet(int id, const pub::EnfRecord*& record) const
+{
+	return TryGetRecord(this->file.npcs, id, record);
+}
+
+int ENF::Count() const
+{
+	return static_cast<int>(this->file.npcs.size());
 }
 
 void ESF::Read(const std::string& filename)
 {
-	const auto file = ReadPub<pub::Esf>(filename);
-	this->rid = file.rid;
-	this->length = file.total_skills_count;
+	this->file = ReadPub<pub::Esf>(filename);
+	CheckRecords(filename, this->file.total_skills_count, this->file.skills);
 
-	LoadRecords(filename, this->length, file.skills, this->data, [](const pub::EsfRecord& record, ESF_Data& newdata)
-	{
-		newdata.shout = record.chant;
-
-		newdata.icon = record.icon_id;
-		newdata.graphic = record.graphic_id;
-		newdata.tp = record.tp_cost;
-		newdata.sp = record.sp_cost;
-		newdata.cast_time = record.cast_time;
-
-		newdata.type = static_cast<ESF::Type>(record.type);
-		newdata.target_restrict = static_cast<ESF::TargetRestrict>(record.target_restrict);
-		newdata.target = static_cast<ESF::Target>(record.target_type);
-
-		newdata.mindam = record.min_damage;
-		newdata.maxdam = record.max_damage;
-		newdata.accuracy = record.accuracy;
-		newdata.hp = record.hp_heal;
-	});
-
-	Console::Out("%i spells loaded.", this->data.size()-1);
+	Console::Out("%i spells loaded.", this->Count());
 }
 
-ESF_Data& ESF::Get(unsigned int id)
+const pub::EsfRecord& ESF::Get(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return GetRecord(this->file.skills, id, empty_spell);
 }
 
-const ESF_Data& ESF::Get(unsigned int id) const
+bool ESF::Exists(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return RecordExists(this->file.skills, id);
+}
+
+bool ESF::TryGet(int id, const pub::EsfRecord*& record) const
+{
+	return TryGetRecord(this->file.skills, id, record);
+}
+
+int ESF::Count() const
+{
+	return static_cast<int>(this->file.skills.size());
 }
 
 void ECF::Read(const std::string& filename)
 {
-	const auto file = ReadPub<pub::Ecf>(filename);
-	this->rid = file.rid;
-	this->length = file.total_classes_count;
+	this->file = ReadPub<pub::Ecf>(filename);
+	CheckRecords(filename, this->file.total_classes_count, this->file.classes);
 
-	LoadRecords(filename, this->length, file.classes, this->data, [](const pub::EcfRecord& record, ECF_Data& newdata)
-	{
-		newdata.base = record.parent_type;
-		newdata.type = record.stat_group;
-
-		newdata.str = record.str;
-		newdata.intl = record.intl;
-		newdata.wis = record.wis;
-		newdata.agi = record.agi;
-		newdata.con = record.con;
-		newdata.cha = record.cha;
-	});
-
-	Console::Out("%i classes loaded.", this->data.size()-1);
+	Console::Out("%i classes loaded.", this->Count());
 }
 
-ECF_Data& ECF::Get(unsigned int id)
+const pub::EcfRecord& ECF::Get(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return GetRecord(this->file.classes, id, empty_class);
 }
 
-const ECF_Data& ECF::Get(unsigned int id) const
+bool ECF::Exists(int id) const
 {
-	if (id < this->data.size())
-		return this->data[id];
-	else
-		return this->data[0];
+	return RecordExists(this->file.classes, id);
+}
+
+bool ECF::TryGet(int id, const pub::EcfRecord*& record) const
+{
+	return TryGetRecord(this->file.classes, id, record);
+}
+
+int ECF::Count() const
+{
+	return static_cast<int>(this->file.classes.size());
 }

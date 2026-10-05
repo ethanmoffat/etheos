@@ -48,6 +48,7 @@
 
 namespace server = eolib::protocol::net::server;
 namespace client = eolib::protocol::net::client;
+namespace pub = eolib::protocol::pub;
 
 void world_spawn_npcs(void *world_void)
 {
@@ -60,7 +61,7 @@ void world_spawn_npcs(void *world_void)
 		UTIL_FOREACH(map->npcs, npc)
 		{
 			if ((!npc->alive && npc->dead_since + (double(npc->spawn_time) * spawnrate) < current_time)
-			 && (!npc->ENF().child || (npc->parent && npc->parent->alive && world->config["RespawnBossChildren"])))
+			 && (!npc->PubData().child || (npc->parent && npc->parent->alive && world->config["RespawnBossChildren"])))
 			{
 #ifdef DEBUG
 				Console::Dbg("Spawning NPC %i on map %i", npc->id, map->id);
@@ -155,11 +156,11 @@ void world_npc_recover(void *world_void)
 	{
 		UTIL_FOREACH(map->npcs, npc)
 		{
-			if (npc->alive && npc->hp < npc->ENF().hp)
+			if (npc->alive && npc->hp < npc->PubData().hp)
 			{
-				npc->hp += static_cast<int>(npc->ENF().hp * double(world->config["NPCRecoverRate"]));
+				npc->hp += static_cast<int>(npc->PubData().hp * double(world->config["NPCRecoverRate"]));
 
-				npc->hp = std::min(npc->hp, npc->ENF().hp);
+				npc->hp = std::min(npc->hp, npc->PubData().hp);
 			}
 		}
 	}
@@ -417,7 +418,8 @@ void World::Initialize()
 	this->esf = new ESF(this->config["ESF"]);
 	this->ecf = new ECF(this->config["ECF"]);
 
-	std::size_t num_npcs = this->enf->data.size();
+	// npc_data is indexed by NPC id, and ids start at 1
+	std::size_t num_npcs = this->enf->Count() + 1;
 	this->npc_data.resize(num_npcs);
 	for (std::size_t i = 0; i < num_npcs; ++i)
 	{
@@ -439,10 +441,12 @@ void World::Initialize()
 
 	short max_quest = static_cast<int>(this->config["Quests"]);
 
-	UTIL_FOREACH(this->enf->data, npc)
+	for (int id = 1; id <= this->enf->Count(); ++id)
 	{
-		if (npc.type == ENF::Quest)
-			max_quest = std::max(max_quest, npc.vendor_id);
+		const pub::EnfRecord& npc = this->enf->Get(id);
+
+		if (npc.type == pub::NpcType::Quest)
+			max_quest = std::max<int>(max_quest, npc.behavior_id);
 	}
 
 	for (short i = 0; i <= max_quest; ++i)
@@ -1409,18 +1413,18 @@ void World::Rehash(Command_Source *from)
 
 void World::ReloadPub(bool quiet)
 {
-	auto eif_id = this->eif->rid;
-	auto enf_id = this->enf->rid;
-	auto esf_id = this->esf->rid;
-	auto ecf_id = this->ecf->rid;
+	auto eif_id = this->eif->Rid();
+	auto enf_id = this->enf->Rid();
+	auto esf_id = this->esf->Rid();
+	auto ecf_id = this->ecf->Rid();
 
 	this->eif->Read(this->config["EIF"]);
 	this->enf->Read(this->config["ENF"]);
 	this->esf->Read(this->config["ESF"]);
 	this->ecf->Read(this->config["ECF"]);
 
-	if (eif_id != this->eif->rid || enf_id != this->enf->rid
-	 || esf_id != this->esf->rid || ecf_id != this->ecf->rid)
+	if (eif_id != this->eif->Rid() || enf_id != this->enf->Rid()
+	 || esf_id != this->esf->Rid() || ecf_id != this->ecf->Rid())
 	{
 		if (!quiet)
 		{
@@ -1432,7 +1436,7 @@ void World::ReloadPub(bool quiet)
 	}
 
 	std::size_t current_npcs = this->npc_data.size();
-	std::size_t new_npcs = this->enf->data.size();
+	std::size_t new_npcs = this->enf->Count() + 1;
 
 	this->npc_data.resize(new_npcs);
 
@@ -1469,10 +1473,12 @@ void World::ReloadQuests()
 	// Reload all quests
 	short max_quest = static_cast<int>(this->config["Quests"]);
 
-	UTIL_FOREACH(this->enf->data, npc)
+	for (int id = 1; id <= this->enf->Count(); ++id)
 	{
-		if (npc.type == ENF::Quest)
-			max_quest = std::max(max_quest, npc.vendor_id);
+		const pub::EnfRecord& npc = this->enf->Get(id);
+
+		if (npc.type == pub::NpcType::Quest)
+			max_quest = std::max<int>(max_quest, npc.behavior_id);
 	}
 
 	for (short i = 0; i <= max_quest; ++i)

@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+namespace pub = eolib::protocol::pub;
+
 namespace Commands
 {
 
@@ -125,7 +127,7 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 		else if (set == "race") (appearance = true, victim->race) = Skin(std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxSkin"])));
 		else if (set == "guildrank") victim->guild_rank = std::min(std::max(util::to_int(arguments[1]), 0), 9);
 		else if (set == "karma") (karma = true, victim->karma) = std::min(std::max(util::to_int(arguments[1]), 0), 2000);
-		else if (set == "class") (stats = true, victim->clas) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->ecf->data.size() - 1));
+		else if (set == "class") (stats = true, victim->clas) = std::min(std::max(util::to_int(arguments[1]), 0), from->SourceWorld()->ecf->Count());
 		else failure = true;
 
 		if (failure)
@@ -299,19 +301,20 @@ void Dress(const std::vector<std::string>& arguments, Command_Source* from)
 	}
 
 	int item = util::to_int(arguments[argp++]);
-	const EIF_Data &eif = from->SourceWorld()->eif->Get(item);
+	const pub::EifRecord& item_record = from->SourceWorld()->eif->Get(item);
+	const ItemEquipmentSpec equipment = AsEquipment(item_record);
 
-	if (eif.type == EIF::Armor && eif.gender != victim->gender)
+	if (item_record.type == pub::ItemType::Armor && equipment.gender != victim->gender)
 	{
 		from->ServerMsg(from->SourceWorld()->i18n.Format("can_not_dress"));
 		return;
 	}
 
-	     if (eif.type == EIF::Hat)    victim->Dress(Character::Hat, eif.dollgraphic);
-	else if (eif.type == EIF::Armor)  victim->Dress(Character::Armor, eif.dollgraphic);
-	else if (eif.type == EIF::Boots)  victim->Dress(Character::Boots, eif.dollgraphic);
-	else if (eif.type == EIF::Weapon) victim->Dress(Character::Weapon, eif.dollgraphic);
-	else if (eif.type == EIF::Shield) victim->Dress(Character::Shield, eif.dollgraphic);
+	     if (item_record.type == pub::ItemType::Hat)    victim->Dress(Character::Hat, equipment.doll_graphic);
+	else if (item_record.type == pub::ItemType::Armor)  victim->Dress(Character::Armor, equipment.doll_graphic);
+	else if (item_record.type == pub::ItemType::Boots)  victim->Dress(Character::Boots, equipment.doll_graphic);
+	else if (item_record.type == pub::ItemType::Weapon) victim->Dress(Character::Weapon, equipment.doll_graphic);
+	else if (item_record.type == pub::ItemType::Shield) victim->Dress(Character::Shield, equipment.doll_graphic);
 	else from->ServerMsg(from->SourceWorld()->i18n.Format("can_not_dress"));
 }
 

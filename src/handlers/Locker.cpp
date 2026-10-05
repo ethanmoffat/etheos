@@ -185,7 +185,7 @@ void Locker_Buy(Character *character, PacketReader &reader)
 
 	(void)reader;
 
-	if (character->npc_type == ENF::Bank)
+	if (character->npc_type == pub::NpcType::Bank)
 	{
 		int cost = static_cast<int>(character->world->config["BankUpgradeBase"]) + character->bankmax * static_cast<int>(character->world->config["BankUpgradeStep"]);
 

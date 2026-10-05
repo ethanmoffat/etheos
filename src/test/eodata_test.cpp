@@ -56,22 +56,14 @@ pub::EifRecord EifRecord(const std::string& name)
 
 }
 
-TEST_F(EODataTests, EIF_Read_LoadsRecordsAfterPlaceholder)
+TEST_F(EODataTests, EIF_Read_LoadsRecordsFromId1)
 {
     pub::EifRecord sword = EifRecord("Sword");
     sword.graphic_id = 12;
     sword.type = pub::ItemType::Weapon;
-    sword.subtype = pub::ItemSubtype::Reserved4;
-    sword.special = pub::ItemSpecial::Lore;
+    sword.subtype = ItemSubtypeTwoHanded;
     sword.min_damage = 3;
-    sword.max_damage = 7;
-    sword.str = 4;
-    sword.fire_resistance = 5;
     sword.spec1 = 300;
-    sword.spec2 = 1;
-    sword.spec3 = 2;
-    sword.level_requirement = 10;
-    sword.cha_requirement = 6;
     sword.weight = 20;
     sword.size = pub::ItemSize::Size1x3;
 
@@ -83,30 +75,95 @@ TEST_F(EODataTests, EIF_Read_LoadsRecordsAfterPlaceholder)
 
     EIF eif(filename);
 
-    EXPECT_EQ((std::vector<int>{12345, 678}), eif.rid);
-    EXPECT_EQ(2, eif.length);
-    ASSERT_EQ(3u, eif.data.size());
-    EXPECT_FALSE(eif.Get(0));
-    EXPECT_EQ("Gold", eif.Get(1).name);
+    EXPECT_EQ((std::vector<int>{12345, 678}), eif.Rid());
+    EXPECT_EQ(2, eif.Length());
+    EXPECT_EQ(2, eif.Count());
+    EXPECT_EQ(file.items[0], eif.Get(1));
+    EXPECT_EQ(sword, eif.Get(2));
+}
 
-    const EIF_Data& data = eif.Get(2);
-    EXPECT_EQ(2, data.id);
-    EXPECT_EQ("Sword", data.name);
-    EXPECT_EQ(12, data.graphic);
-    EXPECT_EQ(EIF::Weapon, data.type);
-    EXPECT_EQ(EIF::TwoHanded, data.subtype);
-    EXPECT_EQ(EIF::Lore, data.special);
-    EXPECT_EQ(3, data.mindam);
-    EXPECT_EQ(7, data.maxdam);
-    EXPECT_EQ(4, data.str);
-    EXPECT_EQ(5, data.fire);
-    EXPECT_EQ(300, data.scrollmap);
-    EXPECT_EQ(1, data.scrollx);
-    EXPECT_EQ(2, data.scrolly);
-    EXPECT_EQ(10, data.levelreq);
-    EXPECT_EQ(6, data.chareq);
-    EXPECT_EQ(20, data.weight);
-    EXPECT_EQ(EIF::Size1x3, data.size);
+TEST_F(EODataTests, EIF_Exists_IdOutOfRange_ReturnsFalse)
+{
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.total_items_count = 2;
+    file.items = {EifRecord("Gold"), EifRecord("Sword")};
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    EXPECT_FALSE(eif.Exists(-1));
+    EXPECT_FALSE(eif.Exists(0));
+    EXPECT_TRUE(eif.Exists(1));
+    EXPECT_TRUE(eif.Exists(2));
+    EXPECT_FALSE(eif.Exists(3));
+}
+
+TEST_F(EODataTests, EIF_TryGet_KnownId_SetsRecordAndReturnsTrue)
+{
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.total_items_count = 2;
+    file.items = {EifRecord("Gold"), EifRecord("Sword")};
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    const pub::EifRecord* record = nullptr;
+    ASSERT_TRUE(eif.TryGet(2, record));
+    EXPECT_EQ(&eif.Get(2), record);
+    EXPECT_EQ("Sword", record->name);
+}
+
+TEST_F(EODataTests, EIF_TryGet_UnknownId_SetsNullAndReturnsFalse)
+{
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.total_items_count = 1;
+    file.items = {EifRecord("Gold")};
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    const pub::EifRecord* record = &eif.Get(1);
+    EXPECT_FALSE(eif.TryGet(0, record));
+    EXPECT_EQ(nullptr, record);
+
+    record = &eif.Get(1);
+    EXPECT_FALSE(eif.TryGet(2, record));
+    EXPECT_EQ(nullptr, record);
+}
+
+TEST_F(EODataTests, EIF_Get_UnknownId_ReturnsEmptyLoreItem)
+{
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.total_items_count = 1;
+    file.items = {EifRecord("Gold")};
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    pub::EifRecord expected;
+    expected.special = pub::ItemSpecial::Lore;
+    EXPECT_EQ(expected, eif.Get(0));
+    EXPECT_EQ(expected, eif.Get(2));
+}
+
+TEST_F(EODataTests, EIF_Read_ItemNamedGunAt365_IsRanged)
+{
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.items.resize(366);
+    file.items[364] = EifRecord("Gun");
+    file.items[365] = EifRecord("Gun");
+    file.total_items_count = static_cast<int>(file.items.size());
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    EXPECT_EQ(pub::ItemSubtype::Ranged, eif.Get(365).subtype);
+    EXPECT_EQ(pub::ItemSubtype::None, eif.Get(366).subtype);
 }
 
 TEST_F(EODataTests, EIF_Read_TrailingEofRecord_IsNotLoaded)
@@ -119,10 +176,10 @@ TEST_F(EODataTests, EIF_Read_TrailingEofRecord_IsNotLoaded)
 
     EIF eif(filename);
 
-    EXPECT_EQ(2, eif.length);
-    ASSERT_EQ(2u, eif.data.size());
+    EXPECT_EQ(2, eif.Length());
+    EXPECT_EQ(1, eif.Count());
     EXPECT_EQ("Gold", eif.Get(1).name);
-    EXPECT_FALSE(eif.Get(2));
+    EXPECT_FALSE(eif.Exists(2));
 }
 
 TEST_F(EODataTests, EIF_Read_TruncatedRecord_LoadsWithDefaults)
@@ -141,9 +198,64 @@ TEST_F(EODataTests, EIF_Read_TruncatedRecord_LoadsWithDefaults)
 
     EIF eif(filename);
 
-    ASSERT_EQ(2u, eif.data.size());
+    ASSERT_EQ(1, eif.Count());
     EXPECT_EQ("Gold", eif.Get(1).name);
     EXPECT_EQ(0, eif.Get(1).weight);
+}
+
+TEST_F(EODataTests, EIF_GetKey_KeyItem_ReturnsItsId)
+{
+    pub::EifRecord key = EifRecord("Key");
+    key.type = pub::ItemType::Key;
+    key.spec1 = 7;
+
+    pub::Eif file;
+    file.rid = {1, 2};
+    file.total_items_count = 2;
+    file.items = {EifRecord("Gold"), key};
+    GivenFile(file);
+
+    EIF eif(filename);
+
+    EXPECT_EQ(2, eif.GetKey(7));
+    EXPECT_EQ(0, eif.GetKey(8));
+}
+
+TEST(ItemHelperTests, AsScroll_ReadsMapXYFromSpec1To3)
+{
+    pub::EifRecord item;
+    item.spec1 = 300;
+    item.spec2 = 10;
+    item.spec3 = 20;
+
+    ItemScrollSpec scroll = AsScroll(item);
+
+    EXPECT_EQ(300, scroll.map);
+    EXPECT_EQ(10, scroll.x);
+    EXPECT_EQ(20, scroll.y);
+}
+
+TEST(ItemHelperTests, AsEquipmentAndTwoHanded_ReadSpec1To3)
+{
+    pub::EifRecord item;
+    item.spec1 = 42;
+    item.spec2 = 1;
+    item.spec3 = 7;
+
+    EXPECT_EQ(42, AsEquipment(item).doll_graphic);
+    EXPECT_EQ(1, AsEquipment(item).gender);
+    EXPECT_EQ(7, AsTwoHanded(item).dual_wield_doll_graphic);
+}
+
+TEST(ItemHelperTests, SingleFieldSpecs_ReadSpec1)
+{
+    pub::EifRecord item;
+    item.spec1 = 5000;
+
+    EXPECT_EQ(5000, AsExpReward(item).exp);
+    EXPECT_EQ(5000, AsHairDye(item).hair_color);
+    EXPECT_EQ(5000, AsEffectPotion(item).effect);
+    EXPECT_EQ(5000, AsKey(item).key);
 }
 
 TEST_F(EODataTests, EIF_Read_MissingFile_Exits)
@@ -162,18 +274,14 @@ TEST_F(EODataTests, EIF_Read_ShortHeader_Exits)
     EXPECT_EXIT(EIF eif(filename), testing::ExitedWithCode(1), "");
 }
 
-TEST_F(EODataTests, ENF_Read_LoadsRecordFields)
+TEST_F(EODataTests, ENF_Read_LoadsRecords)
 {
     pub::EnfRecord record;
     record.name = "Goat";
     record.graphic_id = 5;
-    record.boss = true;
     record.type = pub::NpcType::Aggressive;
     record.behavior_id = 9;
     record.hp = 70000;
-    record.min_damage = 2;
-    record.armor = 8;
-    record.experience = 70001;
 
     pub::Enf file;
     file.rid = {3, 4};
@@ -183,32 +291,21 @@ TEST_F(EODataTests, ENF_Read_LoadsRecordFields)
 
     ENF enf(filename);
 
-    EXPECT_EQ((std::vector<int>{3, 4}), enf.rid);
-    EXPECT_EQ(1, enf.length);
-    const ENF_Data& data = enf.Get(1);
-    EXPECT_EQ("Goat", data.name);
-    EXPECT_EQ(5, data.graphic);
-    EXPECT_TRUE(data.boss);
-    EXPECT_FALSE(data.child);
-    EXPECT_EQ(ENF::Aggressive, data.type);
-    EXPECT_EQ(9, data.vendor_id);
-    EXPECT_EQ(70000, data.hp);
-    EXPECT_EQ(2, data.mindam);
-    EXPECT_EQ(8, data.armor);
-    EXPECT_EQ(70001, data.exp);
+    EXPECT_EQ((std::vector<int>{3, 4}), enf.Rid());
+    EXPECT_EQ(1, enf.Length());
+    EXPECT_EQ(1, enf.Count());
+    EXPECT_EQ(record, enf.Get(1));
+    EXPECT_FALSE(enf.Exists(2));
+    EXPECT_EQ(pub::EnfRecord{}, enf.Get(2));
 }
 
-TEST_F(EODataTests, ESF_Read_LoadsRecordFields)
+TEST_F(EODataTests, ESF_Read_LoadsRecords)
 {
     pub::EsfRecord record;
     record.name = "Heal";
     record.chant = "Heal me";
-    record.icon_id = 1;
-    record.graphic_id = 2;
     record.tp_cost = 3;
-    record.cast_time = 4;
     record.type = pub::SkillType::Heal;
-    record.target_restrict = pub::SkillTargetRestrict::Friendly;
     record.target_type = pub::SkillTargetType::Self;
     record.hp_heal = 50;
 
@@ -220,28 +317,32 @@ TEST_F(EODataTests, ESF_Read_LoadsRecordFields)
 
     ESF esf(filename);
 
-    EXPECT_EQ((std::vector<int>{5, 6}), esf.rid);
-    const ESF_Data& data = esf.Get(1);
-    EXPECT_EQ("Heal", data.name);
-    EXPECT_EQ("Heal me", data.shout);
-    EXPECT_EQ(1, data.icon);
-    EXPECT_EQ(2, data.graphic);
-    EXPECT_EQ(3, data.tp);
-    EXPECT_EQ(4, data.cast_time);
-    EXPECT_EQ(ESF::Heal, data.type);
-    EXPECT_EQ(ESF::Friendly, data.target_restrict);
-    EXPECT_EQ(ESF::Self, data.target);
-    EXPECT_EQ(50, data.hp);
+    EXPECT_EQ((std::vector<int>{5, 6}), esf.Rid());
+    EXPECT_EQ(1, esf.Count());
+    EXPECT_EQ(record, esf.Get(1));
 }
 
-TEST_F(EODataTests, ECF_Read_LoadsRecordFields)
+TEST_F(EODataTests, ESF_Get_UnknownId_ReturnsEmptyAttackSpell)
+{
+    pub::Esf file;
+    file.rid = {1, 2};
+    GivenFile(file);
+
+    ESF esf(filename);
+
+    pub::EsfRecord expected;
+    expected.type = pub::SkillType::Attack;
+    EXPECT_FALSE(esf.Exists(1));
+    EXPECT_EQ(expected, esf.Get(1));
+}
+
+TEST_F(EODataTests, ECF_Read_LoadsRecords)
 {
     pub::EcfRecord record;
     record.name = "Priest";
     record.parent_type = 1;
     record.stat_group = 2;
     record.str = 3;
-    record.cha = 8;
 
     pub::Ecf file;
     file.rid = {7, 8};
@@ -251,11 +352,19 @@ TEST_F(EODataTests, ECF_Read_LoadsRecordFields)
 
     ECF ecf(filename);
 
-    EXPECT_EQ((std::vector<int>{7, 8}), ecf.rid);
-    const ECF_Data& data = ecf.Get(1);
-    EXPECT_EQ("Priest", data.name);
-    EXPECT_EQ(1, data.base);
-    EXPECT_EQ(2, data.type);
-    EXPECT_EQ(3, data.str);
-    EXPECT_EQ(8, data.cha);
+    EXPECT_EQ((std::vector<int>{7, 8}), ecf.Rid());
+    EXPECT_EQ(1, ecf.Count());
+    EXPECT_EQ(record, ecf.Get(1));
+}
+
+TEST_F(EODataTests, ECF_Get_UnknownId_ReturnsPeasantClass)
+{
+    pub::Ecf file;
+    file.rid = {1, 2};
+    GivenFile(file);
+
+    ECF ecf(filename);
+
+    EXPECT_EQ(4, ecf.Get(0).parent_type);
+    EXPECT_EQ(4, ecf.Get(0).stat_group);
 }

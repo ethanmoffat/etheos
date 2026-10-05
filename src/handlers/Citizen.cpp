@@ -29,7 +29,7 @@ void Citizen_Request(Character *character, PacketReader &reader)
 	/*int session = */reader.GetShort();
 	/*int vendor_id = */reader.GetShort();
 
-	if (character->npc_type == ENF::Inn && (character->hp < character->maxhp || character->tp < character->maxtp))
+	if (character->npc_type == pub::NpcType::Inn && (character->hp < character->maxhp || character->tp < character->maxtp))
 	{
 		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
 		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
@@ -52,7 +52,7 @@ void Citizen_Accept(Character *character, PacketReader &reader)
 	/*int session = */reader.GetShort();
 	/*int vendor_id = */reader.GetShort();
 
-	if (character->npc_type == ENF::Inn)
+	if (character->npc_type == pub::NpcType::Inn)
 	{
 		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
 		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
@@ -92,7 +92,7 @@ void Citizen_Accept(Character *character, PacketReader &reader)
 			}
 
 			character->npc = nullptr;
-			character->npc_type = ENF::NPC;
+			character->npc_type = pub::NpcType::Friendly;
 		}
 	}
 }
@@ -110,7 +110,7 @@ void Citizen_Reply(Character *character, PacketReader &reader)
 	answers[1] = reader.GetBreakString();
 	answers[2] = reader.GetEndString();
 
-	if (character->npc_type == ENF::Inn && (character->home.size() == 0 || character->world->config["CitizenSubscribeAnytime"]))
+	if (character->npc_type == pub::NpcType::Inn && (character->home.size() == 0 || character->world->config["CitizenSubscribeAnytime"]))
 	{
 		int questions_wrong = 0;
 
@@ -140,7 +140,7 @@ void Citizen_Remove(Character *character, PacketReader &reader)
 	(void)reader;
 	/*short npcid = reader.GetShort();*/
 
-	if (character->npc_type == ENF::Inn)
+	if (character->npc_type == pub::NpcType::Inn)
 	{
 		PacketBuilder reply(PACKET_CITIZEN, PACKET_REMOVE, 1);
 
@@ -165,10 +165,10 @@ void Citizen_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && npc->ENF().type == ENF::Inn && npc->Data().citizenship)
+		if (npc->index == id && npc->PubData().type == pub::NpcType::Inn && npc->Data().citizenship)
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Inn;
+			character->npc_type = pub::NpcType::Inn;
 
 			PacketBuilder reply(PACKET_CITIZEN, PACKET_OPEN,
 				9 + npc->Data().citizenship->questions[0].length() + npc->Data().citizenship->questions[1].length() + npc->Data().citizenship->questions[2].length());
@@ -179,9 +179,9 @@ void Citizen_Open(Character *character, PacketReader &reader)
 			if (home)
 				innkeeper_vend = home->innkeeper_vend;
 
-			reply.AddThree(npc->ENF().vendor_id);
+			reply.AddThree(npc->PubData().behavior_id);
 
-			if (character->world->config["CitizenSubscribeAnytime"] && innkeeper_vend != npc->ENF().vendor_id)
+			if (character->world->config["CitizenSubscribeAnytime"] && innkeeper_vend != npc->PubData().behavior_id)
 				reply.AddChar(0);
 			else
 				reply.AddChar(innkeeper_vend);

@@ -252,7 +252,7 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 	else if (name == "race")      (appearance = true, victim->race)      = util::clamp<Skin>(Skin(f(victim->race)),       Skin(0), Skin(int(victim->world->config["MaxSkin"])));
 	else if (name == "guildrank") victim->guild_rank = util::clamp<int>(f(victim->guild_rank), 0, 9);
 	else if (name == "karma") (karma = true, victim->karma) = util::clamp<int>(f(victim->karma), 0, 2000);
-	else if (name == "class") (stats = true, victim->clas)  = util::clamp<int>(f(victim->clas),  0, victim->world->ecf->data.size() - 1);
+	else if (name == "class") (stats = true, victim->clas)  = util::clamp<int>(f(victim->clas),  0, victim->world->ecf->Count());
 	else return false;
 
 	// Easiest way to get the character to update on everyone nearby's screen

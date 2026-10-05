@@ -34,13 +34,13 @@ void Spell_Request(Character *character, PacketReader &reader)
 
 	if (character->HasSpell(spell_id))
 	{
-		const ESF_Data& spell = character->world->esf->Get(spell_id);
+		const pub::EsfRecord* spell;
 
-		if (spell.id == 0)
+		if (!character->world->esf->TryGet(spell_id, spell))
 			return;
 
 		character->spell_id = spell_id;
-		character->spell_event = new TimeEvent(character_cast_spell, character, 0.47 * spell.cast_time + character->SpellCooldownTime(), 1);
+		character->spell_event = new TimeEvent(character_cast_spell, character, 0.47 * spell->cast_time + character->SpellCooldownTime(), 1);
 		character->world->timer.Register(character->spell_event);
 
 		PacketBuilder builder(PACKET_SPELL, PACKET_REQUEST, 4);
@@ -72,7 +72,7 @@ void Spell_Target_Self(Character *character, PacketReader &reader)
 
 	if (character->world->config["EnforceTimestamps"])
 	{
-		const ESF_Data& spell = character->world->esf->Get(character->spell_id);
+		const pub::EsfRecord& spell = character->world->esf->Get(character->spell_id);
 
 		if (timestamp - character->timestamp < (spell.cast_time - 1) * 47 + 35
 		 || timestamp - character->timestamp > std::max<int>(spell.cast_time, 1) * 50)
@@ -120,7 +120,7 @@ void Spell_Target_Other(Character *character, PacketReader &reader)
 
 	if (character->world->config["EnforceTimestamps"])
 	{
-		const ESF_Data& spell = character->world->esf->Get(character->spell_id);
+		const pub::EsfRecord& spell = character->world->esf->Get(character->spell_id);
 
 		if (timestamp - character->timestamp < (spell.cast_time - 1) * 47 + 35
 		 || timestamp - character->timestamp > std::max<int>(spell.cast_time, 1) * 50)
@@ -150,7 +150,7 @@ void Spell_Target_Group(Character *character, PacketReader &reader)
 
 	if (character->world->config["EnforceTimestamps"])
 	{
-		const ESF_Data& spell = character->world->esf->Get(character->spell_id);
+		const pub::EsfRecord& spell = character->world->esf->Get(character->spell_id);
 
 		if (timestamp - character->timestamp < (spell.cast_time - 1) * 47 + 35
 		 || timestamp - character->timestamp > std::max<int>(spell.cast_time, 1) * 50)

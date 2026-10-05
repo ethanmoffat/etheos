@@ -41,6 +41,8 @@
 #include <utility>
 #include <vector>
 
+namespace pub = eolib::protocol::pub;
+
 void character_cast_spell(void *character_void)
 {
 	Character *character(static_cast<Character *>(character_void));
@@ -50,9 +52,7 @@ void character_cast_spell(void *character_void)
 
 	character->spell_event = 0;
 
-	const ESF_Data& spell = character->world->esf->Get(character->spell_id);
-
-	if (spell.id == 0)
+	if (!character->world->esf->Exists(character->spell_id))
 		return;
 
 	if (character->spell_target != Character::TargetInvalid)
@@ -454,7 +454,7 @@ Character::Character(std::string name, World *world, Database *database)
 	this->party_trust_recv = 0;
 
 	this->npc = 0;
-	this->npc_type = ENF::NPC;
+	this->npc_type = pub::NpcType::Friendly;
 	this->board = 0;
 	this->jukebox_open = false;
 
@@ -726,7 +726,7 @@ bool Character::AddItem(short item, int amount)
 		return false;
 	}
 
-	if (item <= 0 || static_cast<std::size_t>(item) >= this->world->eif->data.size())
+	if (!this->world->eif->Exists(item))
 	{
 		return false;
 	}
@@ -819,14 +819,14 @@ int Character::CanHoldItem(short itemid, int max_amount)
 	if (int(this->world->config["EnforceWeight"]) >= 2
 	 && SourceDutyAccess() < static_cast<int>(world->admin_config["unlimitedweight"]))
 	{
-		const EIF_Data &item = this->world->eif->Get(itemid);
+		const pub::EifRecord* item;
 
 		if (this->weight > this->maxweight)
 			amount = 0;
-		else if (!item || item.weight == 0)
+		else if (!this->world->eif->TryGet(itemid, item) || item->weight == 0)
 			amount = max_amount;
 		else
-			amount = std::min((this->maxweight - this->weight) / item.weight, max_amount);
+			amount = std::min((this->maxweight - this->weight) / item->weight, max_amount);
 	}
 
 	return std::min<int>(amount, this->world->config["MaxItem"]);
@@ -836,7 +836,7 @@ bool Character::AddTradeItem(short item, int amount)
 {
 	bool trade_add_quantity = bool(this->world->config["TradeAddQuantity"]);
 
-	if (item <= 0 || static_cast<std::size_t>(item) >= this->world->eif->data.size())
+	if (!this->world->eif->Exists(item))
 	{
 		return false;
 	}
@@ -910,7 +910,7 @@ bool Character::DelTradeItem(short item)
 
 bool Character::AddSpell(short spell)
 {
-	if (spell <= 0 || std::size_t(spell) >= this->world->esf->data.size())
+	if (!this->world->esf->Exists(spell))
 		return false;
 
 	if (this->HasSpell(spell))
@@ -949,9 +949,9 @@ void Character::CancelSpell()
 
 void Character::SpellAct()
 {
-	const ESF_Data &spell = world->esf->Get(this->spell_id);
+	const pub::EsfRecord* spell;
 
-	if (spell.id == 0 || spell.type == ESF::Bard)
+	if (!world->esf->TryGet(this->spell_id, spell) || spell->type == pub::SkillType::Bard)
 	{
 		this->CancelSpell();
 		return;
@@ -970,7 +970,7 @@ void Character::SpellAct()
 	switch (spell_target)
 	{
 		case TargetSelf:
-			if (spell.target_restrict != ESF::Friendly || spell.target != ESF::Self)
+			if (spell->target_restrict != pub::SkillTargetRestrict::Friendly || spell->target_type != pub::SkillTargetType::Self)
 				return;
 
 			this->map->SpellSelf(this, spell_id);
@@ -978,7 +978,7 @@ void Character::SpellAct()
 			break;
 
 		case TargetNPC:
-			if (spell.target_restrict == ESF::Friendly || spell.target != ESF::Normal)
+			if (spell->target_restrict == pub::SkillTargetRestrict::Friendly || spell->target_type != pub::SkillTargetType::Normal)
 				return;
 
 			npc_victim = this->map->GetNPCIndex(static_cast<unsigned char>(spell_target_id));
@@ -991,12 +991,12 @@ void Character::SpellAct()
 			break;
 
 		case TargetPlayer:
-			if (spell.target_restrict == ESF::NPCOnly || spell.target != ESF::Normal)
+			if (spell->target_restrict == pub::SkillTargetRestrict::Npc || spell->target_type != pub::SkillTargetType::Normal)
 				return;
 
 			victim = this->map->GetCharacterPID(spell_target_id);
 
-			if (spell.target_restrict != ESF::Friendly && victim == this)
+			if (spell->target_restrict != pub::SkillTargetRestrict::Friendly && victim == this)
 				return;
 
 			if (victim)
@@ -1005,7 +1005,7 @@ void Character::SpellAct()
 			break;
 
 		case TargetGroup:
-			if (spell.target_restrict != ESF::Friendly || spell.target != ESF::Group)
+			if (spell->target_restrict != pub::SkillTargetRestrict::Friendly || spell->target_type != pub::SkillTargetType::Group)
 				return;
 
 			this->map->SpellGroup(this, spell_id);
@@ -1110,21 +1110,21 @@ bool Character::Equip(short item, unsigned char subloc)
 		return false;
 	}
 
-	const EIF_Data &eif = this->world->eif->Get(item);
-	const ECF_Data &ecf = this->world->ecf->Get(this->clas);
+	const pub::EifRecord& item_record = this->world->eif->Get(item);
+	const pub::EcfRecord& class_record = this->world->ecf->Get(this->clas);
 
-	if (eif.type == EIF::Armor && eif.gender != this->gender)
+	if (item_record.type == pub::ItemType::Armor && AsEquipment(item_record).gender != this->gender)
 	{
 		return false;
 	}
 
-	if (eif.type == EIF::Weapon && eif.subtype == EIF::TwoHanded)
+	if (item_record.type == pub::ItemType::Weapon && item_record.subtype == ItemSubtypeTwoHanded)
 	{
 		if (this->paperdoll[Shield])
 		{
-			const EIF_Data& shield_eif = this->world->eif->Get(this->paperdoll[Shield]);
+			const pub::EifRecord& shield_record = this->world->eif->Get(this->paperdoll[Shield]);
 
-			if (eif.dual_wield_dollgraphic || (shield_eif.subtype != EIF::Arrows && shield_eif.subtype != EIF::Wings))
+			if (AsTwoHanded(item_record).dual_wield_doll_graphic || (shield_record.subtype != pub::ItemSubtype::Arrows && shield_record.subtype != pub::ItemSubtype::Wings))
 			{
 				this->StatusMsg(this->world->i18n.Format("two_handed_fail_1"));
 				return false;
@@ -1132,14 +1132,14 @@ bool Character::Equip(short item, unsigned char subloc)
 		}
 	}
 
-	if (eif.type == EIF::Shield)
+	if (item_record.type == pub::ItemType::Shield)
 	{
 		if (this->paperdoll[Weapon])
 		{
-			const EIF_Data& weapon_eif = this->world->eif->Get(this->paperdoll[Weapon]);
+			const pub::EifRecord& weapon_record = this->world->eif->Get(this->paperdoll[Weapon]);
 
-			if (weapon_eif.subtype == EIF::TwoHanded
-			 && (weapon_eif.dual_wield_dollgraphic || (eif.subtype != EIF::Arrows && eif.subtype != EIF::Wings)))
+			if (weapon_record.subtype == ItemSubtypeTwoHanded
+			 && (AsTwoHanded(weapon_record).dual_wield_doll_graphic || (item_record.subtype != pub::ItemSubtype::Arrows && item_record.subtype != pub::ItemSubtype::Wings)))
 			{
 				this->StatusMsg(this->world->i18n.Format("two_handed_fail_2"));
 				return false;
@@ -1147,28 +1147,28 @@ bool Character::Equip(short item, unsigned char subloc)
 		}
 	}
 
-	if (this->level < eif.levelreq || (this->clas != eif.classreq && ecf.base != eif.classreq)
-	 || this->display_str < eif.strreq || this->display_intl < eif.intreq
-	 || this->display_wis < eif.wisreq || this->display_agi < eif.agireq
-	 || this->display_con < eif.conreq || this->display_cha < eif.chareq)
+	if (this->level < item_record.level_requirement || (this->clas != item_record.class_requirement && class_record.parent_type != item_record.class_requirement)
+	 || this->display_str < item_record.str_requirement || this->display_intl < item_record.int_requirement
+	 || this->display_wis < item_record.wis_requirement || this->display_agi < item_record.agi_requirement
+	 || this->display_con < item_record.con_requirement || this->display_cha < item_record.cha_requirement)
 	{
 		return false;
 	}
 
-	switch (eif.type)
+	switch (item_record.type)
 	{
-		case EIF::Weapon: return character_equip_oneslot(this, item, subloc, Weapon);
-		case EIF::Shield: return character_equip_oneslot(this, item, subloc, Shield);
-		case EIF::Hat: return character_equip_oneslot(this, item, subloc, Hat);
-		case EIF::Boots: return character_equip_oneslot(this, item, subloc, Boots);
-		case EIF::Gloves: return character_equip_oneslot(this, item, subloc, Gloves);
-		case EIF::Accessory: return character_equip_oneslot(this, item, subloc, Accessory);
-		case EIF::Belt: return character_equip_oneslot(this, item, subloc, Belt);
-		case EIF::Armor: return character_equip_oneslot(this, item, subloc, Armor);
-		case EIF::Necklace: return character_equip_oneslot(this, item, subloc, Necklace);
-		case EIF::Ring: return character_equip_twoslot(this, item, subloc, Ring1, Ring2);
-		case EIF::Armlet: return character_equip_twoslot(this, item, subloc, Armlet1, Armlet2);
-		case EIF::Bracer: return character_equip_twoslot(this, item, subloc, Bracer1, Bracer2);
+		case pub::ItemType::Weapon: return character_equip_oneslot(this, item, subloc, Weapon);
+		case pub::ItemType::Shield: return character_equip_oneslot(this, item, subloc, Shield);
+		case pub::ItemType::Hat: return character_equip_oneslot(this, item, subloc, Hat);
+		case pub::ItemType::Boots: return character_equip_oneslot(this, item, subloc, Boots);
+		case pub::ItemType::Gloves: return character_equip_oneslot(this, item, subloc, Gloves);
+		case pub::ItemType::Accessory: return character_equip_oneslot(this, item, subloc, Accessory);
+		case pub::ItemType::Belt: return character_equip_oneslot(this, item, subloc, Belt);
+		case pub::ItemType::Armor: return character_equip_oneslot(this, item, subloc, Armor);
+		case pub::ItemType::Necklace: return character_equip_oneslot(this, item, subloc, Necklace);
+		case pub::ItemType::Ring: return character_equip_twoslot(this, item, subloc, Ring1, Ring2);
+		case pub::ItemType::Armlet: return character_equip_twoslot(this, item, subloc, Armlet1, Armlet2);
+		case pub::ItemType::Bracer: return character_equip_twoslot(this, item, subloc, Bracer1, Bracer2);
 		default: return false;
 	}
 }
@@ -1251,7 +1251,7 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation 
 	this->sitting = SIT_STAND;
 
 	this->npc = 0;
-	this->npc_type = ENF::NPC;
+	this->npc_type = pub::NpcType::Friendly;
 	this->board = 0;
 	this->jukebox_open = false;
 	this->guild_join = "";
@@ -1524,14 +1524,14 @@ void Character::CheckQuestRules()
 
 void Character::CalculateStats(bool trigger_quests)
 {
-	const ECF_Data& ecf = world->ecf->Get(this->clas);
+	const pub::EcfRecord& class_record = world->ecf->Get(this->clas);
 
-	this->adj_str = this->str + ecf.str;
-	this->adj_intl = this->intl + ecf.intl;
-	this->adj_wis = this->wis + ecf.wis;
-	this->adj_agi = this->agi + ecf.agi;
-	this->adj_con = this->con + ecf.con;
-	this->adj_cha = this->cha + ecf.cha;
+	this->adj_str = this->str + class_record.str;
+	this->adj_intl = this->intl + class_record.intl;
+	this->adj_wis = this->wis + class_record.wis;
+	this->adj_agi = this->agi + class_record.agi;
+	this->adj_con = this->con + class_record.con;
+	this->adj_cha = this->cha + class_record.cha;
 
 	this->maxweight = 70;
 	this->weight = 0;
@@ -1558,12 +1558,12 @@ void Character::CalculateStats(bool trigger_quests)
 	{
 		if (i)
 		{
-			const EIF_Data& item = this->world->eif->Get(i);
+			const pub::EifRecord& item = this->world->eif->Get(i);
 			this->weight += item.weight;
 			this->maxhp += item.hp;
 			this->maxtp += item.tp;
-			this->mindam += item.mindam;
-			this->maxdam += item.maxdam;
+			this->mindam += item.min_damage;
+			this->maxdam += item.max_damage;
 			this->accuracy += item.accuracy;
 			this->evade += item.evade;
 			this->armor += item.armor;
@@ -1616,13 +1616,13 @@ void Character::CalculateStats(bool trigger_quests)
 
 	if (this->world->config["UseClassFormulas"])
 	{
-		auto dam = static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".damage"]), formula_vars));
+		auto dam = static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(class_record.stat_group) + ".damage"]), formula_vars));
 
 		this->mindam += dam;
 		this->maxdam += dam;
-		this->armor += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".defence"]), formula_vars));
-		this->accuracy += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".accuracy"]), formula_vars));
-		this->evade += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(ecf.type) + ".evade"]), formula_vars));
+		this->armor += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(class_record.stat_group) + ".defence"]), formula_vars));
+		this->accuracy += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(class_record.stat_group) + ".accuracy"]), formula_vars));
+		this->evade += static_cast<short>(rpn_eval(rpn_parse(this->world->formulas_config["class." + util::to_string(class_record.stat_group) + ".evade"]), formula_vars));
 	}
 	else
 	{
@@ -1656,7 +1656,7 @@ void Character::DropAll(Character *killer)
 
 	while (it != this->inventory.end())
 	{
-		if (this->world->eif->Get(it->id).special == EIF::Lore)
+		if (this->world->eif->Get(it->id).special == pub::ItemSpecial::Lore)
 		{
 			++it;
 			continue;
@@ -1697,7 +1697,7 @@ void Character::DropAll(Character *killer)
 	int i = 0;
 	UTIL_FOREACH(this->paperdoll, id)
 	{
-		if (id == 0 || this->world->eif->Get(id).special == EIF::Lore || this->world->eif->Get(id).special == EIF::Cursed)
+		if (id == 0 || this->world->eif->Get(id).special == pub::ItemSpecial::Lore || this->world->eif->Get(id).special == pub::ItemSpecial::Cursed)
 		{
 			++i;
 			continue;
@@ -1997,17 +1997,19 @@ void Character::Undress(EquipLocation loc)
 
 Character::PaperdollGraphics Character::GetPaperdollGraphics()
 {
-	const EIF_Data& wep = this->world->eif->Get(this->paperdoll[Character::Weapon]);
+	const pub::EifRecord& wep = this->world->eif->Get(this->paperdoll[Character::Weapon]);
 
 	PaperdollGraphics graphics;
-	graphics.boots = this->world->eif->Get(this->paperdoll[Character::Boots]).dollgraphic;
-	graphics.armor = this->world->eif->Get(this->paperdoll[Character::Armor]).dollgraphic;
-	graphics.hat = this->world->eif->Get(this->paperdoll[Character::Hat]).dollgraphic;
-	graphics.weapon = wep.dollgraphic;
-	graphics.shield = this->world->eif->Get(this->paperdoll[Character::Shield]).dollgraphic;
+	graphics.boots = AsEquipment(this->world->eif->Get(this->paperdoll[Character::Boots])).doll_graphic;
+	graphics.armor = AsEquipment(this->world->eif->Get(this->paperdoll[Character::Armor])).doll_graphic;
+	graphics.hat = AsEquipment(this->world->eif->Get(this->paperdoll[Character::Hat])).doll_graphic;
+	graphics.weapon = AsEquipment(wep).doll_graphic;
+	graphics.shield = AsEquipment(this->world->eif->Get(this->paperdoll[Character::Shield])).doll_graphic;
 
-	if (wep.subtype == EIF::TwoHanded && wep.dual_wield_dollgraphic)
-		graphics.shield = wep.dual_wield_dollgraphic;
+	const ItemTwoHandedSpec two_handed = AsTwoHanded(wep);
+
+	if (wep.subtype == ItemSubtypeTwoHanded && two_handed.dual_wield_doll_graphic)
+		graphics.shield = two_handed.dual_wield_doll_graphic;
 
 	if (this->cosmetic_paperdoll[Character::Boots])  graphics.boots = this->cosmetic_paperdoll[Character::Boots];
 	if (this->cosmetic_paperdoll[Character::Armor])  graphics.armor = this->cosmetic_paperdoll[Character::Armor];

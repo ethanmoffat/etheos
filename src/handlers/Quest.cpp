@@ -56,7 +56,7 @@ static void open_quest_dialog(Character* character, NPC* npc, int quest_id, int 
 	if (!dialogs.empty())
 	{
 		character->npc = npc;
-		character->npc_type = ENF::Quest;
+		character->npc_type = pub::NpcType::Quest;
 
 		PacketBuilder reply(PACKET_QUEST, PACKET_DIALOG, 10);
 		reply.AddChar(static_cast<unsigned char>(dialogs.size())); // quest count
@@ -95,9 +95,9 @@ void Quest_Use(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == npc_index && npc->ENF().type == ENF::Quest && character->InRange(npc))
+		if (npc->index == npc_index && npc->PubData().type == pub::NpcType::Quest && character->InRange(npc))
 		{
-			short vendor_id = npc->ENF().vendor_id;
+			short vendor_id = npc->PubData().behavior_id;
 
 			if (vendor_id < 1)
 				continue;
@@ -150,9 +150,9 @@ void Quest_Accept(Character *character, PacketReader &reader)
 	if (type == DIALOG_REPLY_LINK)
 		action = reader.GetChar();
 
-	if (character->npc_type == ENF::Quest)
+	if (character->npc_type == pub::NpcType::Quest)
 	{
-		short vendor_id = character->npc->ENF().vendor_id;
+		short vendor_id = character->npc->PubData().behavior_id;
 		std::shared_ptr<Quest_Context> quest;
 
 		auto it = character->quests.find(quest_id);

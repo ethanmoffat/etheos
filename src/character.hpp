@@ -223,7 +223,7 @@ class Character : public Command_Source
 		PartyRequestType party_send_type;
 
 		NPC *npc;
-		ENF::Type npc_type;
+		eolib::protocol::pub::NpcType npc_type;
 		Board *board;
 		bool jukebox_open;
 		std::string guild_join;

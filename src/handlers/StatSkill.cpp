@@ -30,7 +30,7 @@ void StatSkill_Open(Character *character, PacketReader &reader)
 		if (npc->index == id && npc->Data().skill_learn.size() > 0)
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Skills;
+			character->npc_type = pub::NpcType::Trainer;
 
 			PacketBuilder reply(PACKET_STATSKILL, PACKET_OPEN, 2 + npc->Data().skill_name.length() + npc->Data().skill_learn.size() * 28);
 			reply.AddShort(npc->id);
@@ -70,7 +70,7 @@ void StatSkill_Take(Character *character, PacketReader &reader)
 	if (character->HasSpell(spell_id))
 		return;
 
-	if (character->npc_type == ENF::Skills)
+	if (character->npc_type == pub::NpcType::Trainer)
 	{
 		UTIL_FOREACH_CREF(character->npc->Data().skill_learn, spell)
 		{
@@ -131,7 +131,7 @@ void StatSkill_Remove(Character *character, PacketReader &reader)
 	/*int shopid = */reader.GetInt();
 	short spell_id = reader.GetShort();
 
-	if (character->npc_type == ENF::Skills)
+	if (character->npc_type == pub::NpcType::Trainer)
 	{
 		if (character->DelSpell(spell_id))
 		{
@@ -229,7 +229,7 @@ void StatSkill_Junk(Character *character, PacketReader &reader)
 	(void)reader;
 	/*int shopid = reader.GetInt();*/
 
-	if (character->npc_type == ENF::Skills)
+	if (character->npc_type == pub::NpcType::Trainer)
 	{
 		character->Reset();
 

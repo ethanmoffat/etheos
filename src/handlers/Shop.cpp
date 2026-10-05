@@ -31,7 +31,7 @@ void Shop_Create(Character *character, PacketReader &reader)
 	short item = reader.GetShort();
 	/*int shopid = reader.GetInt();*/
 
-	if (character->npc_type == ENF::Shop)
+	if (character->npc_type == pub::NpcType::Shop)
 	{
 		UTIL_FOREACH_CREF(character->npc->Data().shop_craft, checkitem)
 		{
@@ -81,7 +81,7 @@ void Shop_Buy(Character *character, PacketReader &reader)
 
 	// TODO: Limit number of items bought to under weight
 
-	if (character->npc_type == ENF::Shop)
+	if (character->npc_type == pub::NpcType::Shop)
 	{
 		UTIL_FOREACH_CREF(character->npc->Data().shop_trade, checkitem)
 		{
@@ -125,7 +125,7 @@ void Shop_Sell(Character *character, PacketReader &reader)
 
 	if (amount <= 0 || amount > static_cast<int>(character->world->config["MaxItem"])) return;
 
-	if (character->npc_type == ENF::Shop)
+	if (character->npc_type == pub::NpcType::Shop)
 	{
 		UTIL_FOREACH_CREF(character->npc->Data().shop_trade, checkitem)
 		{
@@ -169,7 +169,7 @@ void Shop_Open(Character *character, PacketReader &reader)
 		if (npc->index == id && (npc->Data().shop_trade.size() > 0 || npc->Data().shop_craft.size() > 0))
 		{
 			character->npc = npc;
-			character->npc_type = ENF::Shop;
+			character->npc_type = pub::NpcType::Shop;
 
 			PacketBuilder reply(PACKET_SHOP, PACKET_OPEN,
 				5 + npc->Data().shop_name.length() + npc->Data().shop_trade.size() * 9 + npc->Data().shop_craft.size() * 14);

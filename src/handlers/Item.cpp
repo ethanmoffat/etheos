@@ -41,9 +41,9 @@ void Item_Use(Character *character, PacketReader &reader)
 		return;
 	}
 
-	const EIF_Data& item = character->world->eif->Get(id);
+	const pub::EifRecord& item = character->world->eif->Get(id);
 	PacketBuilder reply(PACKET_ITEM, PACKET_REPLY, 3);
-	reply.AddChar(item.type);
+	reply.AddChar(static_cast<int>(item.type));
 	reply.AddShort(id);
 
 	auto QuestUsedItems = [](Character* character, int id)
@@ -59,19 +59,21 @@ void Item_Use(Character *character, PacketReader &reader)
 
 	switch (item.type)
 	{
-		case EIF::Teleport:
+		case pub::ItemType::Teleport:
 		{
 			if (!character->map->scroll)
 				break;
 
-			if (item.scrollmap == 0)
+			const ItemScrollSpec scroll = AsScroll(item);
+
+			if (scroll.map == 0)
 			{
 				if (character->mapid == character->SpawnMap() && character->x == character->SpawnX() && character->y == character->SpawnY())
 					break;
 			}
 			else
 			{
-				if (character->mapid == item.scrollmap && character->x == item.scrollx && character->y == item.scrolly)
+				if (character->mapid == scroll.map && character->x == scroll.x && character->y == scroll.y)
 					break;
 			}
 
@@ -82,13 +84,13 @@ void Item_Use(Character *character, PacketReader &reader)
 			reply.AddChar(static_cast<unsigned char>(character->weight));
 			reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
-			if (item.scrollmap == 0)
+			if (scroll.map == 0)
 			{
 				character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_SCROLL);
 			}
 			else
 			{
-				character->Warp(item.scrollmap, item.scrollx, item.scrolly, WARP_ANIMATION_SCROLL);
+				character->Warp(scroll.map, scroll.x, scroll.y, WARP_ANIMATION_SCROLL);
 			}
 
 			character->Send(reply);
@@ -97,7 +99,7 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::Heal:
+		case pub::ItemType::Heal:
 		{
 			int hpgain = item.hp;
 			int tpgain = item.tp;
@@ -158,12 +160,14 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::HairDye:
+		case pub::ItemType::HairDye:
 		{
-			if (character->haircolor == item.haircolor)
+			const ItemHairDyeSpec dye = AsHairDye(item);
+
+			if (character->haircolor == dye.hair_color)
 				break;
 
-			character->haircolor = item.haircolor;
+			character->haircolor = dye.hair_color;
 
 			character->DelItem(id, 1);
 
@@ -172,13 +176,13 @@ void Item_Use(Character *character, PacketReader &reader)
 			reply.AddChar(static_cast<unsigned char>(character->weight));
 			reply.AddChar(static_cast<unsigned char>(character->maxweight));
 
-			reply.AddChar(item.haircolor);
+			reply.AddChar(dye.hair_color);
 
 			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 5);
 			builder.AddShort(character->PlayerID());
 			builder.AddChar(SLOT_HAIRCOLOR);
 			builder.AddChar(0); // subloc
-			builder.AddChar(item.haircolor);
+			builder.AddChar(dye.hair_color);
 
 			UTIL_FOREACH(character->map->characters, updatecharacter)
 			{
@@ -194,7 +198,7 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::Beer:
+		case pub::ItemType::Alcohol:
 		{
 			character->DelItem(id, 1);
 
@@ -209,7 +213,7 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::EffectPotion:
+		case pub::ItemType::EffectPotion:
 		{
 			character->DelItem(id, 1);
 
@@ -217,9 +221,9 @@ void Item_Use(Character *character, PacketReader &reader)
 			reply.AddInt(character->HasItem(id));
 			reply.AddChar(static_cast<unsigned char>(character->weight));
 			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-			reply.AddShort(item.effect);
+			reply.AddShort(AsEffectPotion(item).effect);
 
-			character->Effect(item.effect, false);
+			character->Effect(AsEffectPotion(item).effect, false);
 
 			character->Send(reply);
 
@@ -227,13 +231,13 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::CureCurse:
+		case pub::ItemType::CureCurse:
 		{
 			bool found = false;
 
 			for (std::size_t i = 0; i < character->paperdoll.size(); ++i)
 			{
-				if (character->world->eif->Get(character->paperdoll[i]).special == EIF::Cursed)
+				if (character->world->eif->Get(character->paperdoll[i]).special == pub::ItemSpecial::Cursed)
 				{
 					character->paperdoll[i] = 0;
 					found = true;
@@ -288,11 +292,11 @@ void Item_Use(Character *character, PacketReader &reader)
 		}
 		break;
 
-		case EIF::EXPReward:
+		case pub::ItemType::ExpReward:
 		{
 			bool level_up = false;
 
-			character->exp += item.expreward;
+			character->exp += AsExpReward(item).exp;
 
 			character->exp = std::min(character->exp, static_cast<int>(character->map->world->config["MaxExp"]));
 
@@ -356,7 +360,7 @@ void Item_Drop(Character *character, PacketReader &reader)
 	int id = reader.GetShort();
 	int amount;
 
-	if (character->world->eif->Get(id).special == EIF::Lore)
+	if (character->world->eif->Get(id).special == pub::ItemSpecial::Lore)
 	{
 		return;
 	}

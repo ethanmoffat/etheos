@@ -71,7 +71,7 @@ void Priest_Open(Character *character, PacketReader &reader)
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == id && npc->ENF().type == ENF::Priest)
+		if (npc->index == id && npc->PubData().type == pub::NpcType::Priest)
 		{
 			if (character->map->wedding->Busy())
 			{
@@ -82,7 +82,7 @@ void Priest_Open(Character *character, PacketReader &reader)
 			else
 			{
 				character->npc = npc;
-				character->npc_type = ENF::Priest;
+				character->npc_type = pub::NpcType::Priest;
 
 				PacketBuilder reply(PACKET_PRIEST, PACKET_OPEN, 4);
 				reply.AddInt(npc->id);
@@ -122,7 +122,7 @@ void Priest_Request(Character *character, PacketReader &reader)
 	reader.GetByte();
 	std::string name = util::lowercase(reader.GetEndString());
 
-	if (character->npc_type == ENF::Priest)
+	if (character->npc_type == pub::NpcType::Priest)
 	{
 		if (character->map->wedding->Busy())
 		{
