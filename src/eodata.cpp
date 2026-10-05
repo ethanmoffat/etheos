@@ -1,4 +1,3 @@
-
 /* $Id$
  * EOSERV is released under the zlib license.
  * See LICENSE.txt for more info.
@@ -7,125 +6,131 @@
 #include "eodata.hpp"
 
 #include "console.hpp"
-#include "packet.hpp"
+#include "eodata_file.hpp"
 
-#include <cstdio>
+#include <eolib/protocol/pub/structs.hpp>
+
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
-static const char *eodata_safe_fail_filename;
+namespace pub = eolib::protocol::pub;
 
-static void eodata_safe_fail(int line)
+// File type, rid, record count and version
+static constexpr std::size_t pub_header_size = 10;
+
+template <typename TPub> static TPub ReadPub(const std::string& filename)
 {
-	Console::Err("Invalid file / failed read/seek: %s -- %i", eodata_safe_fail_filename, line);
-	std::exit(1);
-}
+	std::vector<std::uint8_t> content;
 
-#define SAFE_SEEK(fh, offset, from) if (std::fseek(fh, offset, from) != 0) { std::fclose(fh); eodata_safe_fail(__LINE__); }
-#define SAFE_READ(buf, size, count, fh) if (std::fread(buf, size, count, fh) != static_cast<std::size_t>(count)) { std::fclose(fh); eodata_safe_fail(__LINE__); }
-
-void EIF::Read(const std::string& filename)
-{
-	this->data.clear();
-
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-	eodata_safe_fail_filename = filename.c_str();
-
-	if (!fh)
+	if (!EODataFile::Read(filename, content))
 	{
 		Console::Err("Could not load file: %s", filename.c_str());
 		std::exit(1);
 	}
 
-	SAFE_SEEK(fh, 3, SEEK_SET);
-	SAFE_READ(this->rid.data(), sizeof(char), 4, fh);
-	SAFE_READ(this->len.data(), sizeof(char), 2, fh);
-	int numobj = PacketProcessor::Number(this->len[0], this->len[1]);
-	SAFE_SEEK(fh, 1, SEEK_CUR);
-
-	unsigned char namesize;
-	std::string name;
-	char buf[EIF::DATA_SIZE] = {0};
-
-	this->data.resize(numobj+1);
-
-	SAFE_READ(static_cast<void *>(&namesize), sizeof(char), 1, fh);
-	for (int i = 1; i <= numobj; ++i)
+	if (content.size() < pub_header_size)
 	{
-		EIF_Data& newdata = this->data[i];
+		Console::Err("Invalid file: %s", filename.c_str());
+		std::exit(1);
+	}
 
-		namesize = PacketProcessor::Number(namesize);
-		name.resize(namesize);
-		SAFE_READ(&name[0], sizeof(char), namesize, fh);
-		SAFE_READ(buf, sizeof(char), EIF::DATA_SIZE, fh);
+	TPub file;
+	EODataFile::Deserialize(filename, content, file);
+	return file;
+}
 
-		newdata.id = i;
-		newdata.name = name;
+// Converts each record into data, after the empty placeholder at data[0] that Get returns for an unknown id. Ids
+// start at 1. A trailing record named "eof" is the end-of-file marker some editors write, and isn't loaded.
+template <typename TData, typename TRecord, typename TConvert>
+static void LoadRecords(const std::string& filename, int length, const std::vector<TRecord>& records,
+	std::vector<TData>& data, TConvert convert)
+{
+	if (static_cast<int>(records.size()) != length)
+	{
+		Console::Wrn("File may be invalid: %s (has %zu records, header says %i)", filename.c_str(), records.size(),
+			length);
+	}
 
-		newdata.graphic = PacketProcessor::Number(buf[0], buf[1]);
-		newdata.type = static_cast<EIF::Type>(PacketProcessor::Number(buf[2]));
-		newdata.subtype = static_cast<EIF::SubType>(PacketProcessor::Number(buf[3]));
+	data.clear();
+	data.resize(records.size() + 1);
+
+	for (std::size_t i = 0; i < records.size(); ++i)
+	{
+		TData& newdata = data[i + 1];
+		newdata.id = static_cast<int>(i + 1);
+		newdata.name = records[i].name;
+		convert(records[i], newdata);
+	}
+
+	if (data.size() > 1 && data.back().name == "eof")
+	{
+		data.pop_back();
+	}
+}
+
+void EIF::Read(const std::string& filename)
+{
+	const auto file = ReadPub<pub::Eif>(filename);
+	this->rid = file.rid;
+	this->length = file.total_items_count;
+
+	LoadRecords(filename, this->length, file.items, this->data, [](const pub::EifRecord& record, EIF_Data& newdata)
+	{
+		newdata.graphic = record.graphic_id;
+		newdata.type = static_cast<EIF::Type>(record.type);
+		newdata.subtype = static_cast<EIF::SubType>(record.subtype);
 		// Ranged gun hack
 		if (newdata.id == 365 && newdata.name == "Gun")
 		{
 			newdata.subtype = EIF::Ranged;
 		}
 		// / Ranged gun hack
-		newdata.special = static_cast<EIF::Special>(PacketProcessor::Number(buf[4]));
-		newdata.hp = PacketProcessor::Number(buf[5], buf[6]);
-		newdata.tp = PacketProcessor::Number(buf[7], buf[8]);
-		newdata.mindam = PacketProcessor::Number(buf[9], buf[10]);
-		newdata.maxdam = PacketProcessor::Number(buf[11], buf[12]);
-		newdata.accuracy = PacketProcessor::Number(buf[13], buf[14]);
-		newdata.evade = PacketProcessor::Number(buf[15], buf[16]);
-		newdata.armor = PacketProcessor::Number(buf[17], buf[18]);
+		newdata.special = static_cast<EIF::Special>(record.special);
+		newdata.hp = record.hp;
+		newdata.tp = record.tp;
+		newdata.mindam = record.min_damage;
+		newdata.maxdam = record.max_damage;
+		newdata.accuracy = record.accuracy;
+		newdata.evade = record.evade;
+		newdata.armor = record.armor;
 
-		newdata.str = PacketProcessor::Number(buf[20]);
-		newdata.intl = PacketProcessor::Number(buf[21]);
-		newdata.wis = PacketProcessor::Number(buf[22]);
-		newdata.agi = PacketProcessor::Number(buf[23]);
-		newdata.con = PacketProcessor::Number(buf[24]);
-		newdata.cha = PacketProcessor::Number(buf[25]);
+		newdata.str = record.str;
+		newdata.intl = record.intl;
+		newdata.wis = record.wis;
+		newdata.agi = record.agi;
+		newdata.con = record.con;
+		newdata.cha = record.cha;
 
-		newdata.light = PacketProcessor::Number(buf[26]);
-		newdata.dark = PacketProcessor::Number(buf[27]);
-		newdata.earth = PacketProcessor::Number(buf[28]);
-		newdata.air = PacketProcessor::Number(buf[29]);
-		newdata.water = PacketProcessor::Number(buf[30]);
-		newdata.fire = PacketProcessor::Number(buf[31]);
+		newdata.light = record.light_resistance;
+		newdata.dark = record.dark_resistance;
+		newdata.earth = record.earth_resistance;
+		newdata.air = record.air_resistance;
+		newdata.water = record.water_resistance;
+		newdata.fire = record.fire_resistance;
 
-		newdata.scrollmap = PacketProcessor::Number(buf[32], buf[33], buf[34]);
-		newdata.scrollx = PacketProcessor::Number(buf[35]);
-		newdata.scrolly = PacketProcessor::Number(buf[36]);
+		newdata.scrollmap = record.spec1;
+		newdata.scrollx = record.spec2;
+		newdata.scrolly = record.spec3;
 
-		newdata.levelreq = PacketProcessor::Number(buf[37], buf[38]);
-		newdata.classreq = PacketProcessor::Number(buf[39], buf[40]);
+		newdata.levelreq = record.level_requirement;
+		newdata.classreq = record.class_requirement;
 
-		newdata.strreq = PacketProcessor::Number(buf[41], buf[42]);
-		newdata.intreq = PacketProcessor::Number(buf[43], buf[44]);
-		newdata.wisreq = PacketProcessor::Number(buf[45], buf[46]);
-		newdata.agireq = PacketProcessor::Number(buf[47], buf[48]);
-		newdata.conreq = PacketProcessor::Number(buf[49], buf[50]);
-		newdata.chareq = PacketProcessor::Number(buf[51], buf[52]);
+		newdata.strreq = record.str_requirement;
+		newdata.intreq = record.int_requirement;
+		newdata.wisreq = record.wis_requirement;
+		newdata.agireq = record.agi_requirement;
+		newdata.conreq = record.con_requirement;
+		newdata.chareq = record.cha_requirement;
 
-		newdata.weight = PacketProcessor::Number(buf[55]);
+		newdata.weight = record.weight;
 
-		newdata.size = static_cast<EIF::Size>(PacketProcessor::Number(buf[57]));
-
-		if (std::fread(static_cast<void *>(&namesize), sizeof(char), 1, fh) != 1)
-		{
-			break;
-		}
-	}
-
-	if (this->data.back().name.compare("eof") == 0)
-	{
-		this->data.pop_back();
-	}
+		newdata.size = static_cast<EIF::Size>(record.size);
+	});
 
 	Console::Out("%i items loaded.", this->data.size()-1);
-
-	std::fclose(fh);
 }
 
 EIF_Data& EIF::Get(unsigned int id)
@@ -157,73 +162,31 @@ unsigned int EIF::GetKey(int keynum) const
 
 void ENF::Read(const std::string& filename)
 {
-	this->data.clear();
+	const auto file = ReadPub<pub::Enf>(filename);
+	this->rid = file.rid;
+	this->length = file.total_npcs_count;
 
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-	eodata_safe_fail_filename = filename.c_str();
-
-	if (!fh)
+	LoadRecords(filename, this->length, file.npcs, this->data, [](const pub::EnfRecord& record, ENF_Data& newdata)
 	{
-		Console::Err("Could not load file: %s", filename.c_str());
-		std::exit(1);
-	}
+		newdata.graphic = record.graphic_id;
 
-	SAFE_SEEK(fh, 3, SEEK_SET);
-	SAFE_READ(this->rid.data(), sizeof(char), 4, fh);
-	SAFE_READ(this->len.data(), sizeof(char), 2, fh);
-	int numobj = PacketProcessor::Number(this->len[0], this->len[1]);
-	SAFE_SEEK(fh, 1, SEEK_CUR);
+		newdata.boss = record.boss;
+		newdata.child = record.child;
+		newdata.type = static_cast<ENF::Type>(record.type);
+		newdata.vendor_id = record.behavior_id;
+		newdata.hp = record.hp;
 
-	unsigned char namesize;
-	std::string name;
-	char buf[ENF::DATA_SIZE] = {0};
+		newdata.mindam = record.min_damage;
+		newdata.maxdam = record.max_damage;
 
-	this->data.resize(numobj+1);
+		newdata.accuracy = record.accuracy;
+		newdata.evade = record.evade;
+		newdata.armor = record.armor;
 
-	SAFE_READ(static_cast<void *>(&namesize), sizeof(char), 1, fh);
-	for (int i = 1; i <= numobj; ++i)
-	{
-		ENF_Data& newdata = this->data[i];
-
-		namesize = PacketProcessor::Number(namesize);
-		name.resize(namesize);
-		SAFE_READ(&name[0], sizeof(char), namesize, fh);
-		SAFE_READ(buf, sizeof(char), ENF::DATA_SIZE, fh);
-
-		newdata.id = i;
-		newdata.name = name;
-
-		newdata.graphic = PacketProcessor::Number(buf[0], buf[1]);
-
-		newdata.boss = PacketProcessor::Number(buf[3], buf[4]);
-		newdata.child = PacketProcessor::Number(buf[5], buf[6]);
-		newdata.type = static_cast<ENF::Type>(PacketProcessor::Number(buf[7], buf[8]));
-		newdata.vendor_id = PacketProcessor::Number(buf[9], buf[10]);
-		newdata.hp = PacketProcessor::Number(buf[11], buf[12], buf[13]);
-
-		newdata.mindam = PacketProcessor::Number(buf[16], buf[17]);
-		newdata.maxdam = PacketProcessor::Number(buf[18], buf[19]);
-
-		newdata.accuracy = PacketProcessor::Number(buf[20], buf[21]);
-		newdata.evade = PacketProcessor::Number(buf[22], buf[23]);
-		newdata.armor = PacketProcessor::Number(buf[24], buf[25]);
-
-		newdata.exp = PacketProcessor::Number(buf[36], buf[37], buf[38]);
-
-		if (std::fread(static_cast<void *>(&namesize), sizeof(char), 1, fh) != 1)
-		{
-			break;
-		}
-	}
-
-	if (this->data.back().name.compare("eof") == 0)
-	{
-		this->data.pop_back();
-	}
+		newdata.exp = record.experience;
+	});
 
 	Console::Out("%i npc types loaded.", this->data.size()-1);
-
-	std::fclose(fh);
 }
 
 ENF_Data& ENF::Get(unsigned int id)
@@ -244,89 +207,31 @@ const ENF_Data& ENF::Get(unsigned int id) const
 
 void ESF::Read(const std::string& filename)
 {
-	this->data.clear();
+	const auto file = ReadPub<pub::Esf>(filename);
+	this->rid = file.rid;
+	this->length = file.total_skills_count;
 
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-	eodata_safe_fail_filename = filename.c_str();
-
-	if (!fh)
+	LoadRecords(filename, this->length, file.skills, this->data, [](const pub::EsfRecord& record, ESF_Data& newdata)
 	{
-		Console::Err("Could not load file: %s", filename.c_str());
-		std::exit(1);
-	}
+		newdata.shout = record.chant;
 
-	SAFE_SEEK(fh, 3, SEEK_SET);
-	SAFE_READ(this->rid.data(), sizeof(char), 4, fh);
-	SAFE_READ(this->len.data(), sizeof(char), 2, fh);
-	int numobj = PacketProcessor::Number(this->len[0], this->len[1]);
-	SAFE_SEEK(fh, 1, SEEK_CUR);
+		newdata.icon = record.icon_id;
+		newdata.graphic = record.graphic_id;
+		newdata.tp = record.tp_cost;
+		newdata.sp = record.sp_cost;
+		newdata.cast_time = record.cast_time;
 
-	unsigned char namesize, shoutsize;
-	std::string name, shout;
-	char buf[ESF::DATA_SIZE] = {0};
+		newdata.type = static_cast<ESF::Type>(record.type);
+		newdata.target_restrict = static_cast<ESF::TargetRestrict>(record.target_restrict);
+		newdata.target = static_cast<ESF::Target>(record.target_type);
 
-	this->data.resize(numobj+1);
-
-	SAFE_READ(static_cast<void *>(&namesize), sizeof(char), 1, fh);
-	SAFE_READ(static_cast<void *>(&shoutsize), sizeof(char), 1, fh);
-	for (int i = 1; i <= numobj; ++i)
-	{
-		ESF_Data& newdata = this->data[i];
-
-		namesize = PacketProcessor::Number(namesize);
-		name.resize(namesize);
-		if (namesize > 0)
-		{
-			SAFE_READ(&name[0], sizeof(char), namesize, fh);
-		}
-
-		shoutsize = PacketProcessor::Number(shoutsize);
-		shout.resize(shoutsize);
-		if (shoutsize > 0)
-		{
-			SAFE_READ(&shout[0], sizeof(char), shoutsize, fh);
-		}
-
-		SAFE_READ(buf, sizeof(char), ESF::DATA_SIZE, fh);
-
-		newdata.id = i;
-		newdata.name = name;
-		newdata.shout = shout;
-
-		newdata.icon = PacketProcessor::Number(buf[0], buf[1]);
-		newdata.graphic = PacketProcessor::Number(buf[2], buf[3]);
-		newdata.tp = PacketProcessor::Number(buf[4], buf[5]);
-		newdata.sp = PacketProcessor::Number(buf[6], buf[7]);
-		newdata.cast_time = PacketProcessor::Number(buf[8]);
-
-		newdata.type = static_cast<ESF::Type>(PacketProcessor::Number(buf[11]));
-		newdata.target_restrict = static_cast<ESF::TargetRestrict>(PacketProcessor::Number(buf[17]));
-		newdata.target = static_cast<ESF::Target>(PacketProcessor::Number(buf[18]));
-
-		newdata.mindam = PacketProcessor::Number(buf[23], buf[24]);
-		newdata.maxdam = PacketProcessor::Number(buf[25], buf[26]);
-		newdata.accuracy = PacketProcessor::Number(buf[27], buf[28]);
-		newdata.hp = PacketProcessor::Number(buf[34], buf[35]);
-
-		if (std::fread(static_cast<void *>(&namesize), sizeof(char), 1, fh) != 1)
-		{
-			break;
-		}
-
-		if (std::fread(static_cast<void *>(&shoutsize), sizeof(char), 1, fh) != 1)
-		{
-			break;
-		}
-	}
-
-	if (this->data.back().name.compare("eof") == 0)
-	{
-		this->data.pop_back();
-	}
+		newdata.mindam = record.min_damage;
+		newdata.maxdam = record.max_damage;
+		newdata.accuracy = record.accuracy;
+		newdata.hp = record.hp_heal;
+	});
 
 	Console::Out("%i spells loaded.", this->data.size()-1);
-
-	std::fclose(fh);
 }
 
 ESF_Data& ESF::Get(unsigned int id)
@@ -347,67 +252,24 @@ const ESF_Data& ESF::Get(unsigned int id) const
 
 void ECF::Read(const std::string& filename)
 {
-	this->data.clear();
+	const auto file = ReadPub<pub::Ecf>(filename);
+	this->rid = file.rid;
+	this->length = file.total_classes_count;
 
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-	eodata_safe_fail_filename = filename.c_str();
-
-	if (!fh)
+	LoadRecords(filename, this->length, file.classes, this->data, [](const pub::EcfRecord& record, ECF_Data& newdata)
 	{
-		Console::Err("Could not load file: %s", filename.c_str());
-		std::exit(1);
-	}
+		newdata.base = record.parent_type;
+		newdata.type = record.stat_group;
 
-	SAFE_SEEK(fh, 3, SEEK_SET);
-	SAFE_READ(this->rid.data(), sizeof(char), 4, fh);
-	SAFE_READ(this->len.data(), sizeof(char), 2, fh);
-	int numobj = PacketProcessor::Number(this->len[0], this->len[1]);
-	SAFE_SEEK(fh, 1, SEEK_CUR);
-
-	unsigned char namesize;
-	std::string name;
-	char buf[ECF::DATA_SIZE] = {0};
-
-	this->data.resize(numobj+1);
-
-	SAFE_READ(static_cast<void *>(&namesize), sizeof(char), 1, fh);
-	for (int i = 1; i <= numobj; ++i)
-	{
-		ECF_Data& newdata = this->data[i];
-
-		namesize = PacketProcessor::Number(namesize);
-		name.resize(namesize);
-		SAFE_READ(&name[0], sizeof(char), namesize, fh);
-
-		SAFE_READ(buf, sizeof(char), ECF::DATA_SIZE, fh);
-
-		newdata.id = i;
-		newdata.name = name;
-
-		newdata.base = PacketProcessor::Number(buf[0]);
-		newdata.type = PacketProcessor::Number(buf[1]);
-
-		newdata.str = PacketProcessor::Number(buf[2], buf[3]);
-		newdata.intl = PacketProcessor::Number(buf[4], buf[5]);
-		newdata.wis = PacketProcessor::Number(buf[6], buf[7]);
-		newdata.agi = PacketProcessor::Number(buf[8], buf[9]);
-		newdata.con = PacketProcessor::Number(buf[10], buf[11]);
-		newdata.cha = PacketProcessor::Number(buf[12], buf[13]);
-
-		if (std::fread(static_cast<void *>(&namesize), sizeof(char), 1, fh) != 1)
-		{
-			break;
-		}
-	}
-
-	if (this->data.back().name.compare("eof") == 0)
-	{
-		this->data.pop_back();
-	}
+		newdata.str = record.str;
+		newdata.intl = record.intl;
+		newdata.wis = record.wis;
+		newdata.agi = record.agi;
+		newdata.con = record.con;
+		newdata.cha = record.cha;
+	});
 
 	Console::Out("%i classes loaded.", this->data.size()-1);
-
-	std::fclose(fh);
 }
 
 ECF_Data& ECF::Get(unsigned int id)
@@ -425,6 +287,3 @@ const ECF_Data& ECF::Get(unsigned int id) const
 	else
 		return this->data[0];
 }
-
-#undef SAFE_SEEK
-#undef SAFE_READ

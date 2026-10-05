@@ -23,6 +23,8 @@
 #include "eodata.hpp"
 #include "map.hpp"
 
+#include <eolib/protocol/net/packet.hpp>
+
 #include <array>
 #include <deque>
 #include <list>
@@ -384,6 +386,7 @@ class Character : public Command_Source
 		std::string GetChatLogDump();
 
 		void Send(const PacketBuilder &);
+		void Send(const eolib::protocol::net::Packet& packet);
 
 		void ShowInfoBox(const std::string& title, const std::vector<std::string>& lines);
 		void ShowInfoBox(const std::string& title, const std::string& content);

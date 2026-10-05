@@ -43,6 +43,14 @@ public:
         character->haircolor = 0;
         character->race = SKIN_WHITE;
         character->admin = ADMIN_PLAYER;
+        character->party = nullptr;
+        character->arena = nullptr;
+        character->next_arena = nullptr;
+        character->trade_partner = nullptr;
+        character->npc = nullptr;
+        character->board = nullptr;
+        character->spell_event = nullptr;
+        character->map = nullptr;
         character->paperdoll.fill(0);
         character->cosmetic_paperdoll.fill(0);
         player->characters.push_back(character);

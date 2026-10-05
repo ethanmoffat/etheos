@@ -16,6 +16,8 @@
 
 #include "../util.hpp"
 
+#include <eolib/data/number_encoder.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <memory>
@@ -384,8 +386,8 @@ void Item_Drop(Character *character, PacketReader &reader)
 	}
 	else
 	{
-		x = PacketProcessor::Number(x);
-		y = PacketProcessor::Number(y);
+		x = eolib::data::NumberEncoder::DecodeNumber(&x, 1);
+		y = eolib::data::NumberEncoder::DecodeNumber(&y, 1);
 	}
 
 	int distance = util::path_length(x, y, character->x, character->y);

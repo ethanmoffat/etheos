@@ -1231,19 +1231,9 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation 
 		builder.AddChar(WARP_SWITCH);
 		builder.AddShort(map);
 
-		if (this->world->config["GlobalPK"] && !this->world->PKExcept(map))
-		{
-			builder.AddByte(0xFF);
-			builder.AddByte(0x01);
-		}
-		else
-		{
-			builder.AddByte(this->world->GetMap(map)->rid[0]);
-			builder.AddByte(this->world->GetMap(map)->rid[1]);
-		}
-
-		builder.AddByte(this->world->GetMap(map)->rid[2]);
-		builder.AddByte(this->world->GetMap(map)->rid[3]);
+		const auto rid = this->world->GetMap(map)->ClientRid();
+		builder.AddShort(rid[0]);
+		builder.AddShort(rid[1]);
 		builder.AddThree(this->world->GetMap(map)->filesize);
 		builder.AddChar(0); // ?
 		builder.AddChar(0); // ?
@@ -2076,6 +2066,11 @@ std::string Character::GetChatLogDump()
 void Character::Send(const PacketBuilder &builder)
 {
 	this->player->Send(builder);
+}
+
+void Character::Send(const eolib::protocol::net::Packet& packet)
+{
+	this->player->Send(packet);
 }
 
 // thanks cirras <3

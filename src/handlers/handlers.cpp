@@ -20,7 +20,6 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
 namespace Handlers
 {
@@ -45,7 +44,7 @@ bool DeserializePacket(EOClient* client, const QueuedPacket& packet, net::Packet
 {
 	try
 	{
-		eolib::data::EoReader reader(std::string_view(packet.payload));
+		eolib::data::EoReader reader(packet.payload.data(), packet.payload.size());
 		typed_packet.Deserialize(reader);
 	}
 	catch (const std::exception& e)
@@ -177,7 +176,10 @@ void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packe
 		return;
 	}
 
-	PacketReader reader(std::string{char(packet.action), char(packet.family)} + packet.payload);
+	// Legacy handlers read the action and family too
+	std::string data{char(packet.action), char(packet.family)};
+	data.append(packet.payload.begin(), packet.payload.end());
+	PacketReader reader(data);
 
 	switch (handler.fn_type)
 	{

@@ -16,6 +16,7 @@
 #include <exception>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -233,39 +234,59 @@ class Client
 		std::time_t closed_time;
 		std::time_t connect_time;
 
-		std::string recv_buffer;
-		std::size_t recv_buffer_gpos;
-		std::size_t recv_buffer_ppos;
-		std::size_t recv_buffer_used;
+		// Bytes the OS hasn't accepted yet. They're sent by FlushSend once the socket is writable. Nothing is allocated
+		// until a send leaves bytes behind, and the memory is freed once everything has been sent, since large
+		// leftovers come from occasional file uploads.
+		std::vector<std::uint8_t> send_buffer;
 
-		std::string send_buffer;
-		std::size_t send_buffer_gpos;
-		std::size_t send_buffer_ppos;
-		std::size_t send_buffer_used;
+		// Send can run on a thread pool worker (async operation callbacks) while FlushSend runs on the main thread
+		mutable std::mutex send_buffer_mutex;
+
+		/**
+		 * Writes as much of data as the OS accepts without blocking.
+		 * @return The number of bytes written, or -1 if the socket failed.
+		 */
+		long WriteSome(const std::uint8_t* data, std::size_t length);
 
 	public:
+		// Most bytes the send buffer may hold: one max-size EO packet (64,010 bytes framed) plus headroom for the packets
+		// queued behind it. The client is closed if more would be needed.
+		static constexpr std::size_t SendBufferMaxSize = (64 + 8) * 1024;
+
+		// Holds dozens of typical packets, and grows in steps of the same size for larger ones (file uploads, crowded
+		// maps)
+		static constexpr std::size_t SendBufferInitialSize = 8 * 1024;
+		static constexpr std::size_t SendBufferGrowthStep = 8 * 1024;
+
 		Client();
 		Client(const IPAddress &addr, std::uint16_t port);
 		Client(Server *);
 		Client(const Socket &, Server *);
 
-		virtual bool NeedTick() { return false; }
-
-		void SetRecvBuffer(std::size_t size);
-		void SetSendBuffer(std::size_t size);
-
 		bool Connect(const IPAddress &addr, std::uint16_t port);
 		void Bind(const IPAddress &addr, std::uint16_t port);
 
-		std::size_t RecvBufferRemaining() { return this->recv_buffer.length() - this->recv_buffer_used; }
-		std::size_t SendBufferRemaining() { return this->send_buffer.length() - this->send_buffer_used; }
+		/**
+		 * Reads up to length bytes that have arrived and appends them to buffer. Reserve the buffer first to control
+		 * its capacity. The client is closed if the connection was closed by the peer or failed.
+		 * @return The number of bytes read, which is 0 if none are available.
+		 */
+		std::size_t Recv(std::vector<std::uint8_t>& buffer, std::size_t length);
 
-		std::string Recv(std::size_t length);
-		void Send(const std::string &data);
+		/**
+		 * Sends data, keeping any bytes the OS doesn't accept yet in the send buffer. Data sent after Close(true) is
+		 * dropped.
+		 */
+		void Send(const std::vector<std::uint8_t>& data);
 
-		bool DoRecv();
-		bool DoSend();
+		bool FlushSend();
 
+		bool HasPendingSend() const;
+
+		/**
+		 * Waits for the socket, sending waiting bytes once it's writable.
+		 * @return true if data is ready to Recv.
+		 */
 		bool Select(double timeout);
 
 		bool Accepted() const { return accepted; }
@@ -346,16 +367,6 @@ class Server
 		State state;
 
 		/**
-		 * Maximum amount of data that will be buffered for recieving per client.
-		 */
-		std::size_t recv_buffer_max;
-
-		/**
-		 * Maximum amount of data that will be buffered for sending per client.
-		 */
-		std::size_t send_buffer_max;
-
-		/**
 		 * Maximum number of connections the server will hold at one time.
 		 */
 		unsigned int maxconn;
@@ -407,12 +418,11 @@ class Server
 		Client *Poll();
 
 		/**
-		 * Check clients for incoming data and errors, and sends data in their send_buffer.
-		 * If data is recieved, it is added to their recv_buffer.
+		 * Check clients for incoming data and errors, and sends data waiting in their send buffers.
 		 * @param timeout Max number of seconds to block for
 		 * @throw Socket_SelectFailed
 		 * @throw Socket_Exception
-		 * @return Returns a list of clients that have data in their recv_buffer.
+		 * @return Returns a list of clients that have data ready to Recv.
 		 */
 		std::vector<Client *> *Select(double timeout);
 

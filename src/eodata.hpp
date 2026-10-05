@@ -9,7 +9,6 @@
 
 #include "fwd/eodata.hpp"
 
-#include <array>
 #include <string>
 #include <vector>
 
@@ -178,9 +177,10 @@ class EIF
 			}
 		}
 
-		static const int DATA_SIZE = 58;
-		std::array<unsigned char, 4> rid;
-		std::array<unsigned char, 2> len;
+		// Two shorts that identify the file's revision. Clients compare them with their own copy's.
+		std::vector<int> rid;
+		// Record count from the file header
+		int length = 0;
 		std::vector<EIF_Data> data;
 
 		EIF(const std::string& filename) { Read(filename.c_str()); }
@@ -252,9 +252,10 @@ class ENF
 			Quest
 		};
 
-		static const int DATA_SIZE = 39;
-		std::array<unsigned char, 4> rid;
-		std::array<unsigned char, 2> len;
+		// Two shorts that identify the file's revision. Clients compare them with their own copy's.
+		std::vector<int> rid;
+		// Record count from the file header
+		int length = 0;
 		std::vector<ENF_Data> data;
 
 		ENF(const std::string& filename) { Read(filename.c_str()); }
@@ -328,9 +329,10 @@ class ESF
 			Group
 		};
 
-		static const int DATA_SIZE = 51;
-		std::array<unsigned char, 4> rid;
-		std::array<unsigned char, 2> len;
+		// Two shorts that identify the file's revision. Clients compare them with their own copy's.
+		std::vector<int> rid;
+		// Record count from the file header
+		int length = 0;
 		std::vector<ESF_Data> data;
 
 		ESF(const std::string& filename) { Read(filename.c_str()); }
@@ -373,9 +375,10 @@ template <class ECF> struct ECF_Data_Base
 class ECF
 {
 	public:
-		static const int DATA_SIZE = 14;
-		std::array<unsigned char, 4> rid;
-		std::array<unsigned char, 2> len;
+		// Two shorts that identify the file's revision. Clients compare them with their own copy's.
+		std::vector<int> rid;
+		// Record count from the file header
+		int length = 0;
 		std::vector<ECF_Data> data;
 
 		ECF(const std::string& filename) { Read(filename.c_str()); }

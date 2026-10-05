@@ -22,10 +22,18 @@
 #include "world.hpp"
 
 #include "console.hpp"
+#include "eodata_file.hpp"
 #include "util.hpp"
 #include "util/rpn.hpp"
 
+#include <eolib/data/eo_numeric_limits.hpp>
+#include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/map/structs.hpp>
+#include <eolib/protocol/net/server/enums.hpp>
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iterator>
@@ -38,15 +46,15 @@
 #include <utility>
 #include <vector>
 
-static const char *map_safe_fail_filename;
+namespace emf = eolib::protocol::map;
+namespace server = eolib::protocol::net::server;
 
-static void map_safe_fail(int line)
-{
-	Console::Err("Invalid file / failed read/seek: %s -- %i", map_safe_fail_filename, line);
-}
+// Offsets in an EMF file
+static constexpr std::size_t emf_rid_offset = 0x03;
+static constexpr std::size_t emf_type_offset = 0x1F;
 
-#define SAFE_SEEK(fh, offset, from) if (std::fseek(fh, offset, from) != 0) { std::fclose(fh); map_safe_fail(__LINE__); return false; }
-#define SAFE_READ(buf, size, count, fh) if (std::fread(buf, size, count, fh) != static_cast<int>(count)) {  std::fclose(fh); map_safe_fail(__LINE__);return false; }
+// Everything before the NPC spawn list
+static constexpr std::size_t emf_header_size = 0x2E;
 
 void map_spawn_chests(void *map_void)
 {
@@ -347,6 +355,7 @@ Map::Map(int id, World *world)
 	this->id = id;
 	this->world = world;
 	this->exists = false;
+	this->rid = {0, 0};
 	this->jukebox_protect = 0.0;
 	this->arena = nullptr;
 	this->wedding = nullptr;
@@ -466,88 +475,56 @@ void Map::LoadWedding()
 	}
 }
 
-bool Map::Load()
+std::string Map::Filename() const
 {
 	char namebuf[7];
+	std::snprintf(namebuf, sizeof namebuf, "%05i", this->id);
+	return std::string(this->world->config["MapDir"]) + namebuf + ".emf";
+}
 
+bool Map::Load()
+{
 	if (this->id < 0)
 	{
 		return false;
 	}
 
-	std::string filename = this->world->config["MapDir"];
-	std::sprintf(namebuf, "%05i", this->id);
-	filename.append(namebuf);
-	filename.append(".emf");
+	const std::string filename = this->Filename();
+	std::vector<std::uint8_t> content;
 
-	map_safe_fail_filename = filename.c_str();
-
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-
-	if (!fh)
+	if (!EODataFile::Read(filename, content))
 		return false;
+
+	if (content.size() < emf_header_size)
+	{
+		Console::Err("Invalid file: %s", filename.c_str());
+		return false;
+	}
+
+	emf::Emf file;
+	EODataFile::Deserialize(filename, content, file);
 
 	this->has_timed_spikes = false;
 
-	SAFE_SEEK(fh, 0x03, SEEK_SET);
-	SAFE_READ(this->rid, sizeof(char), 4, fh);
-
-	char buf[12];
-	unsigned char outersize;
-	unsigned char innersize;
-
-	SAFE_SEEK(fh, 0x1F, SEEK_SET);
-	SAFE_READ(buf, sizeof(char), 2, fh);
-	this->pk = PacketProcessor::Number(buf[0]) == 3;
-	this->effect = static_cast<EffectType>(PacketProcessor::Number(buf[1]));
-
-	SAFE_SEEK(fh, 0x25, SEEK_SET);
-	SAFE_READ(buf, sizeof(char), 2, fh);
-	this->width = PacketProcessor::Number(buf[0]) + 1;
-	this->height = PacketProcessor::Number(buf[1]) + 1;
+	this->rid = {file.rid[0], file.rid[1]};
+	this->pk = file.type == emf::MapType::Pk;
+	this->effect = static_cast<EffectType>(file.timed_effect);
+	this->width = file.width + 1;
+	this->height = file.height + 1;
 
 	this->tiles.resize(this->height * this->width);
 
-	SAFE_SEEK(fh, 0x2A, SEEK_SET);
-	SAFE_READ(buf, sizeof(char), 3, fh);
-	this->scroll = PacketProcessor::Number(buf[0]);
-	this->relog_x = PacketProcessor::Number(buf[1]);
-	this->relog_y = PacketProcessor::Number(buf[2]);
+	this->scroll = file.can_scroll;
+	this->relog_x = file.relog_x;
+	this->relog_y = file.relog_y;
 
-	SAFE_SEEK(fh, 0x2E, SEEK_SET);
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	if (outersize)
+	for (const emf::MapTileSpecRow& row : file.tile_spec_rows)
 	{
-		SAFE_SEEK(fh, 8 * outersize, SEEK_CUR);
-	}
-
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	if (outersize)
-	{
-		SAFE_SEEK(fh, 4 * outersize, SEEK_CUR);
-	}
-
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	if (outersize)
-	{
-		SAFE_SEEK(fh, 12 * outersize, SEEK_CUR);
-	}
-
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	for (int i = 0; i < outersize; ++i)
-	{
-		SAFE_READ(buf, sizeof(char), 2, fh);
-		unsigned char yloc = PacketProcessor::Number(buf[0]);
-		innersize = PacketProcessor::Number(buf[1]);
-		for (int ii = 0; ii < innersize; ++ii)
+		for (const emf::MapTileSpecRowTile& tile : row.tiles)
 		{
-			SAFE_READ(buf, sizeof(char), 2, fh);
-			unsigned char xloc = PacketProcessor::Number(buf[0]);
-			unsigned char spec = PacketProcessor::Number(buf[1]);
+			const unsigned char xloc = tile.x;
+			const unsigned char yloc = row.y;
+			const unsigned char spec = static_cast<unsigned char>(tile.tile_spec);
 
 			if (!this->InBounds(xloc, yloc))
 			{
@@ -576,23 +553,19 @@ bool Map::Load()
 		}
 	}
 
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	for (int i = 0; i < outersize; ++i)
+	for (const emf::MapWarpRow& row : file.warp_rows)
 	{
-		SAFE_READ(buf, sizeof(char), 2, fh);
-		unsigned char yloc = PacketProcessor::Number(buf[0]);
-		innersize = PacketProcessor::Number(buf[1]);
-		for (int ii = 0; ii < innersize; ++ii)
+		for (const emf::MapWarpRowTile& tile : row.tiles)
 		{
+			const unsigned char xloc = tile.x;
+			const unsigned char yloc = row.y;
+
 			Map_Warp newwarp;
-			SAFE_READ(buf, sizeof(char), 8, fh);
-			unsigned char xloc = PacketProcessor::Number(buf[0]);
-			newwarp.map = PacketProcessor::Number(buf[1], buf[2]);
-			newwarp.x = PacketProcessor::Number(buf[3]);
-			newwarp.y = PacketProcessor::Number(buf[4]);
-			newwarp.levelreq = PacketProcessor::Number(buf[5]);
-			newwarp.spec = static_cast<Map_Warp::WarpSpec>(PacketProcessor::Number(buf[6], buf[7]));
+			newwarp.map = tile.warp.destination_map;
+			newwarp.x = tile.warp.destination_coords.x;
+			newwarp.y = tile.warp.destination_coords.y;
+			newwarp.levelreq = tile.warp.level_required;
+			newwarp.spec = static_cast<Map_Warp::WarpSpec>(tile.warp.door);
 
 			if (!this->InBounds(xloc, yloc))
 			{
@@ -600,39 +573,23 @@ bool Map::Load()
 				continue;
 			}
 
-			try
-			{
-				this->GetTile(xloc, yloc).warp = newwarp;
-			}
-			catch (...)
-			{
-				std::fclose(fh);
-				map_safe_fail(__LINE__);
-				return false;
-			}
+			this->GetTile(xloc, yloc).warp = newwarp;
 		}
 	}
 
-	SAFE_SEEK(fh, 0x2E, SEEK_SET);
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
 	int index = 0;
-	for (int i = 0; i < outersize; ++i)
+	for (const emf::MapNpc& spawn : file.npcs)
 	{
-		SAFE_READ(buf, sizeof(char), 8, fh);
-		unsigned char x = PacketProcessor::Number(buf[0]);
-		unsigned char y = PacketProcessor::Number(buf[1]);
-		short npc_id = PacketProcessor::Number(buf[2], buf[3]);
-		unsigned char spawntype = PacketProcessor::Number(buf[4]);
-		short spawntime = PacketProcessor::Number(buf[5], buf[6]);
-		unsigned char amount = PacketProcessor::Number(buf[7]);
+		const unsigned char x = spawn.coords.x;
+		const unsigned char y = spawn.coords.y;
+		const short npc_id = spawn.id;
 
 		if (!this->world->enf->Get(npc_id))
 		{
 			Console::Wrn("An NPC spawn on map %i uses a non-existent NPC (#%i at %ix%i)", this->id, npc_id, x, y);
 		}
 
-		for (int ii = 0; ii < amount; ++ii)
+		for (int ii = 0; ii < spawn.amount; ++ii)
 		{
 			if (!this->InBounds(x, y))
 			{
@@ -640,35 +597,25 @@ bool Map::Load()
 				continue;
 			}
 
-			NPC *newnpc = new NPC(this, npc_id, x, y, spawntype, spawntime, index++);
+			NPC *newnpc = new NPC(this, npc_id, x, y, spawn.spawn_type, spawn.spawn_time, index++);
 			this->npcs.push_back(newnpc);
 
 			newnpc->Spawn();
 		}
 	}
 
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	if (outersize)
-	{
-		SAFE_SEEK(fh, 4 * outersize, SEEK_CUR);
-	}
-
 	double spawn_random = static_cast<double>(this->world->config["ChestSpawnRandomization"]);
 	bool spawn_random_is_pct = *static_cast<std::string>(this->world->config["ChestSpawnRandomization"]).rbegin() == '%';
 
-	SAFE_READ(buf, sizeof(char), 1, fh);
-	outersize = PacketProcessor::Number(buf[0]);
-	for (int i = 0; i < outersize; ++i)
+	for (const emf::MapItem& item : file.items)
 	{
-		SAFE_READ(buf, sizeof(char), 12, fh);
-		unsigned char x = PacketProcessor::Number(buf[0]);
-		unsigned char y = PacketProcessor::Number(buf[1]);
-		short key = PacketProcessor::Number(buf[2], buf[3]);
-		short slot = PacketProcessor::Number(buf[4]);
-		short itemid = PacketProcessor::Number(buf[5], buf[6]);
-		short time = PacketProcessor::Number(buf[7], buf[8]);
-		int amount = PacketProcessor::Number(buf[9], buf[10], buf[11]);
+		const unsigned char x = item.coords.x;
+		const unsigned char y = item.coords.y;
+		const short key = item.key;
+		const short slot = item.chest_slot;
+		const short itemid = item.item_id;
+		const short time = item.spawn_time;
+		const int amount = item.amount;
 
 		if (itemid != this->world->eif->Get(itemid).id)
 		{
@@ -681,37 +628,35 @@ bool Map::Load()
 			continue;
 		}
 
-		UTIL_FOREACH(this->chests, chest)
+		auto chest = std::find_if(UTIL_CRANGE(this->chests), [&](const std::shared_ptr<Map_Chest>& c)
 		{
-			if (chest->x == x && chest->y == y)
-			{
-				Map_Chest_Spawn spawn;
+			return c->x == x && c->y == y;
+		});
 
-				double spawn_modifier = util::rand(double(0), spawn_random);
-
-				spawn.slot = slot+1;
-				spawn.time = time * 60.0;
-				spawn.spawn_random = spawn_random_is_pct ? spawn_modifier * spawn.time : spawn_modifier;
-				spawn.last_taken = Timer::GetTime();
-				spawn.item.id = itemid;
-				spawn.item.amount = amount;
-
-				chest->key = key > 0 ? key : chest->key;
-
-				chest->spawns.push_back(spawn);
-				chest->slots = std::max(chest->slots, slot+1);
-				goto skip_warning;
-			}
+		if (chest == this->chests.end())
+		{
+			Console::Wrn("A chest spawn on map %i points to a non-chest (%s x%i at %ix%i)", this->id, this->world->eif->Get(itemid).name.c_str(), amount, x, y);
+			continue;
 		}
-		Console::Wrn("A chest spawn on map %i points to a non-chest (%s x%i at %ix%i)", this->id, this->world->eif->Get(itemid).name.c_str(), amount, x, y);
-		skip_warning:
-		;
+
+		Map_Chest_Spawn spawn;
+
+		double spawn_modifier = util::rand(double(0), spawn_random);
+
+		spawn.slot = slot+1;
+		spawn.time = time * 60.0;
+		spawn.spawn_random = spawn_random_is_pct ? spawn_modifier * spawn.time : spawn_modifier;
+		spawn.last_taken = Timer::GetTime();
+		spawn.item.id = itemid;
+		spawn.item.amount = amount;
+
+		(*chest)->key = key > 0 ? key : (*chest)->key;
+
+		(*chest)->spawns.push_back(spawn);
+		(*chest)->slots = std::max((*chest)->slots, slot+1);
 	}
 
-	SAFE_SEEK(fh, 0x00, SEEK_END);
-	this->filesize = std::ftell(fh);
-
-	std::fclose(fh);
+	this->filesize = static_cast<int>(content.size());
 
 	this->exists = true;
 
@@ -2504,31 +2449,57 @@ bool Map::Evacuate()
 	}
 }
 
+std::array<int, 2> Map::ClientRid() const
+{
+	std::array<int, 2> result = this->rid;
+
+	if (this->world->config["GlobalPK"] && !this->world->PKExcept(this->id))
+		result[0] = Map::GlobalPKRid(result[0]);
+
+	return result;
+}
+
+int Map::GlobalPKRid(int rid)
+{
+	return (rid + 1) % static_cast<int>(eolib::data::EoNumericLimits::ShortMax);
+}
+
+void Map::PatchGlobalPK(std::vector<std::uint8_t>& content)
+{
+	if (content.size() <= emf_type_offset)
+		return;
+
+	const int rid = eolib::data::NumberEncoder::DecodeNumber(&content[emf_rid_offset], 2);
+	const auto encoded_rid = eolib::data::NumberEncoder::EncodeNumber(Map::GlobalPKRid(rid));
+	content[emf_rid_offset] = encoded_rid[0];
+	content[emf_rid_offset + 1] = encoded_rid[1];
+
+	content[emf_type_offset] = eolib::data::NumberEncoder::EncodeNumber(static_cast<int>(emf::MapType::Pk))[0];
+}
+
 bool Map::Reload()
 {
-	char namebuf[7];
-	char checkrid[4];
+	const std::string filename = this->Filename();
+	std::vector<std::uint8_t> content;
 
-	std::string filename = this->world->config["MapDir"];
-	std::sprintf(namebuf, "%05i", this->id);
-	filename.append(namebuf);
-	filename.append(".emf");
-
-	std::FILE *fh = std::fopen(filename.c_str(), "rb");
-
-	if (!fh)
+	if (!EODataFile::Read(filename, content))
 	{
 		Console::Err("Could not load file: %s", filename.c_str());
 		return false;
 	}
 
-	SAFE_SEEK(fh, 0x03, SEEK_SET);
-	SAFE_READ(checkrid, sizeof(char), 4, fh);
+	if (content.size() < emf_header_size)
+	{
+		Console::Err("Invalid file: %s", filename.c_str());
+		return false;
+	}
 
-	std::fclose(fh);
+	const std::array<int, 2> checkrid{
+		eolib::data::NumberEncoder::DecodeNumber(&content[emf_rid_offset], 2),
+		eolib::data::NumberEncoder::DecodeNumber(&content[emf_rid_offset + 2], 2)
+	};
 
-	if (this->rid[0] == checkrid[0] && this->rid[1] == checkrid[1]
-	 && this->rid[2] == checkrid[2] && this->rid[3] == checkrid[3])
+	if (this->rid == checkrid)
 	{
 		return true;
 	}
@@ -2549,7 +2520,7 @@ bool Map::Reload()
 
 	UTIL_FOREACH(temp, character)
 	{
-		character->player->client->Upload(FILE_MAP, character->mapid, INIT_MAP_MUTATION);
+		character->player->client->UploadMap(character->mapid, server::InitReply::MapMutation);
 		character->Refresh(); // TODO: Find a better way to reload NPCs
 	}
 
@@ -2776,6 +2747,3 @@ NPC *Map::GetNPCIndex(unsigned char index)
 
 	return 0;
 }
-
-#undef SAFE_SEEK
-#undef SAFE_READ

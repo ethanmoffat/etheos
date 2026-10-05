@@ -12,8 +12,10 @@
 #include "../fwd/player.hpp"
 #include "../packet.hpp"
 
+#include <eolib/protocol/net/client/enums.hpp>
 #include <eolib/protocol/net/enums.hpp>
 #include <eolib/protocol/net/packet.hpp>
+#include <eolib/protocol/net/server/enums.hpp>
 
 #include <array>
 #include <string>
@@ -36,6 +38,8 @@ namespace Handlers
 {
 
 namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 typedef void (*void_fn_t)();
 typedef void (*client_handler_t)(EOClient *, PacketReader &);

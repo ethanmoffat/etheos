@@ -14,9 +14,12 @@
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace net = eolib::protocol::net;
 
@@ -58,11 +61,11 @@ void Handle_ThrowingRefreshRequest(EOClient*, const ThrowingRefreshRequestPacket
     ++typed_calls;
 }
 
-template <typename TPacket> std::string Payload(const TPacket& packet)
+template <typename TPacket> std::vector<std::uint8_t> Payload(const TPacket& packet)
 {
     eolib::data::EoWriter writer;
     packet.Serialize(writer);
-    return writer.ToByteString();
+    return std::move(writer).ToByteArray();
 }
 
 }
@@ -139,7 +142,7 @@ TEST_F(PacketDispatchTests, Handle_DeserializeFails_DropsPacket)
 {
     EXPECT_CALL(*client, Close(_)).Times(0);
 
-    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Refresh, net::PacketAction::Request, ""});
+    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Refresh, net::PacketAction::Request, {}});
 
     EXPECT_EQ(0, typed_calls);
 }
@@ -149,7 +152,7 @@ TEST_F(PacketDispatchTests, Handle_DeserializeFailsWithEnforcePacketFormat_Close
     server->world->config["EnforcePacketFormat"] = true;
     EXPECT_CALL(*client, Close(false)).Times(1);
 
-    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Refresh, net::PacketAction::Request, ""});
+    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Refresh, net::PacketAction::Request, {}});
 
     EXPECT_EQ(0, typed_calls);
 }
@@ -158,8 +161,8 @@ TEST_F(PacketDispatchTests, Handle_UnrecognizedPacketId_DropsPacket)
 {
     EXPECT_CALL(*client, Close(_)).Times(0);
 
-    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily(0), net::PacketAction(128), ""});
-    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Paperdoll, net::PacketAction(0), ""});
+    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily(0), net::PacketAction(128), {}});
+    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily::Paperdoll, net::PacketAction(0), {}});
 
     EXPECT_EQ(0, typed_calls);
 }
@@ -169,7 +172,7 @@ TEST_F(PacketDispatchTests, Handle_UnrecognizedPacketIdWithEnforcePacketFormat_C
     server->world->config["EnforcePacketFormat"] = true;
     EXPECT_CALL(*client, Close(false)).Times(1);
 
-    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily(0), net::PacketAction(128), ""});
+    Handlers::Handle(client.get(), QueuedPacket{net::PacketFamily(0), net::PacketAction(128), {}});
 
     EXPECT_EQ(0, typed_calls);
 }
@@ -202,14 +205,12 @@ TEST_F(PacketDispatchTests, Handle_PlayingHandlerNotFromQueue_IsQueuedWithDelay)
 
 TEST_F(PacketDispatchTests, Send_SerializationFails_DropsPacketWithoutClosing)
 {
+    // The client's socket isn't connected, so writing to it would fail and close the client
     EXPECT_CALL(*client, Close(_)).Times(0);
-
-    client->SetSendBuffer(1024);
+    client->SetConnectedForTest();
 
     net::server::InitInitServerPacket packet;
     packet.reply_code = net::server::InitReply::Ok;
 
     client->EOClient::Send(packet);
-
-    EXPECT_EQ("", client->PendingSendData());
 }

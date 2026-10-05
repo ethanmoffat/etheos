@@ -40,6 +40,8 @@ set(eoserv_ALL_SOURCE_FILES
 	src/eoclient.hpp
 	src/eodata.cpp
 	src/eodata.hpp
+	src/eodata_file.cpp
+	src/eodata_file.hpp
 	src/eoplus/context.cpp
 	src/eoplus/context.hpp
 	src/eoplus.cpp
@@ -283,13 +285,17 @@ set(TestFiles
 	src/test/config_test.cpp
 	src/test/database_test.cpp
 	src/test/eoclient_test.cpp
+	src/test/eodata_test.cpp
+	src/test/map_test.cpp
 	src/test/packet_dispatch_test.cpp
+	src/test/socket_test.cpp
 	src/test/worlddump_test.cpp
 	src/test/handlers/Account_test.cpp
 	src/test/handlers/Character_test.cpp
 	src/test/handlers/Connection_test.cpp
 	src/test/handlers/Init_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Welcome_test.cpp
 	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp

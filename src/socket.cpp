@@ -236,13 +236,8 @@ Client::Client()
 	, async_op_pending(false)
 	, server(0)
 	, connected(false)
+	, closed_time(0)
 	, connect_time(0)
-	, recv_buffer_gpos(0)
-	, recv_buffer_ppos(0)
-	, recv_buffer_used(0)
-	, send_buffer_gpos(0)
-	, send_buffer_ppos(0)
-	, send_buffer_used(0)
 { }
 
 Client::Client(const IPAddress &addr, uint16_t port)
@@ -250,13 +245,8 @@ Client::Client(const IPAddress &addr, uint16_t port)
 	, async_op_pending(false)
 	, server(0)
 	, connected(false)
+	, closed_time(0)
 	, connect_time(0)
-	, recv_buffer_gpos(0)
-	, recv_buffer_ppos(0)
-	, recv_buffer_used(0)
-	, send_buffer_gpos(0)
-	, send_buffer_ppos(0)
-	, send_buffer_used(0)
 {
 	this->Connect(addr, port);
 }
@@ -266,13 +256,8 @@ Client::Client(Server *server)
 	, async_op_pending(false)
 	, server(server)
 	, connected(false)
+	, closed_time(0)
 	, connect_time(0)
-	, recv_buffer_gpos(0)
-	, recv_buffer_ppos(0)
-	, recv_buffer_used(0)
-	, send_buffer_gpos(0)
-	, send_buffer_ppos(0)
-	, send_buffer_used(0)
 { }
 
 Client::Client(const Socket &sock, Server *server)
@@ -280,36 +265,27 @@ Client::Client(const Socket &sock, Server *server)
 	, async_op_pending(false)
 	, server(server)
 	, connected(true)
+	, closed_time(0)
 	, connect_time(std::time(0))
-	, recv_buffer_gpos(0)
-	, recv_buffer_ppos(0)
-	, recv_buffer_used(0)
-	, send_buffer_gpos(0)
-	, send_buffer_ppos(0)
-	, send_buffer_used(0)
 { }
 
-inline void assert_power_of_two(std::size_t size)
+static bool LastErrorWouldBlock()
 {
-	while ((size & 1) == 0)
-	{
-		size >>= 1;
-	}
-
-	if (size > 1)
-		throw std::runtime_error("Buffer size must be a power of two");
+#ifdef WIN32
+	return WSAGetLastError() == WSAEWOULDBLOCK;
+#else // WIN32
+	return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
+#endif // WIN32
 }
 
-void Client::SetRecvBuffer(std::size_t size)
+static void SetNonBlocking(SOCKET sock)
 {
-	assert_power_of_two(size);
-	this->recv_buffer.resize(size);
-}
-
-void Client::SetSendBuffer(std::size_t size)
-{
-	assert_power_of_two(size);
-	this->send_buffer.resize(size);
+#ifdef WIN32
+	unsigned long nonblocking = 1;
+	ioctlsocket(sock, FIONBIO, &nonblocking);
+#else // WIN32
+	fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK);
+#endif // WIN32
 }
 
 bool Client::Connect(const IPAddress &addr, uint16_t port)
@@ -354,98 +330,114 @@ void Client::Bind(const IPAddress &addr, uint16_t port)
 	}
 }
 
-std::string Client::Recv(std::size_t length)
+std::size_t Client::Recv(std::vector<std::uint8_t>& buffer, std::size_t length)
 {
-	length = std::min(length, this->recv_buffer_used);
+	if (length == 0)
+		return 0;
 
-	std::string ret(length, char());
+	const std::size_t old_size = buffer.size();
+	buffer.resize(old_size + length);
 
-	const std::size_t mask = this->recv_buffer.length() - 1;
+	const int received = recv(this->impl->sock, reinterpret_cast<char*>(buffer.data() + old_size), static_cast<int>(length), 0);
 
-	for (std::size_t i = 0; i < length; ++i)
-	{
-		this->recv_buffer_gpos = (this->recv_buffer_gpos + 1) & mask;
-		ret[i] = this->recv_buffer[this->recv_buffer_gpos];
-	}
+	buffer.resize(old_size + std::size_t((std::max)(received, 0)));
 
-	this->recv_buffer_used -= length;
+	if (received > 0)
+		return received;
 
-	return ret;
-}
-
-void Client::Send(const std::string &data)
-{
-	if (data.length() > this->send_buffer.length() - this->send_buffer_used)
-	{
+	// 0 means the peer closed the connection
+	if (received == 0 || !LastErrorWouldBlock())
 		this->Close(true);
-		return;
-	}
 
-	const std::size_t mask = this->send_buffer.length() - 1;
-
-	for (std::size_t i = 0; i < data.length(); ++i)
-	{
-		this->send_buffer_ppos = (this->send_buffer_ppos + 1) & mask;
-		this->send_buffer[this->send_buffer_ppos] = data[i];
-	}
-
-	this->send_buffer_used += data.length();
+	return 0;
 }
 
-bool Client::DoRecv()
+long Client::WriteSome(const std::uint8_t* data, std::size_t length)
 {
-	char buf[8192];
+#ifdef MSG_NOSIGNAL
+	// A peer that reset the connection raises SIGPIPE on Linux, which would end the server
+	const int flags = MSG_NOSIGNAL;
+#else // MSG_NOSIGNAL
+	const int flags = 0;
+#endif // MSG_NOSIGNAL
 
-	const int to_recv = std::min(this->recv_buffer.length() - this->recv_buffer_used, sizeof(buf));
+	const int written = send(this->impl->sock, reinterpret_cast<const char*>(data), static_cast<int>(length), flags);
 
-	if (to_recv == 0)
-		return false;
+	if (written >= 0)
+		return written;
 
-	const int recieved = recv(this->impl->sock, buf, to_recv, 0);
+	return LastErrorWouldBlock() ? 0 : -1;
+}
 
-	if (recieved > 0)
+void Client::Send(const std::vector<std::uint8_t>& data)
+{
+	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
+
+	if (!this->connected && this->closed_time == 0)
+		return;
+
+	std::size_t sent = 0;
+
+	// Bytes already waiting go first, so new data can only be sent straight away when there are none
+	if (this->send_buffer.empty())
 	{
-		const std::size_t mask = this->recv_buffer.length() - 1;
+		const long written = this->WriteSome(data.data(), data.size());
 
-		for (int i = 0; i < recieved; ++i)
+		if (written < 0)
 		{
-			this->recv_buffer_ppos = (this->recv_buffer_ppos + 1) & mask;
-			this->recv_buffer[this->recv_buffer_ppos] = buf[i];
+			this->Close(true);
+			return;
 		}
 
-		this->recv_buffer_used += recieved;
+		sent = written;
 	}
-	else
+
+	if (sent < data.size())
 	{
-		return false;
+		const std::size_t needed = this->send_buffer.size() + (data.size() - sent);
+
+		if (needed > SendBufferMaxSize)
+		{
+			this->Close(true);
+			return;
+		}
+
+		if (needed > this->send_buffer.capacity())
+		{
+			const std::size_t steps = (needed + SendBufferGrowthStep - 1) / SendBufferGrowthStep;
+			const std::size_t capacity = (std::max)(SendBufferInitialSize, steps * SendBufferGrowthStep);
+			this->send_buffer.reserve((std::min)(capacity, SendBufferMaxSize));
+		}
+
+		this->send_buffer.insert(this->send_buffer.end(), data.begin() + sent, data.end());
 	}
+}
+
+bool Client::FlushSend()
+{
+	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
+
+	if (this->send_buffer.empty())
+		return true;
+
+	const long written = this->WriteSome(this->send_buffer.data(), this->send_buffer.size());
+
+	if (written < 0)
+		return false;
+
+	this->send_buffer.erase(this->send_buffer.begin(), this->send_buffer.begin() + written);
+
+	// erase keeps the capacity, so swapping with an empty vector is what frees it
+	if (this->send_buffer.empty())
+		std::vector<std::uint8_t>().swap(this->send_buffer);
 
 	return true;
 }
 
-bool Client::DoSend()
+bool Client::HasPendingSend() const
 {
-	char buf[8192];
-
-	const std::size_t mask = this->send_buffer.length() - 1;
-	const std::size_t gpos = this->send_buffer_gpos;
-
-	std::size_t to_send;
-	for (to_send = 0; to_send < std::min(this->send_buffer_used, sizeof(buf)); ++to_send)
-	{
-		this->send_buffer_gpos = (this->send_buffer_gpos + 1) & mask;
-		buf[to_send] = this->send_buffer[this->send_buffer_gpos];
-	}
-
-	const int written = send(this->impl->sock, buf, to_send, 0);
-
-	if (written < 0 || written == SOCKET_ERROR)
-		return false;
-
-	this->send_buffer_gpos = (gpos + written) & mask;
-	this->send_buffer_used -= written;
-
-	return true;
+	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
+	return !this->send_buffer.empty();
 }
 
 #if defined(SOCKET_POLL) && !defined(WIN32)
@@ -456,7 +448,7 @@ bool Client::Select(double timeout)
 	fd.fd = this->impl->sock;
 	fd.events = POLLIN;
 
-	if (this->send_buffer.length() > 0)
+	if (this->HasPendingSend())
 	{
 		fd.events |= POLLOUT;
 	}
@@ -468,36 +460,24 @@ bool Client::Select(double timeout)
 		throw Socket_SelectFailed(OSErrorString());
 	}
 
-	if (result > 0)
+	if (result <= 0)
 	{
-		if (fd.revents & POLLERR || fd.revents & POLLHUP || fd.revents & POLLNVAL)
-		{
-			this->Close(true);
-			return false;
-		}
-
-		if (fd.revents & POLLIN)
-		{
-			if (!this->DoRecv())
-			{
-				this->Close(true);
-				return false;
-			}
-		}
-
-		if (fd.revents & POLLOUT)
-		{
-			if (!this->DoSend())
-			{
-				this->Close(true);
-				return false;
-			}
-		}
-
-		return true;
+		return false;
 	}
 
-	return false;
+	if (fd.revents & POLLERR || fd.revents & POLLHUP || fd.revents & POLLNVAL)
+	{
+		this->Close(true);
+		return false;
+	}
+
+	if ((fd.revents & POLLOUT) && !this->FlushSend())
+	{
+		this->Close(true);
+		return false;
+	}
+
+	return (fd.revents & POLLIN) != 0;
 }
 #else // defined(SOCKET_POLL) && !defined(WIN32)
 bool Client::Select(double timeout)
@@ -510,12 +490,9 @@ bool Client::Select(double timeout)
 	FD_ZERO(&write_fds);
 	FD_ZERO(&except_fds);
 
-	if (this->recv_buffer_used != this->recv_buffer.length())
-	{
-		FD_SET(this->impl->sock, &read_fds);
-	}
+	FD_SET(this->impl->sock, &read_fds);
 
-	if (this->send_buffer_used > 0)
+	if (this->HasPendingSend())
 	{
 		FD_SET(this->impl->sock, &write_fds);
 	}
@@ -528,36 +505,24 @@ bool Client::Select(double timeout)
 		throw Socket_SelectFailed(OSErrorString());
 	}
 
-	if (result > 0)
+	if (result <= 0)
 	{
-		if (FD_ISSET(this->impl->sock, &except_fds))
-		{
-			this->Close(true);
-			return false;
-		}
-
-		if (FD_ISSET(this->impl->sock, &read_fds))
-		{
-			if (!this->DoRecv())
-			{
-				this->Close(true);
-				return false;
-			}
-		}
-
-		if (FD_ISSET(this->impl->sock, &write_fds))
-		{
-			if (!this->DoSend())
-			{
-				this->Close(true);
-				return false;
-			}
-		}
-
-		return true;
+		return false;
 	}
 
-	return false;
+	if (FD_ISSET(this->impl->sock, &except_fds))
+	{
+		this->Close(true);
+		return false;
+	}
+
+	if (FD_ISSET(this->impl->sock, &write_fds) && !this->FlushSend())
+	{
+		this->Close(true);
+		return false;
+	}
+
+	return FD_ISSET(this->impl->sock, &read_fds) != 0;
 }
 #endif // defined(SOCKET_POLL) && !defined(WIN32)
 
@@ -620,16 +585,12 @@ struct Server::impl_
 Server::Server()
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, 0)))
 	, state(Created)
-	, recv_buffer_max(32 * 1024)
-	, send_buffer_max(32 * 1024)
 	, maxconn(0)
 { }
 
 Server::Server(const IPAddress &addr, uint16_t port)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, 0)))
 	, state(Created)
-	, recv_buffer_max(32 * 1024)
-	, send_buffer_max(32 * 1024)
 	, maxconn(0)
 {
 	this->Bind(addr, port);
@@ -760,9 +721,10 @@ Client *Server::Poll()
 		}
 	}
 
+	// Sends must never block the server, so bytes the OS can't take yet wait in the client's send buffer
+	SetNonBlocking(newsock);
+
 	newclient = this->ClientFactory(Socket(newsock, sin));
-	newclient->SetRecvBuffer(this->recv_buffer_max);
-	newclient->SetSendBuffer(this->send_buffer_max);
 
 	this->clients.push_back(newclient);
 
@@ -787,14 +749,9 @@ std::vector<Client *> *Server::Select(double timeout)
 	{
 		fd.fd = client->impl->sock;
 
-		fd.events = 0;
+		fd.events = POLLIN;
 
-		if (client->recv_buffer_used != client->recv_buffer.length())
-		{
-			fd.events |= POLLIN;
-		}
-
-		if (client->send_buffer_used > 0)
+		if (client->HasPendingSend())
 		{
 			fd.events |= POLLOUT;
 		}
@@ -826,31 +783,19 @@ std::vector<Client *> *Server::Select(double timeout)
 				continue;
 			}
 
-			if (fds[i].revents & POLLIN)
-			{
-				if (!client->DoRecv())
-				{
-					client->Close(true);
-					continue;
-				}
-			}
-
 			if (fds[i].revents & POLLOUT)
 			{
-				if (!client->DoSend())
+				if (!client->FlushSend())
 				{
 					client->Close(true);
 					continue;
 				}
 			}
-		}
-	}
 
-	UTIL_FOREACH(this->clients, client)
-	{
-		if (client->recv_buffer_used > 0 || client->NeedTick())
-		{
-			selected.push_back(client);
+			if (fds[i].revents & POLLIN)
+			{
+				selected.push_back(client);
+			}
 		}
 	}
 
@@ -871,12 +816,9 @@ std::vector<Client *> *Server::Select(double timeout)
 
 	UTIL_FOREACH(this->clients, client)
 	{
-		if (client->recv_buffer_used != client->recv_buffer.length())
-		{
-			FD_SET(client->impl->sock, &this->impl->read_fds);
-		}
+		FD_SET(client->impl->sock, &this->impl->read_fds);
 
-		if (client->send_buffer_used > 0)
+		if (client->HasPendingSend())
 		{
 			FD_SET(client->impl->sock, &this->impl->write_fds);
 		}
@@ -913,31 +855,19 @@ std::vector<Client *> *Server::Select(double timeout)
 				continue;
 			}
 
-			if (FD_ISSET(client->impl->sock, &this->impl->read_fds))
-			{
-				if (!client->DoRecv())
-				{
-					client->Close(true);
-					continue;
-				}
-			}
-
 			if (FD_ISSET(client->impl->sock, &this->impl->write_fds))
 			{
-				if (!client->DoSend())
+				if (!client->FlushSend())
 				{
 					client->Close(true);
 					continue;
 				}
 			}
-		}
-	}
 
-	UTIL_FOREACH(this->clients, client)
-	{
-		if (client->recv_buffer_used > 0 || client->NeedTick())
-		{
-			selected.push_back(client);
+			if (FD_ISSET(client->impl->sock, &this->impl->read_fds))
+			{
+				selected.push_back(client);
+			}
 		}
 	}
 
@@ -951,7 +881,7 @@ void Server::BuryTheDead()
 	{
 		Client *client = *it;
 
-		if (!client->Connected() && !client->IsAsyncOpPending() && ((client->send_buffer.length() == 0 && client->recv_buffer.length() == 0) || client->closed_time + 2 < std::time(0)))
+		if (!client->Connected() && !client->IsAsyncOpPending() && client->closed_time + 2 < std::time(0))
 		{
 #ifdef WIN32
 			closesocket(client->impl->sock);

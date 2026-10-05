@@ -61,7 +61,7 @@ static void RegisterTestHandler(PacketFamily family, PacketAction action, Handle
 // Mirrors what EOClient::Execute queues for a received packet
 static void Receive(EOClient& client, PacketFamily family, PacketAction action)
 {
-    client.queue.AddAction(QueuedPacket{eolib::protocol::net::PacketFamily(family), eolib::protocol::net::PacketAction(action), ""}, ReceiveDelaySeconds, true);
+    client.queue.AddAction(QueuedPacket{eolib::protocol::net::PacketFamily(family), eolib::protocol::net::PacketAction(action), {}}, ReceiveDelaySeconds, true);
 }
 
 // Mirrors what Character::DeathRespawn queues

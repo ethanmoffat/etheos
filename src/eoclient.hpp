@@ -19,18 +19,20 @@
 
 #include <eolib/packet/packet_sequencer.hpp>
 #include <eolib/packet/sequence_start.hpp>
+#include <eolib/protocol/net/client/enums.hpp>
 #include <eolib/protocol/net/enums.hpp>
 #include <eolib/protocol/net/packet.hpp>
+#include <eolib/protocol/net/server/enums.hpp>
 
 #include <cstddef>
-#include <cstdio>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <queue>
 #include <string>
 #include <utility>
-#include <mutex>
+#include <vector>
 
 struct QueuedPacket
 {
@@ -38,7 +40,7 @@ struct QueuedPacket
 	eolib::protocol::net::PacketAction action;
 
 	// The packet data after the family, action and sequence number
-	std::string payload;
+	std::vector<std::uint8_t> payload;
 };
 
 struct ActionQueue_Action
@@ -116,13 +118,6 @@ class ActionQueue
 class EOClient : public Client
 {
 	public:
-		enum PacketState
-		{
-			ReadLen1,
-			ReadLen2,
-			ReadData
-		};
-
 		enum ClientState
 		{
 			Uninitialized,
@@ -137,29 +132,24 @@ class EOClient : public Client
 
 		void LogPacket(PacketFamily family, PacketAction action, size_t sz, const char * const actionStr);
 
-		FileType upload_type;
-		std::FILE *upload_fh;
-		std::size_t upload_pos;
-		std::size_t upload_size;
-
-		std::string send_buffer2;
-		std::size_t send_buffer2_gpos;
-		std::size_t send_buffer2_ppos;
-		std::size_t send_buffer2_used;
-
 		eolib::packet::PacketSequencer sequencer;
 
 		// Sent with the last server ping, and used once the client replies to it
 		std::optional<eolib::packet::PingSequenceStart> upcoming_sequence_start;
 
-		std::mutex send_mutex;
+		bool RecvUpTo(std::vector<std::uint8_t>& buffer, std::size_t length);
 
 		/**
-		 * Encrypts, frames and sends a packet body ([action][family][data]).
+		 * Encrypts, frames and sends a packet. frame is 2 bytes for the length, which are filled in here, followed by
+		 * the packet body ([action][family][data]).
 		 */
-		void SendBody(std::string body);
+		void SendFrame(std::vector<std::uint8_t>& frame);
 
 	public:
+		// Client packets are rarely over 100 bytes (the largest captured one is AccountCreate at 94). Larger ones, such
+		// as board posts, grow the buffer to their exact size, which it keeps.
+		static constexpr std::size_t RecvBufferInitialSize = 256;
+
 		EOServer *server() { return static_cast<EOServer *>(Client::server); };
 		int version;
 		Player *player;
@@ -173,10 +163,9 @@ class EOClient : public Client
 
 		ActionQueue queue;
 
-		PacketState packet_state;
-		unsigned char raw_length[2];
-		unsigned int length;
-		std::string data;
+		// The packet being received: its 2 encoded length bytes, then the data received so far
+		std::vector<std::uint8_t> length_bytes;
+		std::vector<std::uint8_t> data;
 
 		// Multiple the server encrypts outgoing packets with (0 until Init_Init is handled)
 		int server_encryption_multiple;
@@ -198,8 +187,10 @@ class EOClient : public Client
 			this->Initialize();
 		}
 
-		virtual bool NeedTick();
-
+		/**
+		 * Reads the arrived part of the current packet, and executes it once it's complete. At most one packet is
+		 * executed per call.
+		 */
 		void Tick();
 
 		eolib::packet::InitSequenceStart InitNewSequence();
@@ -213,22 +204,30 @@ class EOClient : public Client
 
 		void NewCreateID();
 
-		void Execute(const std::string &data);
+		void Execute(std::uint8_t* data, std::size_t length);
 
 		/**
 		 * Encrypts a packet body ([action][family][data], without the length prefix) in place.
 		 * Init_Init packets and a multiple of 0 are left unencrypted.
 		 */
-		static void EncryptPacket(std::string& body, int multiple);
+		static void EncryptPacket(std::uint8_t* body, std::size_t length, int multiple);
 
 		/**
 		 * Decrypts a received packet (without the length prefix) in place.
 		 * Init_Init packets and a multiple of 0 are left as they are.
 		 */
-		static void DecryptPacket(std::string& data, int multiple);
+		static void DecryptPacket(std::uint8_t* data, std::size_t length, int multiple);
 
-		bool Upload(FileType type, int id, InitReply init_reply);
-		bool Upload(FileType type, const std::string &filename, InitReply init_reply);
+		/**
+		 * Sends a map file with the given reply code (FileEmf, WarpMap or MapMutation). Returns false if the file can't
+		 * be read.
+		 */
+		bool UploadMap(int map_id, eolib::protocol::net::server::InitReply reply_code);
+
+		/**
+		 * Sends a pub file (Eif, Enf, Esf or Ecf). Returns false if the file can't be read or the type isn't a pub file.
+		 */
+		bool UploadPubFile(eolib::protocol::net::client::FileType file_type);
 		virtual void Send(const PacketBuilder &packet);
 
 		/**

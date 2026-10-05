@@ -15,6 +15,8 @@
 #include "fwd/wedding.hpp"
 #include "fwd/world.hpp"
 
+#include <array>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <string>
@@ -235,7 +237,7 @@ class Map
 
 		World *world;
 		short id;
-		char rid[4];
+		std::array<int, 2> rid;
 		bool pk;
 		EffectType effect;
 		int filesize;
@@ -266,6 +268,25 @@ class Map
 
 		int GenerateItemID() const;
 		unsigned char GenerateNPCIndex() const;
+
+		std::string Filename() const;
+
+		/**
+		 * Gets the map's RID as sent to clients. With GlobalPK, the first half is replaced with GlobalPKRid.
+		 */
+		std::array<int, 2> ClientRid() const;
+
+		/**
+		 * Gets the value that replaces the first half of a map's RID under GlobalPK. It's never equal to rid, so
+		 * clients cache the PK-patched map file separately from the original.
+		 */
+		static int GlobalPKRid(int rid);
+
+		/**
+		 * Patches map file content sent to clients under GlobalPK: the map type is set to PK and the first half of the
+		 * RID is replaced with GlobalPKRid. Content too short to be a map file is left as it is.
+		 */
+		static void PatchGlobalPK(std::vector<std::uint8_t>& content);
 
 		void Enter(Character *, WarpAnimation animation = WARP_ANIMATION_NONE);
 		void Leave(Character *, WarpAnimation animation = WARP_ANIMATION_NONE, bool silent = false);

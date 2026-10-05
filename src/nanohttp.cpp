@@ -10,8 +10,10 @@
 #include "util.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 HTTP::HTTP(std::string host, unsigned short port, std::string path, const IPAddress & outgoing)
 {
@@ -50,14 +52,11 @@ HTTP::HTTP(std::string host, unsigned short port, std::string path, const IPAddr
 		}
 	}
 
-	client->SetSendBuffer(8192);
-	client->SetRecvBuffer(8192);
-
 	client->Connect(IPAddress::Lookup(host), port);
 
 	this->done = false;
 
-	client->Send(request);
+	client->Send(std::vector<std::uint8_t>(request.begin(), request.end()));
 }
 
 HTTP *HTTP::RequestURL(std::string url, const IPAddress &outgoing)
@@ -107,7 +106,9 @@ void HTTP::Tick(double timeout)
 {
 	if (this->client->Select(timeout))
 	{
-		this->response += this->client->Recv(8192);
+		std::vector<std::uint8_t> received;
+		this->client->Recv(received, 8192);
+		this->response.append(received.begin(), received.end());
 	}
 
 	if (!this->client->Connected())
