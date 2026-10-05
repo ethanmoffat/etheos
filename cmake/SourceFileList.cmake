@@ -282,6 +282,7 @@ set(ExtraFiles
 
 set(TestFiles
 	src/test/action_queue_test.cpp
+	src/test/character_test.cpp
 	src/test/config_test.cpp
 	src/test/database_test.cpp
 	src/test/eoclient_test.cpp
@@ -290,11 +291,18 @@ set(TestFiles
 	src/test/packet_dispatch_test.cpp
 	src/test/socket_test.cpp
 	src/test/worlddump_test.cpp
+	src/test/commands/debug_test.cpp
 	src/test/handlers/Account_test.cpp
+	src/test/handlers/Chair_test.cpp
 	src/test/handlers/Character_test.cpp
 	src/test/handlers/Connection_test.cpp
+	src/test/handlers/Door_test.cpp
+	src/test/handlers/Emote_test.cpp
+	src/test/handlers/Face_test.cpp
 	src/test/handlers/Init_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Sit_test.cpp
+	src/test/handlers/Walk_test.cpp
 	src/test/handlers/Welcome_test.cpp
 	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp

@@ -135,8 +135,8 @@ protected:
         nlohmann::json item = nlohmann::json::object(
         {
             { "mapId", map->id },
-            { "x", mapItem->x },
-            { "y", mapItem->y },
+            { "x", mapItem->loc.x },
+            { "y", mapItem->loc.y },
             { "itemId", mapItem->id },
             { "amount", mapItem->amount },
             { "uid", mapItem->uid }
@@ -160,8 +160,8 @@ protected:
         nlohmann::json chest = nlohmann::json::object(
         {
             { "mapId", map->id },
-            { "x", mapChest.x },
-            { "y", mapChest.y },
+            { "x", mapChest.loc.x },
+            { "y", mapChest.loc.y },
             { "itemId", item.id },
             { "amount", item.amount },
             { "slot", item.slot }
@@ -184,8 +184,8 @@ protected:
         character["hairstyle"] = c->hairstyle;
         character["haircolor"] = c->haircolor;
         character["map"] = c->mapid;
-        character["x"] = c->x;
-        character["y"] = c->y;
+        character["x"] = c->loc.x;
+        character["y"] = c->loc.y;
         character["direction"] = c->direction;
         character["admin"] = c->admin;
         character["level"] = c->level;
@@ -201,7 +201,7 @@ protected:
         character["statpoints"] = c->statpoints;
         character["skillpoints"] = c->skillpoints;
         character["karma"] = c->karma;
-        character["sitting"] = c->sitting;
+        character["sitting"] = static_cast<int>(c->sitting);
         character["hidden"] = c->hidden;
         character["nointeract"] = c->nointeract;
         character["bankmax"] = c->bankmax;
@@ -292,7 +292,7 @@ protected:
         auto itemIter = std::find_if(items.begin(), items.end(),
             [&](nlohmann::json check)
             {
-                return check["mapId"].get<int>() == mapId && check["x"].get<int>() == mapItem->x && check["y"].get<int>() == mapItem->y;
+                return check["mapId"].get<int>() == mapId && check["x"].get<int>() == mapItem->loc.x && check["y"].get<int>() == mapItem->loc.y;
             });
 
         ASSERT_NE(itemIter, items.end());
@@ -594,8 +594,8 @@ GTEST_TEST_F(WorldDumpTest, RestoreFromDump_RestoresMapItems)
         ASSERT_EQ(expectedItem->uid, restoredItem->uid);
         ASSERT_EQ(expectedItem->id, restoredItem->id);
         ASSERT_EQ(expectedItem->amount, restoredItem->amount);
-        ASSERT_EQ(expectedItem->x, restoredItem->x);
-        ASSERT_EQ(expectedItem->y, restoredItem->y);
+        ASSERT_EQ(expectedItem->loc.x, restoredItem->loc.x);
+        ASSERT_EQ(expectedItem->loc.y, restoredItem->loc.y);
     }
 }
 

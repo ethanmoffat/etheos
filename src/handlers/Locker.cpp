@@ -59,9 +59,9 @@ void Locker_Add(Character *character, PacketReader &reader)
 
 	std::size_t lockermax = static_cast<int>(character->world->config["BaseBankSize"]) + character->bankmax * static_cast<int>(character->world->config["BankSizeStep"]);
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::BankVault)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
 		{
 			UTIL_IFOREACH(character->bank, it)
 			{
@@ -115,9 +115,9 @@ void Locker_Take(Character *character, PacketReader &reader)
 
 	// TODO: Limit number of items withdrawn to under weight
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::BankVault)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
 		{
 			UTIL_IFOREACH(character->bank, it)
 			{
@@ -161,9 +161,9 @@ void Locker_Open(Character *character, PacketReader &reader)
 	unsigned char x = reader.GetChar();
 	unsigned char y = reader.GetChar();
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::BankVault)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
 		{
 			PacketBuilder reply(PACKET_LOCKER, PACKET_OPEN, 2 + character->bank.size() * 5);
 			reply.AddChar(x);

@@ -8,29 +8,30 @@
 
 #include "../character.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
 
 namespace Handlers
 {
 
 // Player changing direction
-void Face_Player(Character *character, PacketReader &reader)
+void Face_Player(Character* character, const client::FacePlayerClientPacket& packet)
 {
-	Direction direction = static_cast<Direction>(reader.GetChar());
+	const Direction direction = packet.direction;
 
-	if (character->sitting != SIT_STAND)
+	if (character->sitting != SitState::Stand)
 	{
 		return;
 	}
 
-	if (direction <= 3)
+	if (direction <= Direction::Right)
 	{
 		character->map->Face(character, direction);
 	}
 }
 
 PACKET_HANDLER_REGISTER(PACKET_FACE)
-	Register(PACKET_PLAYER, Face_Player, Playing, 0.12);
+	Register(Face_Player, Playing, 0.12);
 PACKET_HANDLER_REGISTER_END(PACKET_FACE)
 
 }

@@ -98,7 +98,8 @@ void Welcome_Msg(Player* player, const client::WelcomeMsgClientPacket& packet)
 		if (player->character->world->GetMap(player->character->SpawnMap())->exists)
 		{
 			Console::Wrn("Player logged in to non-existent map (%s, map %i) - Position reset", player->character->real_name.c_str(), player->character->mapid);
-			player->character->Warp(player->character->SpawnMap(), player->character->SpawnX(), player->character->SpawnY());
+			const eolib::protocol::Coords spawn_loc = player->character->SpawnLoc();
+			player->character->Warp(player->character->SpawnMap(), spawn_loc.x, spawn_loc.y);
 		}
 		else
 		{

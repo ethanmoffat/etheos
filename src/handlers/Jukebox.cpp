@@ -28,7 +28,7 @@ void Jukebox_Open(Character *character, PacketReader &reader)
 	unsigned char y = reader.GetChar();
 
 	if (!character->InRange(x, y)
-	 || character->map->GetSpec(x, y) != Map_Tile::Jukebox)
+	 || character->map->GetSpec(x, y) != emf::MapTileSpec::Jukebox)
 	{
 		return;
 	}

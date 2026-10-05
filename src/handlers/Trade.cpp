@@ -169,8 +169,8 @@ void Trade_Agree(Character *character, PacketReader &reader)
 			character->Send(builder);
 			character->trade_partner->Send(builder);
 
-			character->Emote(EMOTE_TRADE);
-			character->trade_partner->Emote(EMOTE_TRADE);
+			character->Emote(Emote::Trade);
+			character->trade_partner->Emote(Emote::Trade);
 
 			character->trading = false;
 			character->trade_inventory.clear();

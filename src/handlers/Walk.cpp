@@ -13,15 +13,18 @@
 #include "../packet.hpp"
 #include "../world.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/client/structs.hpp>
+
 namespace Handlers
 {
 
-static void walk_common(Character *character, PacketReader &reader, Map::WalkResult (Character::*f)(Direction))
+static void walk_common(Character* character, const client::WalkAction& walk, Map::WalkResult (Character::*f)(Direction))
 {
-	Direction direction = static_cast<Direction>(reader.GetChar());
-	Timestamp timestamp = reader.GetThree();
-	unsigned char x = reader.GetChar();
-	unsigned char y = reader.GetChar();
+	const Direction direction = walk.direction;
+	const Timestamp timestamp = walk.timestamp;
+	const int x = walk.coords.x;
+	const int y = walk.coords.y;
 	Map::WalkResult walk_result = Map::WalkFail;
 
 	if (character->world->config["EnforceTimestamps"])
@@ -34,12 +37,12 @@ static void walk_common(Character *character, PacketReader &reader, Map::WalkRes
 
 	character->timestamp = timestamp;
 
-	if (character->sitting != SIT_STAND)
+	if (character->sitting != SitState::Stand)
 	{
 		return;
 	}
 
-	if (direction <= 3)
+	if (direction <= Direction::Right)
 	{
 		character->npc = 0;
 		character->npc_type = pub::NpcType::Friendly;
@@ -70,37 +73,37 @@ static void walk_common(Character *character, PacketReader &reader, Map::WalkRes
 		walk_result = (character->*f)(direction);
 	}
 
-	if (walk_result == Map::WalkFail || (walk_result == Map::WalkOK && (character->x != x || character->y != y)))
+	if (walk_result == Map::WalkFail || (walk_result == Map::WalkOK && (character->loc.x != x || character->loc.y != y)))
 	{
 		character->Refresh();
 	}
 }
 
 // Player walking (admin)
-void Walk_Admin(Character *character, PacketReader &reader)
+void Walk_Admin(Character* character, const client::WalkAdminClientPacket& packet)
 {
 	if (character->SourceDutyAccess() < int(character->world->admin_config["nowall"]))
 		return;
 
-	walk_common(character, reader, &Character::AdminWalk);
+	walk_common(character, packet.walk_action, &Character::AdminWalk);
 }
 
 // Player walking (normal)
-void Walk_Player(Character *character, PacketReader &reader)
+void Walk_Player(Character* character, const client::WalkPlayerClientPacket& packet)
 {
-	walk_common(character, reader, &Character::Walk);
+	walk_common(character, packet.walk_action, &Character::Walk);
 }
 
 // Player walking (ghost)
-/*void Walk_Spec(Character *character, PacketReader &reader)
+void Walk_Spec(Character* character, const client::WalkSpecClientPacket& packet)
 {
-	walk_common(character, reader, &Character::Walk);
-}*/
+	walk_common(character, packet.walk_action, &Character::Walk);
+}
 
 PACKET_HANDLER_REGISTER(PACKET_WALK)
-	Register(PACKET_ADMIN, Walk_Admin, Playing, 0.4);
-	Register(PACKET_PLAYER, Walk_Player, Playing, 0.4);
-	Register(PACKET_SPEC, Walk_Player, Playing, 0.4);
+	Register(Walk_Admin, Playing, 0.4);
+	Register(Walk_Player, Playing, 0.4);
+	Register(Walk_Spec, Playing, 0.4);
 PACKET_HANDLER_REGISTER_END(PACKET_WALK)
 
 }

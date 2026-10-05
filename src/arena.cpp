@@ -44,7 +44,7 @@ void Arena::Spawn(bool force)
 	{
 		UTIL_FOREACH(this->map->characters, character)
 		{
-			if (character->x == spawn->sx && character->y == spawn->sy)
+			if (character->loc.x == spawn->sx && character->loc.y == spawn->sy)
 			{
 				++newplayers;
 			}
@@ -89,7 +89,7 @@ void Arena::Spawn(bool force)
 	{
 		UTIL_FOREACH(this->map->characters, character)
 		{
-			if (character->x == spawn->sx && character->y == spawn->sy)
+			if (character->loc.x == spawn->sx && character->loc.y == spawn->sy)
 			{
 				character->next_arena = this;
 				character->arena_kills = 0;
@@ -117,24 +117,24 @@ void Arena::Attack(Character *from, Direction direction)
 {
 	(void)direction;
 
-	int target_x = from->x;
-	int target_y = from->y;
+	int target_x = from->loc.x;
+	int target_y = from->loc.y;
 
 	switch (from->direction)
 	{
-		case DIRECTION_UP:
+		case Direction::Up:
 			target_y -= 1;
 			break;
 
-		case DIRECTION_RIGHT:
+		case Direction::Right:
 			target_x += 1;
 			break;
 
-		case DIRECTION_DOWN:
+		case Direction::Down:
 			target_y += 1;
 			break;
 
-		case DIRECTION_LEFT:
+		case Direction::Left:
 			target_x -= 1;
 			break;
 	}
@@ -158,7 +158,7 @@ void Arena::Attack(Character *from, Direction direction)
 
 	UTIL_FOREACH(this->map->characters, character)
 	{
-		if (character->arena == this && character->x == target_x && character->y == target_y)
+		if (character->arena == this && character->loc.x == target_x && character->loc.y == target_y)
 		{
 			++from->arena_kills;
 			actions.push_back({character, this->map->id, this->map->relog_x, this->map->relog_y});

@@ -15,6 +15,7 @@
 #include "fwd/npc_data.hpp"
 
 #include <eolib/protocol/pub/structs.hpp>
+#include <eolib/protocol/structs.hpp>
 
 #include <array>
 #include <list>
@@ -41,7 +42,7 @@ class NPC
 	public:
 		bool temporary;
 		Direction direction;
-		unsigned char x, y;
+		eolib::protocol::Coords loc;
 		NPC *parent;
 		bool alive;
 		double dead_since;
@@ -57,14 +58,17 @@ class NPC
 		Map *map;
 		unsigned char index;
 		unsigned char spawn_type;
-		short spawn_time;
-		unsigned char spawn_x, spawn_y;
+		short respawn_time;
+		eolib::protocol::Coords spawn_loc;
 
 		int id;
 
+		// Spawn types 0-6 are movement speeds; 7 never moves
+		static constexpr unsigned char StationarySpawnType = 7;
+
 		static void SetSpeedTable(std::array<double, 7> speeds);
 
-		NPC(Map *map, short id, unsigned char x, unsigned char y, unsigned char spawn_type, short spawn_time, unsigned char index, bool temporary = false);
+		NPC(Map *map, short id, const eolib::protocol::Coords& loc, unsigned char spawn_type, short respawn_time, Direction direction, unsigned char index, bool temporary = false);
 
 		const NPC_Data& Data() const;
 		const eolib::protocol::pub::EnfRecord& PubData() const;

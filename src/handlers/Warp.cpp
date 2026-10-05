@@ -81,9 +81,9 @@ void Warp_Accept(Character *character, PacketReader &reader)
 		reply.AddBreakString(character->SourceName());
 		reply.AddShort(character->PlayerID());
 		reply.AddShort(character->mapid);
-		reply.AddShort(character->x);
-		reply.AddShort(character->y);
-		reply.AddChar(character->direction);
+		reply.AddShort(character->loc.x);
+		reply.AddShort(character->loc.y);
+		reply.AddChar(static_cast<int>(character->direction));
 		reply.AddChar(6); // ?
 		reply.AddString(character->PaddedGuildTag());
 		reply.AddChar(character->level);
@@ -98,7 +98,7 @@ void Warp_Accept(Character *character, PacketReader &reader)
 		// equipment
 		character->AddPaperdollData(reply, "B000A0HSW");
 
-		reply.AddChar(character->sitting);
+		reply.AddChar(static_cast<int>(character->sitting));
 		reply.AddChar(character->IsHideInvisible());
 		reply.AddByte(255);
 	}
@@ -106,17 +106,17 @@ void Warp_Accept(Character *character, PacketReader &reader)
 	{
 		reply.AddChar(npc->index);
 		reply.AddShort(npc->id);
-		reply.AddChar(npc->x);
-		reply.AddChar(npc->y);
-		reply.AddChar(npc->direction);
+		reply.AddChar(npc->loc.x);
+		reply.AddChar(npc->loc.y);
+		reply.AddChar(static_cast<int>(npc->direction));
 	}
 	reply.AddByte(255);
 	UTIL_FOREACH(updateitems, item)
 	{
 		reply.AddShort(item->uid);
 		reply.AddShort(item->id);
-		reply.AddChar(item->x);
-		reply.AddChar(item->y);
+		reply.AddChar(item->loc.x);
+		reply.AddChar(item->loc.y);
 		reply.AddThree(item->amount);
 	}
 	character->Send(reply);

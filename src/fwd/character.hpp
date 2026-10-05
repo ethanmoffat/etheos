@@ -7,6 +7,9 @@
 #ifndef FWD_CHARACTER_HPP_INCLUDED
 #define FWD_CHARACTER_HPP_INCLUDED
 
+#include <eolib/protocol/enums.hpp>
+#include <eolib/protocol/net/server/enums.hpp>
+
 class Character;
 
 struct Character_Item;
@@ -22,31 +25,9 @@ enum AdminLevel : unsigned char
 	ADMIN_HGM = 4
 };
 
-enum Direction : unsigned char
-{
-	DIRECTION_DOWN = 0,
-	DIRECTION_LEFT = 1,
-	DIRECTION_UP = 2,
-	DIRECTION_RIGHT = 3
-};
-
-enum Emote : unsigned char
-{
-	EMOTE_HAPPY = 1,
-	EMOTE_DEPRESSED = 2,
-	EMOTE_SAD = 3,
-	EMOTE_ANGRY = 4,
-	EMOTE_CONFUSED = 5,
-	EMOTE_SURPRISED = 6,
-	EMOTE_HEARTS = 7,
-	EMOTE_MOON = 8,
-	EMOTE_SUICIDAL = 9,
-	EMOTE_EMBARASSED = 10,
-	EMOTE_DRUNK = 11,
-	EMOTE_TRADE = 12,
-	EMOTE_LEVELUP = 13,
-	EMOTE_PLAYFUL = 14,
-};
+using Direction = eolib::protocol::Direction;
+using Emote = eolib::protocol::Emote;
+using SitState = eolib::protocol::net::server::SitState;
 
 enum QuestPage : unsigned char
 {
@@ -92,19 +73,6 @@ enum AvatarSlot : unsigned char
 enum TalkReply : short
 {
 	TALK_NOTFOUND = 1
-};
-
-enum SitState : unsigned char
-{
-	SIT_STAND = 0,
-	SIT_CHAIR = 1,
-	SIT_FLOOR = 2
-};
-
-enum SitAction : unsigned char
-{
-	SIT_ACT_SIT = 1,
-	SIT_ACT_STAND = 2
 };
 
 enum TrainType : unsigned char

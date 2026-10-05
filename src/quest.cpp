@@ -257,7 +257,7 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 
 	// Easiest way to get the character to update on everyone nearby's screen
 	if (appearance)
-		victim->Warp(victim->map->id, victim->x, victim->y);
+		victim->Warp(victim->map->id, victim->loc.x, victim->loc.y);
 
 	if (stats || statpoints)
 	{
@@ -682,7 +682,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	else if (function_name == "setrace")
 	{
 		this->character->race = Skin(int(action.expr.args[0]));
-		this->character->Warp(this->character->map->id, this->character->x, this->character->y);
+		this->character->Warp(this->character->map->id, this->character->loc.x, this->character->loc.y);
 	}
 	else if (function_name == "removekarma")
 	{
@@ -807,8 +807,8 @@ bool Quest_Context::CheckRule(const EOPlus::Expression& expr)
 	else if (function_name == "entercoord")
 	{
 		return this->character->map->id == int(expr.args[0])
-		    && this->character->x == int(expr.args[1])
-		    && this->character->y == int(expr.args[2]);
+		    && this->character->loc.x == int(expr.args[1])
+		    && this->character->loc.y == int(expr.args[2]);
 	}
 	else if (function_name == "leavemap")
 	{
@@ -817,8 +817,8 @@ bool Quest_Context::CheckRule(const EOPlus::Expression& expr)
 	else if (function_name == "leavecoord")
 	{
 		return this->character->map->id != int(expr.args[0])
-		    || this->character->x != int(expr.args[1])
-		    || this->character->y != int(expr.args[2]);
+		    || this->character->loc.x != int(expr.args[1])
+		    || this->character->loc.y != int(expr.args[2]);
 	}
 	else if (function_name == "gotitems")
 	{

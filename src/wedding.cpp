@@ -361,8 +361,8 @@ void Wedding::Tick()
 					p2->SourceName()
 				));
 
-				this->map->TileEffect(p1->x, p1->y, 11); // fizzy
-				this->map->TileEffect(p2->x, p2->y, 11); // fizzy
+				this->map->TileEffect(p1->loc.x, p1->loc.y, 11); // fizzy
+				this->map->TileEffect(p2->loc.x, p2->loc.y, 11); // fizzy
 			}
 			else if (this->tick == 5)
 			{

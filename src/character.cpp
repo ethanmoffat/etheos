@@ -412,8 +412,8 @@ Character::Character(std::string name, World *world, Database *database)
 	this->hairstyle = GetRow<int>(row, "hairstyle");
 	this->haircolor = GetRow<int>(row, "haircolor");
 
-	this->x = GetRow<int>(row, "x");
-	this->y = GetRow<int>(row, "y");
+	this->loc.x = GetRow<int>(row, "x");
+	this->loc.y = GetRow<int>(row, "y");
 	this->direction = static_cast<Direction>(GetRow<int>(row, "direction"));
 
 	this->level = GetRow<int>(row, "level");
@@ -633,7 +633,7 @@ void Character::Stand()
 	this->map->Stand(this);
 }
 
-void Character::Emote(enum Emote emote, bool echo)
+void Character::Emote(eolib::protocol::Emote emote, bool echo)
 {
 	this->map->Emote(this, emote, echo);
 }
@@ -661,7 +661,7 @@ void Character::PlayBard(unsigned char instrument, unsigned char note, bool echo
 	PacketBuilder builder(PACKET_JUKEBOX, PACKET_MSG, 5);
 
 	builder.AddShort(this->PlayerID());
-	builder.AddChar(this->direction);
+	builder.AddChar(static_cast<int>(this->direction));
 	builder.AddChar(instrument);
 	builder.AddChar(note);
 
@@ -1175,7 +1175,7 @@ bool Character::Equip(short item, unsigned char subloc)
 
 bool Character::InRange(unsigned char x, unsigned char y) const
 {
-	return util::path_length(this->x, this->y, x, y) <= static_cast<int>(this->world->config.at("SeeDistance"));
+	return util::path_length(this->loc.x, this->loc.y, x, y) <= static_cast<int>(this->world->config.at("SeeDistance"));
 }
 
 bool Character::InRange(const Character *other) const
@@ -1185,7 +1185,7 @@ bool Character::InRange(const Character *other) const
 		return false;
 	}
 
-	return this->InRange(other->x, other->y);
+	return this->InRange(other->loc.x, other->loc.y);
 }
 
 bool Character::InRange(const NPC *other) const
@@ -1195,7 +1195,7 @@ bool Character::InRange(const NPC *other) const
 		return false;
 	}
 
-	return this->InRange(other->x, other->y);
+	return this->InRange(other->loc.x, other->loc.y);
 }
 
 bool Character::InRange(const Map_Item &other) const
@@ -1205,7 +1205,7 @@ bool Character::InRange(const Map_Item &other) const
 		return false;
 	}
 
-	return this->InRange(other.x, other.y);
+	return this->InRange(other.loc.x, other.loc.y);
 }
 
 void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation animation)
@@ -1246,9 +1246,9 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation 
 
 	this->map = this->world->GetMap(map);
 	this->mapid = this->map->id;
-	this->x = x;
-	this->y = y;
-	this->sitting = SIT_STAND;
+	this->loc.x = x;
+	this->loc.y = y;
+	this->sitting = SitState::Stand;
 
 	this->npc = 0;
 	this->npc_type = pub::NpcType::Friendly;
@@ -1338,9 +1338,9 @@ void Character::Refresh()
 		builder.AddBreakString(character->SourceName());
 		builder.AddShort(character->PlayerID());
 		builder.AddShort(character->mapid);
-		builder.AddShort(character->x);
-		builder.AddShort(character->y);
-		builder.AddChar(character->direction);
+		builder.AddShort(character->loc.x);
+		builder.AddShort(character->loc.y);
+		builder.AddChar(static_cast<int>(character->direction));
 		builder.AddChar(6); // ?
 		builder.AddString(character->PaddedGuildTag());
 		builder.AddChar(character->level);
@@ -1355,7 +1355,7 @@ void Character::Refresh()
 		// equipment
 		character->AddPaperdollData(builder, "B000A0HSW");
 
-		builder.AddChar(character->sitting);
+		builder.AddChar(static_cast<int>(character->sitting));
 		builder.AddChar(character->IsHideInvisible());
 		builder.AddByte(255);
 	}
@@ -1364,9 +1364,9 @@ void Character::Refresh()
 	{
 		builder.AddChar(npc->index);
 		builder.AddShort(npc->id);
-		builder.AddChar(npc->x);
-		builder.AddChar(npc->y);
-		builder.AddChar(npc->direction);
+		builder.AddChar(npc->loc.x);
+		builder.AddChar(npc->loc.y);
+		builder.AddChar(static_cast<int>(npc->direction));
 	}
 
 	builder.AddByte(255);
@@ -1375,8 +1375,8 @@ void Character::Refresh()
 	{
 		builder.AddShort(item->uid);
 		builder.AddShort(item->id);
-		builder.AddChar(item->x);
-		builder.AddChar(item->y);
+		builder.AddChar(item->loc.x);
+		builder.AddChar(item->loc.y);
 		builder.AddThree(item->amount);
 	}
 
@@ -1501,14 +1501,9 @@ short Character::SpawnMap()
 	return this->world->GetHome(this)->map;
 }
 
-unsigned char Character::SpawnX()
+eolib::protocol::Coords Character::SpawnLoc()
 {
-	return this->world->GetHome(this)->x;
-}
-
-unsigned char Character::SpawnY()
-{
-	return this->world->GetHome(this)->y;
+	return this->world->GetHome(this)->loc;
 }
 
 void Character::CheckQuestRules()
@@ -1662,7 +1657,7 @@ void Character::DropAll(Character *killer)
 			continue;
 		}
 
-		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(it->id, it->amount, this->x, this->y, 0);
+		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(it->id, it->amount, this->loc.x, this->loc.y, 0);
 
 		if (map_item)
 		{
@@ -1682,8 +1677,8 @@ void Character::DropAll(Character *killer)
 			builder.AddThree(it->amount);
 			builder.AddInt(0);
 			builder.AddShort(map_item->uid);
-			builder.AddChar(this->x);
-			builder.AddChar(this->y);
+			builder.AddChar(this->loc.x);
+			builder.AddChar(this->loc.y);
 			builder.AddChar(static_cast<unsigned char>(this->weight));
 			builder.AddChar(static_cast<unsigned char>(this->maxweight));
 			this->Send(builder);
@@ -1703,7 +1698,7 @@ void Character::DropAll(Character *killer)
 			continue;
 		}
 
-		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(id, 1, this->x, this->y, 0);
+		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(id, 1, this->loc.x, this->loc.y, 0);
 
 		if (map_item)
 		{
@@ -1757,8 +1752,8 @@ void Character::DropAll(Character *killer)
 			builder.AddThree(1);
 			builder.AddInt(0);
 			builder.AddShort(map_item->uid);
-			builder.AddChar(this->x);
-			builder.AddChar(this->y);
+			builder.AddChar(this->loc.x);
+			builder.AddChar(this->loc.y);
 			builder.AddChar(static_cast<unsigned char>(this->weight));
 			builder.AddChar(static_cast<unsigned char>(this->maxweight));
 			this->Send(builder);
@@ -1861,7 +1856,7 @@ void Character::SpikeDamage(int amount)
 
 	this->Send(builder2);
 
-	for (Character* watcher : this->map->CharactersInRange(this->x, this->y, static_cast<int>(this->world->config["SeeDistance"])))
+	for (Character* watcher : this->map->CharactersInRange(this->loc.x, this->loc.y, static_cast<int>(this->world->config["SeeDistance"])))
 	{
 		if (watcher == this)
 			continue;
@@ -1884,8 +1879,7 @@ void Character::DeathRespawn()
 	this->nowhere = true;
 	this->map = this->world->GetMap(this->SpawnMap());
 	this->mapid = this->SpawnMap();
-	this->x = this->SpawnX();
-	this->y = this->SpawnY();
+	this->loc = this->SpawnLoc();
 
 	// The character stays in limbo until the packets it already sent are handled and the pause is over. The character is
 	// looked up again then, since it can be freed on logout while the client lives on.
@@ -1896,7 +1890,8 @@ void Character::DeathRespawn()
 
 		Character* character = client.player->character;
 		character->map = nullptr;
-		character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_NONE);
+		const eolib::protocol::Coords spawn_loc = character->SpawnLoc();
+		character->Warp(character->SpawnMap(), spawn_loc.x, spawn_loc.y, WARP_ANIMATION_NONE);
 	});
 }
 
@@ -1927,7 +1922,7 @@ void Character::FormulaVars(std::unordered_map<std::string, double> &vars, std::
 	v(display_str) vv(display_intl, "display_int") v(display_wis) v(display_agi) v(display_con) v(display_cha)
 	v(accuracy) v(evade) v(armor) v(admin) v(bot) v(usage)
 	vv(clas, "class") v(gender) v(race) v(hairstyle) v(haircolor)
-	v(mapid) v(x) v(y) v(direction) v(sitting) v(hidden) v(whispers) v(goldbank)
+	v(mapid) vv(loc.x, "x") vv(loc.y, "y") vv(static_cast<int>(direction), "direction") vv(static_cast<int>(sitting), "sitting") v(hidden) v(whispers) v(goldbank)
 	v(statpoints) v(skillpoints)
 }
 
@@ -2281,7 +2276,7 @@ void Character::Save()
 		"`nointeract` = #, `bankmax` = #, `goldbank` = #, `usage` = #, `inventory` = '$', `bank` = '$', `paperdoll` = '$', "
 		"`spells` = '$', `guild` = '$', `guild_rank` = #, `guild_rank_string` = '$', `quest` = '$', `vars` = '$' WHERE `name` = '$'",
 		this->title.c_str(), this->home.c_str(), this->fiance.c_str(), this->partner.c_str(), int(this->admin), this->clas, int(this->gender), int(this->race),
-		this->hairstyle, this->haircolor, this->mapid, this->x, this->y, int(this->direction), this->level, this->exp, this->hp, this->tp,
+		this->hairstyle, this->haircolor, this->mapid, this->loc.x, this->loc.y, int(this->direction), this->level, this->exp, this->hp, this->tp,
 		this->str, this->intl, this->wis, this->agi, this->con, this->cha, this->statpoints, this->skillpoints, this->karma, int(this->sitting), int(this->hidden),
 		nointeract, this->bankmax, this->goldbank, this->Usage(), ItemSerialize(this->inventory).c_str(), ItemSerialize(this->bank).c_str(),
 		DollSerialize(this->paperdoll).c_str(), SpellSerialize(this->spells).c_str(), (this->guild ? this->guild->tag.c_str() : ""),

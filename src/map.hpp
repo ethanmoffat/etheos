@@ -15,6 +15,9 @@
 #include "fwd/wedding.hpp"
 #include "fwd/world.hpp"
 
+#include <eolib/protocol/map/enums.hpp>
+#include <eolib/protocol/structs.hpp>
+
 #include <array>
 #include <cstdint>
 #include <list>
@@ -30,13 +33,16 @@ struct Map_Item
 	short uid;
 	short id;
 	int amount;
-	unsigned char x;
-	unsigned char y;
+	eolib::protocol::Coords loc;
 	unsigned int owner; // Player ID
 	double unprotecttime;
 
 	Map_Item(short uid_, short id_, int amount_, unsigned char x_, unsigned char y_, unsigned int owner_, double unprotecttime_)
-	 : uid(uid_), id(id_), amount(amount_), x(x_), y(y_), owner(owner_), unprotecttime(unprotecttime_) { }
+	 : uid(uid_), id(id_), amount(amount_), owner(owner_), unprotecttime(unprotecttime_)
+	{
+		loc.x = x_;
+		loc.y = y_;
+	}
 };
 
 /**
@@ -45,8 +51,7 @@ struct Map_Item
 struct Map_Warp
 {
 	short map;
-	unsigned char x;
-	unsigned char y;
+	eolib::protocol::Coords loc;
 	unsigned char levelreq;
 
 	enum WarpSpec
@@ -61,7 +66,7 @@ struct Map_Warp
 	WarpSpec spec;
 	bool open;
 
-	Map_Warp() : map(0), x(0), y(0), levelreq(0), spec(Map_Warp::NoDoor), open(false) {}
+	Map_Warp() : map(0), levelreq(0), spec(Map_Warp::NoDoor), open(false) {}
 
 	explicit operator bool() const
 	{
@@ -74,53 +79,14 @@ struct Map_Warp
  */
 struct Map_Tile
 {
-	enum TileSpec
-	{
-		None = -1,
-		Wall,
-		ChairDown,
-		ChairLeft,
-		ChairRight,
-		ChairUp,
-		ChairDownRight,
-		ChairUpLeft,
-		ChairAll,
-		Door,
-		Chest,
-		Unknown1,
-		Unknown2,
-		Unknown3,
-		Unknown4,
-		Unknown5,
-		Unknown6,
-		BankVault,
-		NPCBoundary,
-		MapEdge,
-		FakeWall,
-		Board1,
-		Board2,
-		Board3,
-		Board4,
-		Board5,
-		Board6,
-		Board7,
-		Board8,
-		Jukebox,
-		Jump,
-		Water,
-		Unknown7,
-		Arena,
-		AmbientSource,
-		Spikes1,
-		Spikes2,
-		Spikes3
-	};
+	// Tiles without a spec in the map file; eolib has no value for this
+	static constexpr eolib::protocol::map::MapTileSpec NoSpec = static_cast<eolib::protocol::map::MapTileSpec>(-1);
 
-	TileSpec tilespec;
+	eolib::protocol::map::MapTileSpec tilespec;
 
 	Map_Warp warp;
 
-	Map_Tile() : tilespec(Map_Tile::None) { }
+	Map_Tile() : tilespec(Map_Tile::NoSpec) { }
 
 	bool Walkable(bool npc = false) const
 	{
@@ -131,28 +97,28 @@ struct Map_Tile
 
 		switch (this->tilespec)
 		{
-			case Wall:
-			case ChairDown:
-			case ChairLeft:
-			case ChairRight:
-			case ChairUp:
-			case ChairDownRight:
-			case ChairUpLeft:
-			case ChairAll:
-			case Chest:
-			case BankVault:
-			case MapEdge:
-			case Board1:
-			case Board2:
-			case Board3:
-			case Board4:
-			case Board5:
-			case Board6:
-			case Board7:
-			case Board8:
-			case Jukebox:
+			case eolib::protocol::map::MapTileSpec::Wall:
+			case eolib::protocol::map::MapTileSpec::ChairDown:
+			case eolib::protocol::map::MapTileSpec::ChairLeft:
+			case eolib::protocol::map::MapTileSpec::ChairRight:
+			case eolib::protocol::map::MapTileSpec::ChairUp:
+			case eolib::protocol::map::MapTileSpec::ChairDownRight:
+			case eolib::protocol::map::MapTileSpec::ChairUpLeft:
+			case eolib::protocol::map::MapTileSpec::ChairAll:
+			case eolib::protocol::map::MapTileSpec::Chest:
+			case eolib::protocol::map::MapTileSpec::BankVault:
+			case eolib::protocol::map::MapTileSpec::Edge:
+			case eolib::protocol::map::MapTileSpec::Board1:
+			case eolib::protocol::map::MapTileSpec::Board2:
+			case eolib::protocol::map::MapTileSpec::Board3:
+			case eolib::protocol::map::MapTileSpec::Board4:
+			case eolib::protocol::map::MapTileSpec::Board5:
+			case eolib::protocol::map::MapTileSpec::Board6:
+			case eolib::protocol::map::MapTileSpec::Board7:
+			case eolib::protocol::map::MapTileSpec::Board8:
+			case eolib::protocol::map::MapTileSpec::Jukebox:
 				return false;
-			case NPCBoundary:
+			case eolib::protocol::map::MapTileSpec::NpcBoundary:
 				return !npc;
 			default:
 				return true;
@@ -188,8 +154,7 @@ struct Map_Chest_Spawn
  */
 struct Map_Chest
 {
-	unsigned char x;
-	unsigned char y;
+	eolib::protocol::Coords loc;
 
 	std::list<Map_Chest_Item> items;
 	std::list<Map_Chest_Spawn> spawns;
@@ -299,8 +264,8 @@ class Map
 		void Face(Character *from, Direction direction);
 		void Sit(Character *from, SitState sit_type);
 		void Stand(Character *from);
-		void Emote(Character *from, enum Emote emote, bool echo = true);
-		bool OpenDoor(Character *from, unsigned char x, unsigned char y);
+		void Emote(Character *from, eolib::protocol::Emote emote, bool echo = true);
+		bool OpenDoor(Character *from, const eolib::protocol::Coords& coords);
 		void CloseDoor(unsigned char x, unsigned char y);
 
 		void SpellSelf(Character *from, unsigned short spell_id);
@@ -323,7 +288,7 @@ class Map
 		bool Walkable(unsigned char x, unsigned char y, bool npc = false) const;
 		Map_Tile& GetTile(unsigned char x, unsigned char y);
 		const Map_Tile& GetTile(unsigned char x, unsigned char y) const;
-		Map_Tile::TileSpec GetSpec(unsigned char x, unsigned char y) const;
+		eolib::protocol::map::MapTileSpec GetSpec(unsigned char x, unsigned char y) const;
 		Map_Warp& GetWarp(unsigned char x, unsigned char y);
 		const Map_Warp& GetWarp(unsigned char x, unsigned char y) const;
 

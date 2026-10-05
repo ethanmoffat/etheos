@@ -24,6 +24,7 @@
 #include "map.hpp"
 
 #include <eolib/protocol/net/packet.hpp>
+#include <eolib/protocol/structs.hpp>
 
 #include <array>
 #include <deque>
@@ -182,7 +183,7 @@ class Character : public Command_Source
 		Skin race;
 		unsigned char hairstyle, haircolor;
 		short mapid;
-		unsigned char x, y;
+		eolib::protocol::Coords loc;
 		Direction direction;
 		unsigned char level;
 		int exp;
@@ -312,7 +313,7 @@ class Character : public Command_Source
 		void Attack(Direction direction);
 		void Sit(SitState sit_type);
 		void Stand();
-		void Emote(enum Emote emote, bool echo = true);
+		void Emote(eolib::protocol::Emote emote, bool echo = true);
 		void Effect(int effect, bool echo = true);
 		void PlayBard(unsigned char instrument, unsigned char note, bool echo = true);
 		int HasItem(short item, bool include_trade = false);
@@ -344,8 +345,7 @@ class Character : public Command_Source
 		std::string HomeString() const;
 		int Usage();
 		short SpawnMap();
-		unsigned char SpawnX();
-		unsigned char SpawnY();
+		eolib::protocol::Coords SpawnLoc();
 		void CheckQuestRules();
 		void CalculateStats(bool trigger_quests = true);
 		void DropAll(Character *killer);

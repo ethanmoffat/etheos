@@ -61,18 +61,16 @@ struct Home
 	std::string id;
 	std::string name;
 	short map;
-	unsigned char x;
-	unsigned char y;
+	eolib::protocol::Coords loc;
 	int level;
 	int race;
 	int innkeeper_vend;
 	short sleep_map;
-	unsigned char sleep_x;
-	unsigned char sleep_y;
+	eolib::protocol::Coords sleep_loc;
 
-	Home() : map(1), x(0), y(0),
+	Home() : map(1),
 			 level(-1), race(-1), innkeeper_vend(0),
-			 sleep_map(0), sleep_x(0), sleep_y(0) { }
+			 sleep_map(0) { }
 };
 
 /**

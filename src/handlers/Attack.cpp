@@ -33,7 +33,7 @@ void Attack_Use(Character *character, PacketReader &reader)
 
 	character->timestamp = timestamp;
 
-	if (character->sitting != SIT_STAND)
+	if (character->sitting != SitState::Stand)
 		return;
 
 	if (int(character->world->config["EnforceWeight"]) >= 1 && character->weight > character->maxweight)

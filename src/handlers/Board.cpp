@@ -178,7 +178,7 @@ void Board_Open(Character *character, PacketReader &reader)
 				auto xChar = static_cast<unsigned char>(x);
 				auto yChar = static_cast<unsigned char>(y);
 				if (character->InRange(xChar, yChar)
-				 && character->map->GetSpec(xChar, yChar) == static_cast<Map_Tile::TileSpec>(Map_Tile::Board1 + boardid))
+				 && character->map->GetSpec(xChar, yChar) == static_cast<emf::MapTileSpec>(static_cast<int>(emf::MapTileSpec::Board1) + boardid))
 				{
 					character->board = character->world->boards[boardid];
 				}

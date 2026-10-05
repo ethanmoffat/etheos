@@ -20,6 +20,14 @@
 namespace Converters
 {
 
+server::BigCoords BigCoordsFrom(const eolib::protocol::Coords& coords)
+{
+	server::BigCoords big_coords;
+	big_coords.x = coords.x;
+	big_coords.y = coords.y;
+	return big_coords;
+}
+
 server::CharacterSelectionListEntry CharacterSelectionListEntryFrom(Character* character)
 {
 	const Character::PaperdollGraphics graphics = character->GetPaperdollGraphics();
@@ -49,9 +57,8 @@ server::CharacterMapInfo CharacterMapInfoFrom(Character* character)
 	info.name = character->SourceName();
 	info.player_id = character->PlayerID();
 	info.map_id = character->mapid;
-	info.coords.x = character->x;
-	info.coords.y = character->y;
-	info.direction = static_cast<eolib::protocol::Direction>(character->direction);
+	info.coords = BigCoordsFrom(character->loc);
+	info.direction = character->direction;
 	info.class_id = character->clas;
 	info.guild_tag = character->PaddedGuildTag();
 	info.level = character->level;
@@ -68,7 +75,7 @@ server::CharacterMapInfo CharacterMapInfoFrom(Character* character)
 	info.equipment.hat = graphics.hat;
 	info.equipment.shield = graphics.shield;
 	info.equipment.weapon = graphics.weapon;
-	info.sit_state = static_cast<server::SitState>(character->sitting);
+	info.sit_state = character->sitting;
 	info.invisible = character->IsHideInvisible();
 	return info;
 }
@@ -78,9 +85,8 @@ server::NpcMapInfo NpcMapInfoFrom(const NPC* npc)
 	server::NpcMapInfo info;
 	info.index = npc->index;
 	info.id = npc->id;
-	info.coords.x = npc->x;
-	info.coords.y = npc->y;
-	info.direction = static_cast<eolib::protocol::Direction>(npc->direction);
+	info.coords = npc->loc;
+	info.direction = npc->direction;
 	return info;
 }
 
@@ -89,8 +95,7 @@ server::ItemMapInfo ItemMapInfoFrom(const Map_Item& item)
 	server::ItemMapInfo info;
 	info.uid = item.uid;
 	info.id = item.id;
-	info.coords.x = item.x;
-	info.coords.y = item.y;
+	info.coords = item.loc;
 	info.amount = item.amount;
 	return info;
 }

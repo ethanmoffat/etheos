@@ -35,13 +35,13 @@ void Chest_Add(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::Chest)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
 		{
 			UTIL_FOREACH(character->map->chests, chest)
 			{
-				if (chest->x == x && chest->y == y)
+				if (chest->loc.x == x && chest->loc.y == y)
 				{
 					amount = std::min(amount, int(character->world->config["MaxChest"]) - chest->HasItem(id));
 
@@ -82,13 +82,13 @@ void Chest_Take(Character *character, PacketReader &reader)
 	int y = reader.GetChar();
 	int id = reader.GetShort();
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::Chest)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
 		{
 			UTIL_FOREACH(character->map->chests, chest)
 			{
-				if (chest->x == x && chest->y == y)
+				if (chest->loc.x == x && chest->loc.y == y)
 				{
 					int amount = chest->HasItem(id);
 					int taken = character->CanHoldItem(id, amount);
@@ -130,13 +130,13 @@ void Chest_Open(Character *character, PacketReader &reader)
 	int x = reader.GetChar();
 	int y = reader.GetChar();
 
-	if (util::path_length(character->x, character->y, x, y) <= 1)
+	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
 	{
-		if (character->map->GetSpec(x, y) == Map_Tile::Chest)
+		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
 		{
 			UTIL_FOREACH(character->map->chests, chest)
 			{
-				if (chest->x == x && chest->y == y)
+				if (chest->loc.x == x && chest->loc.y == y)
 				{
 					PacketBuilder reply(PACKET_CHEST, PACKET_OPEN, 2);
 

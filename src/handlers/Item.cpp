@@ -68,12 +68,12 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			if (scroll.map == 0)
 			{
-				if (character->mapid == character->SpawnMap() && character->x == character->SpawnX() && character->y == character->SpawnY())
+				if (character->mapid == character->SpawnMap() && character->loc == character->SpawnLoc())
 					break;
 			}
 			else
 			{
-				if (character->mapid == scroll.map && character->x == scroll.x && character->y == scroll.y)
+				if (character->mapid == scroll.map && character->loc.x == scroll.x && character->loc.y == scroll.y)
 					break;
 			}
 
@@ -86,7 +86,7 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			if (scroll.map == 0)
 			{
-				character->Warp(character->SpawnMap(), character->SpawnX(), character->SpawnY(), WARP_ANIMATION_SCROLL);
+				character->Warp(character->SpawnMap(), character->SpawnLoc().x, character->SpawnLoc().y, WARP_ANIMATION_SCROLL);
 			}
 			else
 			{
@@ -385,8 +385,8 @@ void Item_Drop(Character *character, PacketReader &reader)
 
 	if (x == 255 && y == 255)
 	{
-		x = character->x;
-		y = character->y;
+		x = character->loc.x;
+		y = character->loc.y;
 	}
 	else
 	{
@@ -394,7 +394,7 @@ void Item_Drop(Character *character, PacketReader &reader)
 		y = eolib::data::NumberEncoder::DecodeNumber(&y, 1);
 	}
 
-	int distance = util::path_length(x, y, character->x, character->y);
+	int distance = util::path_length(x, y, character->loc.x, character->loc.y);
 
 	if (distance > static_cast<int>(character->world->config["DropDistance"]))
 	{
@@ -464,7 +464,7 @@ void Item_Get(Character *character, PacketReader &reader)
 
 	if (item)
 	{
-		int distance = util::path_length(item->x, item->y, character->x, character->y);
+		int distance = util::path_length(item->loc.x, item->loc.y, character->loc.x, character->loc.y);
 
 		if (distance > static_cast<int>(character->world->config["DropDistance"]))
 		{

@@ -7,25 +7,26 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
-#include "../packet.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
 
 namespace Handlers
 {
 
 // Player sending an emote
-void Emote_Report(Character *character, PacketReader &reader)
+void Emote_Report(Character* character, const client::EmoteReportClientPacket& packet)
 {
-	Emote emote = static_cast<Emote>(reader.GetChar());
+	const Emote emote = packet.emote;
 
 	// TODO: Restrict drunk emote
-	if ((emote >= 1 && emote <= 10) || emote == EMOTE_DRUNK || emote == EMOTE_PLAYFUL)
+	if ((emote >= Emote::Happy && emote <= Emote::Embarrassed) || emote == Emote::Drunk || emote == Emote::Playful)
 	{
 		character->Emote(emote, false);
 	}
 }
 
 PACKET_HANDLER_REGISTER(PACKET_EMOTE)
-	Register(PACKET_REPORT, Emote_Report, Playing);
+	Register(Emote_Report, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_EMOTE)
 
 }

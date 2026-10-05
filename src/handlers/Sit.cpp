@@ -7,39 +7,36 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
-#include "../packet.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 namespace Handlers
 {
 
-void Sit_Request(Character *character, PacketReader &reader)
+void Sit_Request(Character* character, const client::SitRequestClientPacket& packet)
 {
-	SitAction action = SitAction(reader.GetChar());
-
-	if (action == SIT_ACT_SIT && character->sitting == SIT_STAND)
+	if (packet.sit_action == client::SitAction::Sit && character->sitting == SitState::Stand)
 	{
-		PacketBuilder reply(PACKET_SIT, PACKET_PLAYER, 6);
-		reply.AddShort(character->PlayerID());
-		reply.AddChar(character->x);
-		reply.AddChar(character->y);
-		reply.AddChar(character->direction);
-		reply.AddChar(0); // ?
+		server::SitReplyServerPacket reply;
+		reply.player_id = character->PlayerID();
+		reply.coords = character->loc;
+		reply.direction = character->direction;
 		character->Send(reply);
-		character->Sit(SIT_FLOOR);
+		character->Sit(SitState::Floor);
 	}
-	else if (character->sitting == SIT_FLOOR)
+	else if (character->sitting == SitState::Floor)
 	{
-		PacketBuilder reply(PACKET_SIT, PACKET_CLOSE, 4);
-		reply.AddShort(character->PlayerID());
-		reply.AddChar(character->x);
-		reply.AddChar(character->y);
+		server::SitCloseServerPacket reply;
+		reply.player_id = character->PlayerID();
+		reply.coords = character->loc;
 		character->Send(reply);
 		character->Stand();
 	}
 }
 
 PACKET_HANDLER_REGISTER(PACKET_SIT)
-	Register(PACKET_REQUEST, Sit_Request, Playing);
+	Register(Sit_Request, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_SIT)
 
 }

@@ -49,6 +49,7 @@
 namespace server = eolib::protocol::net::server;
 namespace client = eolib::protocol::net::client;
 namespace pub = eolib::protocol::pub;
+namespace emf = eolib::protocol::map;
 
 void world_spawn_npcs(void *world_void)
 {
@@ -60,7 +61,7 @@ void world_spawn_npcs(void *world_void)
 	{
 		UTIL_FOREACH(map->npcs, npc)
 		{
-			if ((!npc->alive && npc->dead_since + (double(npc->spawn_time) * spawnrate) < current_time)
+			if ((!npc->alive && npc->dead_since + (double(npc->respawn_time) * spawnrate) < current_time)
 			 && (!npc->PubData().child || (npc->parent && npc->parent->alive && world->config["RespawnBossChildren"])))
 			{
 #ifdef DEBUG
@@ -116,8 +117,8 @@ void world_recover(void *world_void)
 
 		if (character->hp != character->maxhp)
 		{
-			if (character->sitting != SIT_STAND) character->hp += static_cast<short>(character->maxhp * double(world->config["SitHPRecoverRate"]));
-			else                                 character->hp += static_cast<short>(character->maxhp * double(world->config["HPRecoverRate"]));
+			if (character->sitting != SitState::Stand) character->hp += static_cast<short>(character->maxhp * double(world->config["SitHPRecoverRate"]));
+			else                                       character->hp += static_cast<short>(character->maxhp * double(world->config["HPRecoverRate"]));
 
 			character->hp = std::min(character->hp, character->maxhp);
 			updated = true;
@@ -130,8 +131,8 @@ void world_recover(void *world_void)
 
 		if (character->tp != character->maxtp)
 		{
-			if (character->sitting != SIT_STAND) character->tp += static_cast<short>(character->maxtp * double(world->config["SitTPRecoverRate"]));
-			else                                 character->tp += static_cast<short>(character->maxtp * double(world->config["TPRecoverRate"]));
+			if (character->sitting != SitState::Stand) character->tp += static_cast<short>(character->maxtp * double(world->config["SitTPRecoverRate"]));
+			else                                       character->tp += static_cast<short>(character->maxtp * double(world->config["TPRecoverRate"]));
 
 			character->tp = std::min(character->tp, character->maxtp);
 			updated = true;
@@ -172,14 +173,12 @@ void world_warp_suck(void *world_void)
 	{
 		Character *character;
 		short map;
-		unsigned char x;
-		unsigned char y;
+		eolib::protocol::Coords loc;
 
-		Warp_Suck_Action(Character *character, short map, unsigned char x, unsigned char y)
+		Warp_Suck_Action(Character *character, short map, const eolib::protocol::Coords& loc)
 			: character(character)
 			, map(map)
-			, x(x)
-			, y(y)
+			, loc(loc)
 		{ }
 	};
 
@@ -207,16 +206,16 @@ void world_warp_suck(void *world_void)
 				if (!warp || warp.levelreq > character->level || (warp.spec != Map_Warp::Door && warp.spec != Map_Warp::NoDoor))
 					return;
 
-				actions.push_back({character, warp.map, warp.x, warp.y});
+				actions.push_back({character, warp.map, warp.loc});
 			};
 
 			character->last_walk = now;
 
-			check_warp(true,                       character->x,     character->y);
-			check_warp(character->x > 0,           character->x - 1, character->y);
-			check_warp(character->x < map->width,  character->x + 1, character->y);
-			check_warp(character->y > 0,           character->x,     character->y - 1);
-			check_warp(character->y < map->height, character->x,     character->y + 1);
+			check_warp(true,                           character->loc.x,     character->loc.y);
+			check_warp(character->loc.x > 0,           character->loc.x - 1, character->loc.y);
+			check_warp(character->loc.x < map->width,  character->loc.x + 1, character->loc.y);
+			check_warp(character->loc.y > 0,           character->loc.x,     character->loc.y - 1);
+			check_warp(character->loc.y < map->height, character->loc.x,     character->loc.y + 1);
 		}
 	}
 
@@ -229,7 +228,7 @@ void world_warp_suck(void *world_void)
 		}
 		else
 		{
-			act.character->Warp(act.map, act.x, act.y);
+			act.character->Warp(act.map, act.loc.x, act.loc.y);
 		}
 	}
 }
@@ -578,8 +577,8 @@ void World::DumpToFile(const std::string& fileName)
 		nextC["hairstyle"] = c->hairstyle;
 		nextC["haircolor"] = c->haircolor;
 		nextC["map"] = c->mapid;
-		nextC["x"] = c->x;
-		nextC["y"] = c->y;
+		nextC["x"] = c->loc.x;
+		nextC["y"] = c->loc.y;
 		nextC["direction"] = c->direction;
 		nextC["admin"] = c->admin;
 		nextC["level"] = c->level;
@@ -595,7 +594,7 @@ void World::DumpToFile(const std::string& fileName)
 		nextC["statpoints"] = c->statpoints;
 		nextC["skillpoints"] = c->skillpoints;
 		nextC["karma"] = c->karma;
-		nextC["sitting"] = c->sitting;
+		nextC["sitting"] = static_cast<int>(c->sitting);
 		nextC["hidden"] = c->hidden;
 		nextC["nointeract"] = c->nointeract;
 		nextC["bankmax"] = c->bankmax;
@@ -632,8 +631,8 @@ void World::DumpToFile(const std::string& fileName)
 			items.push_back(
 			{
 				{ "mapId", map->id },
-				{ "x", item->x },
-				{ "y", item->y },
+				{ "x", item->loc.x },
+				{ "y", item->loc.y },
 				{ "itemId", item->id },
 				{ "amount", item->amount },
 				{ "uid", item->uid }
@@ -647,8 +646,8 @@ void World::DumpToFile(const std::string& fileName)
 				chests.push_back(
 				{
 					{ "mapId", map->id },
-					{ "x", chest->x },
-					{ "y", chest->y },
+					{ "x", chest->loc.x },
+					{ "y", chest->loc.y },
 					{ "itemId", chestItem.id },
 					{ "amount", chestItem.amount },
 					{ "slot", chestItem.slot }
@@ -872,7 +871,7 @@ void World::RestoreFromDump(const std::string& fileName)
 		auto mapChest = std::find_if((*map)->chests.begin(), (*map)->chests.end(),
 			[&chest] (std::shared_ptr<Map_Chest> check)
 			{
-				return check->x == chest["x"].get<int>() && check->y == chest["y"].get<int>();
+				return check->loc.x == chest["x"].get<int>() && check->loc.y == chest["y"].get<int>();
 			});
 		if (mapChest == (*map)->chests.end())
 			continue;
@@ -1073,15 +1072,15 @@ void World::LoadHome()
 		{
 			std::vector<std::string> locparts = util::explode(',', hc.second);
 			home->map = locparts.size() >= 1 ? util::to_int(locparts[0]) : 1;
-			home->x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
-			home->y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
+			home->loc.x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
+			home->loc.y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
 		}
 		else if (parts[1] == "sleep")
 		{
 			std::vector<std::string> locparts = util::explode(',', hc.second);
 			home->sleep_map = locparts.size() >= 1 ? util::to_int(locparts[0]) : 0;
-			home->sleep_x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
-			home->sleep_y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
+			home->sleep_loc.x = locparts.size() >= 2 ? util::to_int(locparts[1]) : 0;
+			home->sleep_loc.y = locparts.size() >= 3 ? util::to_int(locparts[2]) : 0;
 		}
 	}
 
@@ -1139,30 +1138,30 @@ void World::Login(Character *character)
 
 	if (this->GetMap(character->mapid)->relog_x || this->GetMap(character->mapid)->relog_y)
 	{
-		character->x = this->GetMap(character->mapid)->relog_x;
-		character->y = this->GetMap(character->mapid)->relog_y;
+		character->loc.x = this->GetMap(character->mapid)->relog_x;
+		character->loc.y = this->GetMap(character->mapid)->relog_y;
 	}
 
 	Map* map = this->GetMap(character->mapid);
 
-	if (character->sitting == SIT_CHAIR)
+	if (character->sitting == SitState::Chair)
 	{
-		Map_Tile::TileSpec spec = map->GetSpec(character->x, character->y);
+		emf::MapTileSpec spec = map->GetSpec(character->loc.x, character->loc.y);
 
-		if (spec == Map_Tile::ChairDown)
-			character->direction = DIRECTION_DOWN;
-		else if (spec == Map_Tile::ChairUp)
-			character->direction = DIRECTION_UP;
-		else if (spec == Map_Tile::ChairLeft)
-			character->direction = DIRECTION_LEFT;
-		else if (spec == Map_Tile::ChairRight)
-			character->direction = DIRECTION_RIGHT;
-		else if (spec == Map_Tile::ChairDownRight)
-			character->direction = character->direction == DIRECTION_RIGHT ? DIRECTION_RIGHT : DIRECTION_DOWN;
-		else if (spec == Map_Tile::ChairUpLeft)
-			character->direction = character->direction == DIRECTION_LEFT ? DIRECTION_LEFT : DIRECTION_UP;
-		else if (spec != Map_Tile::ChairAll)
-			character->sitting = SIT_STAND;
+		if (spec == emf::MapTileSpec::ChairDown)
+			character->direction = Direction::Down;
+		else if (spec == emf::MapTileSpec::ChairUp)
+			character->direction = Direction::Up;
+		else if (spec == emf::MapTileSpec::ChairLeft)
+			character->direction = Direction::Left;
+		else if (spec == emf::MapTileSpec::ChairRight)
+			character->direction = Direction::Right;
+		else if (spec == emf::MapTileSpec::ChairDownRight)
+			character->direction = character->direction == Direction::Right ? Direction::Right : Direction::Down;
+		else if (spec == emf::MapTileSpec::ChairUpLeft)
+			character->direction = character->direction == Direction::Left ? Direction::Left : Direction::Up;
+		else if (spec != emf::MapTileSpec::ChairAll)
+			character->sitting = SitState::Stand;
 	}
 
 	map->Enter(character);
@@ -1726,7 +1725,7 @@ Character *World::CreateCharacter(Player *player, std::string name, Gender gende
 	if (home)
 	{
 		startmapinfo = ", `map`, `x`, `y`";
-		std::snprintf(buffer, 1024, ",%i,%i,%i", home->map, home->x, home->y);
+		std::snprintf(buffer, 1024, ",%i,%i,%i", home->map, home->loc.x, home->loc.y);
 		startmapval = buffer;
 	}
 

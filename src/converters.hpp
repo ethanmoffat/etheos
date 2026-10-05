@@ -22,6 +22,8 @@ namespace Converters
 
 	constexpr std::size_t NewsLineCount = 9;
 
+	server::BigCoords BigCoordsFrom(const eolib::protocol::Coords& coords);
+
 	server::CharacterSelectionListEntry CharacterSelectionListEntryFrom(Character* character);
 
 	server::CharacterMapInfo CharacterMapInfoFrom(Character* character);

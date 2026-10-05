@@ -269,8 +269,8 @@ void Info(const std::vector<std::string>& arguments, Character* from)
 			reply.AddInt(victim->exp);
 			reply.AddChar(victim->level);
 			reply.AddShort(victim->mapid);
-			reply.AddShort(victim->x);
-			reply.AddShort(victim->y);
+			reply.AddShort(victim->loc.x);
+			reply.AddShort(victim->loc.y);
 			reply.AddShort(victim->hp);
 			reply.AddShort(victim->maxhp);
 			reply.AddShort(victim->tp);

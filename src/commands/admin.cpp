@@ -97,8 +97,7 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 	if (!dutyoff && arguments.size() > 0 && util::lowercase(arguments[0]) == "here")
 	{
 		swap->mapid = from->mapid;
-		swap->x = from->x;
-		swap->y = from->y;
+		swap->loc = from->loc;
 		swap->direction = from->direction;
 		swap->sitting = from->sitting;
 	}
@@ -116,7 +115,7 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 	player->Send(server::WelcomeReplyServerPacket::ForEnterGame(
 		Converters::EnterGameFrom(swap, {}, std::move(nearby))));
 
-	swap->Warp(swap->mapid, swap->x, swap->y, WARP_ANIMATION_NONE);
+	swap->Warp(swap->mapid, swap->loc.x, swap->loc.y, WARP_ANIMATION_NONE);
 }
 
 void Audit(const std::vector<std::string>& arguments, Character* from)

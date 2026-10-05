@@ -46,10 +46,12 @@ public:
         character->party = nullptr;
         character->arena = nullptr;
         character->next_arena = nullptr;
+        character->trading = false;
         character->trade_partner = nullptr;
         character->npc = nullptr;
         character->board = nullptr;
         character->spell_event = nullptr;
+        character->spell_ready = false;
         character->map = nullptr;
         character->paperdoll.fill(0);
         character->cosmetic_paperdoll.fill(0);

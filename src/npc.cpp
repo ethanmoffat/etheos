@@ -46,37 +46,21 @@ void NPC::SetSpeedTable(std::array<double, 7> speeds)
 	}
 }
 
-NPC::NPC(Map *map, short id, unsigned char x, unsigned char y, unsigned char spawn_type, short spawn_time, unsigned char index, bool temporary)
+NPC::NPC(Map *map, short id, const eolib::protocol::Coords& loc, unsigned char spawn_type, short respawn_time, Direction direction, unsigned char index, bool temporary)
 {
 	this->id = id;
 	this->map = map;
 	this->temporary = temporary;
 	this->index = index;
-	this->spawn_x = this->x = x;
-	this->spawn_y = this->y = y;
+	this->loc = loc;
+	this->spawn_loc = loc;
 	this->alive = false;
 	this->attack = false;
 	this->totaldamage = 0;
-
-	if (spawn_type > 7)
-	{
-		spawn_type = 7;
-	}
-
-	this->spawn_type = spawn_type;
-	this->spawn_time = spawn_time;
+	this->spawn_type = (std::min)(spawn_type, StationarySpawnType);
+	this->respawn_time = respawn_time;
+	this->direction = direction;
 	this->walk_idle_for = 0;
-
-	if (spawn_type == 7)
-	{
-		this->direction = static_cast<Direction>(spawn_time & 0x03);
-		this->spawn_time = 0;
-	}
-	else
-	{
-		this->direction = DIRECTION_DOWN;
-	}
-
 	this->parent = 0;
 }
 
@@ -111,23 +95,22 @@ void NPC::Spawn(NPC *parent)
 		this->parent = parent;
 	}
 
-	if (this->spawn_type < 7)
+	if (this->spawn_type < StationarySpawnType)
 	{
 		bool found = false;
 		for (int i = 0; i < 200; ++i)
 		{
 			if (this->temporary && i == 0)
 			{
-				this->x = this->spawn_x;
-				this->y = this->spawn_y;
+				this->loc = this->spawn_loc;
 			}
 			else
 			{
-				this->x = util::rand(this->spawn_x-2, this->spawn_x+2);
-				this->y = util::rand(this->spawn_y-2, this->spawn_y+2);
+				this->loc.x = util::rand(this->spawn_loc.x-2, this->spawn_loc.x+2);
+				this->loc.y = util::rand(this->spawn_loc.y-2, this->spawn_loc.y+2);
 			}
 
-			if (this->map->Walkable(this->x, this->y, true) && (i > 100 || !this->map->Occupied(this->x, this->y, Map::NPCOnly)))
+			if (this->map->Walkable(this->loc.x, this->loc.y, true) && (i > 100 || !this->map->Occupied(this->loc.x, this->loc.y, Map::NPCOnly)))
 			{
 				this->direction = static_cast<Direction>(util::rand(0,3));
 				found = true;
@@ -137,14 +120,14 @@ void NPC::Spawn(NPC *parent)
 
 		if (!found)
 		{
-			Console::Wrn("An NPC on map %i at %i,%i is being placed by linear scan of spawn area (%s)", this->map->id, this->spawn_x, this->spawn_y, this->map->world->enf->Get(this->id).name.c_str());
-			for (this->x = this->spawn_x-2; this->x <= spawn_x+2; ++this->x)
+			Console::Wrn("An NPC on map %i at %i,%i is being placed by linear scan of spawn area (%s)", this->map->id, this->spawn_loc.x, this->spawn_loc.y, this->map->world->enf->Get(this->id).name.c_str());
+			for (this->loc.x = this->spawn_loc.x-2; this->loc.x <= this->spawn_loc.x+2; ++this->loc.x)
 			{
-				for (this->y = this->spawn_y-2; this->y <= this->spawn_y+2; ++this->y)
+				for (this->loc.y = this->spawn_loc.y-2; this->loc.y <= this->spawn_loc.y+2; ++this->loc.y)
 				{
-					if (this->map->Walkable(this->x, this->y, true))
+					if (this->map->Walkable(this->loc.x, this->loc.y, true))
 					{
-						Console::Wrn("Placed at valid location: %i,%i", this->x, this->y);
+						Console::Wrn("Placed at valid location: %i,%i", this->loc.x, this->loc.y);
 						found = true;
 						goto end_linear_scan;
 					}
@@ -170,9 +153,9 @@ void NPC::Spawn(NPC *parent)
 	builder.AddByte(255);
 	builder.AddChar(this->index);
 	builder.AddShort(this->id);
-	builder.AddChar(this->x);
-	builder.AddChar(this->y);
-	builder.AddChar(this->direction);
+	builder.AddChar(this->loc.x);
+	builder.AddChar(this->loc.y);
+	builder.AddChar(static_cast<int>(this->direction));
 
 	UTIL_FOREACH(this->map->characters, character)
 	{
@@ -200,7 +183,7 @@ void NPC::Act()
 
 	this->last_act += double(util::rand(int(this->act_speed * 750.0), int(this->act_speed * 1250.0))) / 1000.0;
 
-	if (this->spawn_type == 7)
+	if (this->spawn_type == StationarySpawnType)
 	{
 		return;
 	}
@@ -218,7 +201,7 @@ void NPC::Act()
 				continue;
 			}
 
-			int distance = util::path_length(opponent->attacker->x, opponent->attacker->y, this->x, this->y);
+			int distance = util::path_length(opponent->attacker->loc.x, opponent->attacker->loc.y, this->loc.x, this->loc.y);
 
 			if (distance == 0)
 				distance = 1;
@@ -240,7 +223,7 @@ void NPC::Act()
 					continue;
 				}
 
-				int distance = util::path_length(opponent->attacker->x, opponent->attacker->y, this->x, this->y);
+				int distance = util::path_length(opponent->attacker->loc.x, opponent->attacker->loc.y, this->loc.x, this->loc.y);
 
 				if (distance == 0)
 					distance = 1;
@@ -271,7 +254,7 @@ void NPC::Act()
 			if (character->IsHideNpc() || !character->CanInteractCombat())
 				continue;
 
-			int distance = util::path_length(character->x, character->y, this->x, this->y);
+			int distance = util::path_length(character->loc.x, character->loc.y, this->loc.x, this->loc.y);
 
 			if (distance == 0)
 				distance = 1;
@@ -291,8 +274,8 @@ void NPC::Act()
 
 	if (attacker)
 	{
-		int xdiff = this->x - attacker->x;
-		int ydiff = this->y - attacker->y;
+		int xdiff = this->loc.x - attacker->loc.x;
+		int ydiff = this->loc.y - attacker->loc.y;
 		int absxdiff = std::abs(xdiff);
 		int absydiff = std::abs(ydiff);
 
@@ -305,40 +288,40 @@ void NPC::Act()
 		{
 			if (xdiff < 0)
 			{
-				this->direction = DIRECTION_RIGHT;
+				this->direction = Direction::Right;
 			}
 			else
 			{
-				this->direction = DIRECTION_LEFT;
+				this->direction = Direction::Left;
 			}
 		}
 		else
 		{
 			if (ydiff < 0)
 			{
-				this->direction = DIRECTION_DOWN;
+				this->direction = Direction::Down;
 			}
 			else
 			{
-				this->direction = DIRECTION_UP;
+				this->direction = Direction::Up;
 			}
 		}
 
 		if (this->Walk(this->direction) == Map::WalkFail)
 		{
-			if (this->direction == DIRECTION_UP || this->direction == DIRECTION_DOWN)
+			if (this->direction == Direction::Up || this->direction == Direction::Down)
 			{
 				if (xdiff < 0)
 				{
-					this->direction = DIRECTION_RIGHT;
+					this->direction = Direction::Right;
 				}
 				else
 				{
-					this->direction = DIRECTION_LEFT;
+					this->direction = Direction::Left;
 				}
 			}
 
-			if (this->Walk(static_cast<Direction>(this->direction)) == Map::WalkFail)
+			if (this->Walk(this->direction) == Map::WalkFail)
 			{
 				this->Walk(static_cast<Direction>(util::rand(0,3)));
 			}
@@ -392,7 +375,7 @@ void NPC::Talk()
 
 	UTIL_FOREACH(this->map->npcs, npc)
 	{
-		if (npc->id == this->id && npc->spawn_x == this->spawn_x && npc->spawn_y == this->spawn_y)
+		if (npc->id == this->id && npc->spawn_loc.x == this->spawn_loc.x && npc->spawn_loc.y == this->spawn_loc.y)
 		{
 			npc->last_talk = this->last_talk;
 			if (npc->alive && npc->InCharacterRange())
@@ -487,7 +470,7 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 			builder.AddShort(spell_id);
 
 		builder.AddShort(from->PlayerID());
-		builder.AddChar(from->direction);
+		builder.AddChar(static_cast<int>(from->direction));
 		builder.AddShort(this->index);
 		builder.AddThree(amount);
 		builder.AddShort(static_cast<short>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->PubData().hp) * 100.0), 0, 100)));
@@ -517,7 +500,7 @@ void NPC::RemoveFromView(Character *target)
 {
 	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 7);
 	builder.AddChar(this->index);
-	if (target->x > 200 && target->y > 200)
+	if (target->loc.x > 200 && target->loc.y > 200)
 	{
 		builder.AddChar(0); // x
 		builder.AddChar(0); // y
@@ -539,8 +522,8 @@ void NPC::RemoveFromView(Character *target)
 /*
 	builder2.AddShort(0); // dropped item uid
 	builder2.AddShort(0); // dropped item id
-	builder2.AddChar(this->x);
-	builder2.AddChar(this->y);
+	builder2.AddChar(this->loc.x);
+	builder2.AddChar(this->loc.y);
 	builder2.AddInt(0); // dropped item amount
 	builder2.AddThree(0); // damage
 */
@@ -635,7 +618,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 
 		dropuid = this->map->GenerateItemID();
 
-		std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(dropuid, dropid, dropamount, this->x, this->y, from->PlayerID(), Timer::GetTime() + static_cast<int>(this->map->world->config["ProtectNPCDrop"])));
+		std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(dropuid, dropid, dropamount, this->loc.x, this->loc.y, from->PlayerID(), Timer::GetTime() + static_cast<int>(this->map->world->config["ProtectNPCDrop"])));
 		this->map->items.push_back(newitem);
 
 		// Selects a random number between 0 and maxhp, and decides the winner based on that
@@ -834,12 +817,12 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 				builder.AddShort(spell_id);
 
 			builder.AddShort(drop_winner ? drop_winner->PlayerID() : from->PlayerID());
-			builder.AddChar(drop_winner ? drop_winner->direction : from->direction);
+			builder.AddChar(static_cast<int>(drop_winner ? drop_winner->direction : from->direction));
 			builder.AddShort(this->index);
 			builder.AddShort(dropuid);
 			builder.AddShort(dropid);
-			builder.AddChar(this->x);
-			builder.AddChar(this->y);
+			builder.AddChar(this->loc.x);
+			builder.AddChar(this->loc.y);
 			builder.AddInt(dropamount);
 			builder.AddThree(amount);
 
@@ -983,8 +966,8 @@ void NPC::Die(bool show)
 		builder.AddShort(this->index);
 		builder.AddShort(0); // dropped item uid
 		builder.AddShort(0); // dropped item id
-		builder.AddChar(this->x);
-		builder.AddChar(this->y);
+		builder.AddChar(this->loc.x);
+		builder.AddChar(this->loc.y);
 		builder.AddInt(0); // dropped item amount
 		builder.AddThree(this->hp); // damage
 
@@ -1013,7 +996,7 @@ void NPC::Attack(Character *target)
 	int amount = util::rand(this->PubData().min_damage, this->PubData().max_damage + static_cast<int>(this->map->world->config["NPCAdjustMaxDam"]));
 	double rand = util::rand(0.0, 1.0);
 	// Checks if target is facing you
-	bool critical = std::abs(int(target->direction) - this->direction) != 2 || rand < static_cast<double>(this->map->world->config["CriticalRate"]);
+	bool critical = std::abs(int(target->direction) - int(this->direction)) != 2 || rand < static_cast<double>(this->map->world->config["CriticalRate"]);
 
 	std::unordered_map<std::string, double> formula_vars;
 
@@ -1046,29 +1029,29 @@ void NPC::Attack(Character *target)
 		target->party->UpdateHP(target);
 	}
 
-	int xdiff = this->x - target->x;
-	int ydiff = this->y - target->y;
+	int xdiff = this->loc.x - target->loc.x;
+	int ydiff = this->loc.y - target->loc.y;
 
 	if (std::abs(xdiff) > std::abs(ydiff))
 	{
 		if (xdiff < 0)
 		{
-			this->direction = DIRECTION_RIGHT;
+			this->direction = Direction::Right;
 		}
 		else
 		{
-			this->direction = DIRECTION_LEFT;
+			this->direction = Direction::Left;
 		}
 	}
 	else
 	{
 		if (ydiff < 0)
 		{
-			this->direction = DIRECTION_DOWN;
+			this->direction = Direction::Down;
 		}
 		else
 		{
-			this->direction = DIRECTION_UP;
+			this->direction = Direction::Up;
 		}
 	}
 
@@ -1076,7 +1059,7 @@ void NPC::Attack(Character *target)
 	builder.AddByte(255);
 	builder.AddChar(this->index);
 	builder.AddChar(1 + (target->hp == 0));
-	builder.AddChar(this->direction);
+	builder.AddChar(static_cast<int>(this->direction));
 	builder.AddShort(target->PlayerID());
 	builder.AddThree(amount);
 	builder.AddThree(util::clamp<int>(static_cast<int>(double(target->hp) / double(target->maxhp) * 100.0), 0, 100));
@@ -1119,7 +1102,7 @@ void NPC::FormulaVars(std::unordered_map<std::string, double> &vars, std::string
 	vv(1, "npc") v(hp) vv(data.hp, "maxhp")
 	vv(data.min_damage, "mindam") vv(data.max_damage, "maxdam")
 	vd(accuracy) vd(evade) vd(armor)
-	v(x) v(y) v(direction) vv(map->id, "mapid")
+	vv(loc.x, "x") vv(loc.y, "y") vv(static_cast<int>(direction), "direction") vv(map->id, "mapid")
 }
 
 #undef vd

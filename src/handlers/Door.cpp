@@ -8,22 +8,20 @@
 
 #include "../character.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
 
 namespace Handlers
 {
 
 // User opening a door
-void Door_Open(Character *character, PacketReader &reader)
+void Door_Open(Character* character, const client::DoorOpenClientPacket& packet)
 {
-	int x = reader.GetChar();
-	int y = reader.GetChar();
-
-	character->map->OpenDoor(character, x, y);
+	character->map->OpenDoor(character, packet.coords);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_DOOR)
-	Register(PACKET_OPEN, Door_Open, Playing);
+	Register(Door_Open, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_DOOR)
 
 }

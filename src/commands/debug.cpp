@@ -52,8 +52,8 @@ void DropItem(const std::vector<std::string>& arguments, Character* from)
 
 	int id = util::to_int(arguments[0]);
 	int amount = (arguments.size() >= 2) ? util::to_int(arguments[1]) : 1;
-	int x = (arguments.size() >= 3) ? util::to_int(arguments[2]) : from->x;
-	int y = (arguments.size() >= 4) ? util::to_int(arguments[3]) : from->y;
+	int x = (arguments.size() >= 3) ? util::to_int(arguments[2]) : from->loc.x;
+	int y = (arguments.size() >= 4) ? util::to_int(arguments[3]) : from->loc.y;
 
 	if (amount > 0 && from->HasItem(id) >= amount)
 	{
@@ -83,14 +83,14 @@ void SpawnNPC(const std::vector<std::string>& arguments, Character* from)
 {
 	int id = util::to_int(arguments[0]);
 	int amount = (arguments.size() >= 2) ? util::to_int(arguments[1]) : 1;
-	unsigned char speed = (arguments.size() >= 3) ? util::to_int(arguments[2]) : int(from->world->config["SpawnNPCSpeed"]);
+	int speed = (arguments.size() >= 3) ? util::to_int(arguments[2]) : int(from->world->config["SpawnNPCSpeed"]);
+	int direction = (arguments.size() >= 4) ? util::to_int(arguments[3]) : static_cast<int>(Direction::Down);
 
-	short direction = DIRECTION_DOWN;
+	if (speed < 0 || speed > NPC::StationarySpawnType)
+		return;
 
-	if (speed == 7 && arguments.size() >= 4)
-	{
-		direction = util::to_int(arguments[3]);
-	}
+	if (direction < static_cast<int>(Direction::Down) || direction > static_cast<int>(Direction::Right))
+		return;
 
 	if (!from->world->enf->Exists(id))
 		return;
@@ -102,7 +102,7 @@ void SpawnNPC(const std::vector<std::string>& arguments, Character* from)
 		if (index > 250)
 			break;
 
-		NPC *npc = new NPC(from->map, id, from->x, from->y, speed, direction, index, true);
+		NPC* npc = new NPC(from->map, id, from->loc, speed, 0, static_cast<Direction>(direction), index, true);
 		from->map->npcs.push_back(npc);
 		npc->Spawn();
 	}

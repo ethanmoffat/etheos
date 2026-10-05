@@ -210,12 +210,12 @@ TEST_F(MapLoadTests, Load_ValidFile_LoadsMap)
     EXPECT_EQ(5, map->relog_y);
     EXPECT_EQ(static_cast<int>(content.size()), map->filesize);
 
-    EXPECT_EQ(Map_Tile::Chest, map->GetTile(3, 2).tilespec);
+    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetTile(3, 2).tilespec);
 
     const Map_Warp& warp = map->GetTile(5, 4).warp;
     EXPECT_EQ(7, warp.map);
-    EXPECT_EQ(1, warp.x);
-    EXPECT_EQ(2, warp.y);
+    EXPECT_EQ(1, warp.loc.x);
+    EXPECT_EQ(2, warp.loc.y);
     EXPECT_EQ(3, warp.levelreq);
     EXPECT_EQ(Map_Warp::Door, warp.spec);
 
@@ -232,10 +232,44 @@ TEST_F(MapLoadTests, Load_ValidFile_LoadsMap)
     ASSERT_EQ(2u, map->npcs.size());
     const NPC* npc = map->npcs.front();
     EXPECT_EQ(1, npc->id);
-    EXPECT_EQ(6, npc->spawn_x);
-    EXPECT_EQ(6, npc->spawn_y);
+    EXPECT_EQ(6, npc->spawn_loc.x);
+    EXPECT_EQ(6, npc->spawn_loc.y);
     EXPECT_EQ(0, npc->spawn_type);
-    EXPECT_EQ(30, npc->spawn_time);
+    EXPECT_EQ(30, npc->respawn_time);
+}
+
+TEST_F(MapLoadTests, GetSpec_TileWithoutSpec_ReturnsNoTileSpec)
+{
+    Map* map = GivenMap(Serialize(TestEmf()));
+
+    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetSpec(3, 2));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(0, 0));
+}
+
+TEST_F(MapLoadTests, GetSpec_OutOfBounds_ReturnsNoTileSpec)
+{
+    Map* map = GivenMap(Serialize(TestEmf()));
+
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(10, 0));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(0, 10));
+}
+
+TEST_F(MapLoadTests, Load_StationaryNpcSpawn_DecodesDirectionFromSpawnTime)
+{
+    emf::Emf file = TestEmf();
+    file.npcs.front().spawn_type = NPC::StationarySpawnType;
+    file.npcs.front().spawn_time = 0x0106;
+    file.npcs.front().amount = 1;
+
+    Map* map = GivenMap(Serialize(file));
+
+    ASSERT_EQ(1u, map->npcs.size());
+    const NPC* npc = map->npcs.front();
+    EXPECT_EQ(NPC::StationarySpawnType, npc->spawn_type);
+    EXPECT_EQ(0, npc->respawn_time);
+    EXPECT_EQ(Direction::Up, npc->direction);
+    EXPECT_EQ(6, npc->loc.x);
+    EXPECT_EQ(6, npc->loc.y);
 }
 
 TEST_F(MapLoadTests, Load_OutOfBoundsEntries_AreSkipped)
@@ -301,4 +335,19 @@ TEST_F(MapLoadTests, ClientRid_NotLoaded_IsZero)
     ASSERT_FALSE(map->exists);
 
     EXPECT_EQ((std::array<int, 2>{0, 0}), map->ClientRid());
+}
+
+TEST_F(MapLoadTests, Construct_MissingFile_HasEmptyHeaderFields)
+{
+    Map* map = server->world->GetMap(LoadTestMapId);
+    ASSERT_FALSE(map->exists);
+
+    EXPECT_FALSE(map->pk);
+    EXPECT_EQ(Map::EffectNone, map->effect);
+    EXPECT_EQ(0, map->filesize);
+    EXPECT_EQ(0, map->width);
+    EXPECT_EQ(0, map->height);
+    EXPECT_FALSE(map->scroll);
+    EXPECT_EQ(0, map->relog_x);
+    EXPECT_EQ(0, map->relog_y);
 }

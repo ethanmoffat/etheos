@@ -8,31 +8,33 @@
 
 #include "../character.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 
 #include "../util.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 namespace Handlers
 {
 
 // Player sitting on a chair
-void Chair_Request(Character *character, PacketReader &reader)
+void Chair_Request(Character* character, const client::ChairRequestClientPacket& packet)
 {
-	int action = reader.GetChar();
+	const auto* sit = packet.AsSit();
 
-	if (action == SIT_ACT_SIT && character->sitting == SIT_STAND)
+	if (sit && character->sitting == SitState::Stand)
 	{
-		int x = reader.GetChar();
-		int y = reader.GetChar();
+		const int x = sit->coords.x;
+		const int y = sit->coords.y;
 
-		if ((x + y - character->x - character->y) > 1)
+		if (util::path_length(character->loc.x, character->loc.y, x, y) > 1)
 		{
 			return;
 		}
 
 		UTIL_FOREACH(character->map->characters, c)
 		{
-			if (c->x == x && c->y == y)
+			if (c->loc.x == x && c->loc.y == y)
 			{
 				return;
 			}
@@ -40,10 +42,10 @@ void Chair_Request(Character *character, PacketReader &reader)
 
 		switch (character->map->GetSpec(x, y))
 		{
-			case Map_Tile::ChairDown:
-				if (character->y == y+1 && character->x == x)
+			case emf::MapTileSpec::ChairDown:
+				if (character->loc.y == y+1 && character->loc.x == x)
 				{
-					character->direction = DIRECTION_DOWN;
+					character->direction = Direction::Down;
 				}
 				else
 				{
@@ -51,10 +53,10 @@ void Chair_Request(Character *character, PacketReader &reader)
 				}
 				break;
 
-			case Map_Tile::ChairUp:
-				if (character->y == y-1 && character->x == x)
+			case emf::MapTileSpec::ChairUp:
+				if (character->loc.y == y-1 && character->loc.x == x)
 				{
-					character->direction = DIRECTION_UP;
+					character->direction = Direction::Up;
 				}
 				else
 				{
@@ -62,10 +64,10 @@ void Chair_Request(Character *character, PacketReader &reader)
 				}
 				break;
 
-			case Map_Tile::ChairLeft:
-				if (character->y == y && character->x == x-1)
+			case emf::MapTileSpec::ChairLeft:
+				if (character->loc.y == y && character->loc.x == x-1)
 				{
-					character->direction = DIRECTION_LEFT;
+					character->direction = Direction::Left;
 				}
 				else
 				{
@@ -73,10 +75,10 @@ void Chair_Request(Character *character, PacketReader &reader)
 				}
 				break;
 
-			case Map_Tile::ChairRight:
-				if (character->y == y && character->x == x+1)
+			case emf::MapTileSpec::ChairRight:
+				if (character->loc.y == y && character->loc.x == x+1)
 				{
-					character->direction = DIRECTION_RIGHT;
+					character->direction = Direction::Right;
 				}
 				else
 				{
@@ -84,29 +86,14 @@ void Chair_Request(Character *character, PacketReader &reader)
 				}
 				break;
 
-			case Map_Tile::ChairDownRight:
-				if (character->y == y && character->x == x+1)
+			case emf::MapTileSpec::ChairDownRight:
+				if (character->loc.y == y && character->loc.x == x+1)
 				{
-					character->direction = DIRECTION_RIGHT;
+					character->direction = Direction::Right;
 				}
-				else if (character->y == y+1 && character->x == x)
+				else if (character->loc.y == y+1 && character->loc.x == x)
 				{
-					character->direction = DIRECTION_DOWN;
-				}
-				else
-				{
-					return;
-				}
-				break;
-
-			case Map_Tile::ChairUpLeft:
-				if (character->y == y && character->x == x-1)
-				{
-					character->direction = DIRECTION_LEFT;
-				}
-				else if (character->y == y-1 && character->x == x)
-				{
-					character->direction = DIRECTION_UP;
+					character->direction = Direction::Down;
 				}
 				else
 				{
@@ -114,22 +101,37 @@ void Chair_Request(Character *character, PacketReader &reader)
 				}
 				break;
 
-			case Map_Tile::ChairAll:
-				if (character->y == y && character->x == x+1)
+			case emf::MapTileSpec::ChairUpLeft:
+				if (character->loc.y == y && character->loc.x == x-1)
 				{
-					character->direction = DIRECTION_RIGHT;
+					character->direction = Direction::Left;
 				}
-				else if (character->y == y && character->x == x-1)
+				else if (character->loc.y == y-1 && character->loc.x == x)
 				{
-					character->direction = DIRECTION_LEFT;
+					character->direction = Direction::Up;
 				}
-				else if (character->y == y-1 && character->x == x)
+				else
 				{
-					character->direction = DIRECTION_UP;
+					return;
 				}
-				else if (character->y == y+1 && character->x == x)
+				break;
+
+			case emf::MapTileSpec::ChairAll:
+				if (character->loc.y == y && character->loc.x == x+1)
 				{
-					character->direction = DIRECTION_DOWN;
+					character->direction = Direction::Right;
+				}
+				else if (character->loc.y == y && character->loc.x == x-1)
+				{
+					character->direction = Direction::Left;
+				}
+				else if (character->loc.y == y-1 && character->loc.x == x)
+				{
+					character->direction = Direction::Up;
+				}
+				else if (character->loc.y == y+1 && character->loc.x == x)
+				{
+					character->direction = Direction::Down;
 				}
 				else
 				{
@@ -141,47 +143,44 @@ void Chair_Request(Character *character, PacketReader &reader)
 				return;
 		}
 
-		character->x = x;
-		character->y = y;
+		character->loc.x = x;
+		character->loc.y = y;
 
-		PacketBuilder reply(PACKET_CHAIR, PACKET_PLAYER, 6);
-		reply.AddShort(character->PlayerID());
-		reply.AddChar(character->x);
-		reply.AddChar(character->y);
-		reply.AddChar(character->direction);
-		reply.AddChar(0); // ?
+		server::ChairReplyServerPacket reply;
+		reply.player_id = character->PlayerID();
+		reply.coords = character->loc;
+		reply.direction = character->direction;
 		character->Send(reply);
-		character->Sit(SIT_CHAIR);
+		character->Sit(SitState::Chair);
 	}
-	else if (character->sitting == SIT_CHAIR)
+	else if (character->sitting == SitState::Chair)
 	{
 		switch (character->direction)
 		{
-			case DIRECTION_UP:
-				--character->y;
+			case Direction::Up:
+				--character->loc.y;
 				break;
-			case DIRECTION_RIGHT:
-				++character->x;
+			case Direction::Right:
+				++character->loc.x;
 				break;
-			case DIRECTION_DOWN:
-				++character->y;
+			case Direction::Down:
+				++character->loc.y;
 				break;
-			case DIRECTION_LEFT:
-				--character->x;
+			case Direction::Left:
+				--character->loc.x;
 				break;
 		}
 
-		PacketBuilder reply(PACKET_CHAIR, PACKET_CLOSE, 4);
-		reply.AddShort(character->PlayerID());
-		reply.AddChar(character->x);
-		reply.AddChar(character->y);
+		server::ChairCloseServerPacket reply;
+		reply.player_id = character->PlayerID();
+		reply.coords = character->loc;
 		character->Send(reply);
 		character->Stand();
 	}
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CHAIR)
-	Register(PACKET_REQUEST, Chair_Request, Playing);
+	Register(Chair_Request, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_CHAIR)
 
 }

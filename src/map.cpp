@@ -9,6 +9,7 @@
 #include "arena.hpp"
 #include "character.hpp"
 #include "config.hpp"
+#include "converters.hpp"
 #include "eoclient.hpp"
 #include "eodata.hpp"
 #include "npc.hpp"
@@ -30,6 +31,7 @@
 #include <eolib/data/number_encoder.hpp>
 #include <eolib/protocol/map/structs.hpp>
 #include <eolib/protocol/net/server/enums.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -56,6 +58,25 @@ static constexpr std::size_t emf_type_offset = 0x1F;
 
 // Everything before the NPC spawn list
 static constexpr std::size_t emf_header_size = 0x2E;
+
+template <typename TPacket = server::SitPlayerServerPacket>
+static void SendSitToOthersInRange(const std::list<Character *>& characters, Character *from)
+{
+	TPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.coords = from->loc;
+	packet.direction = from->direction;
+
+	UTIL_FOREACH(characters, character)
+	{
+		if (character == from || !from->InRange(character))
+		{
+			continue;
+		}
+
+		character->Send(packet);
+	}
+}
 
 void map_spawn_chests(void *map_void)
 {
@@ -122,14 +143,14 @@ void map_spawn_chests(void *map_void)
 struct map_close_door_struct
 {
 	Map *map;
-	unsigned char x, y;
+	eolib::protocol::Coords loc;
 };
 
 void map_close_door(void *map_close_void)
 {
 	map_close_door_struct *close(static_cast<map_close_door_struct *>(map_close_void));
 
-	close->map->CloseDoor(close->x, close->y);
+	close->map->CloseDoor(close->loc.x, close->loc.y);
 
 	delete close;
 }
@@ -344,7 +365,7 @@ void Map_Chest::Update(Map *map, Character *exclude) const
 			continue;
 		}
 
-		if (util::path_length(character->x, character->y, this->x, this->y) <= 1)
+		if (util::path_length(character->loc.x, character->loc.y, this->loc.x, this->loc.y) <= 1)
 		{
 			character->Send(builder);
 		}
@@ -357,6 +378,14 @@ Map::Map(int id, World *world)
 	this->world = world;
 	this->exists = false;
 	this->rid = {0, 0};
+	this->pk = false;
+	this->effect = EffectNone;
+	this->filesize = 0;
+	this->width = 0;
+	this->height = 0;
+	this->scroll = false;
+	this->relog_x = 0;
+	this->relog_y = 0;
 	this->jukebox_protect = 0.0;
 	this->arena = nullptr;
 	this->wedding = nullptr;
@@ -525,7 +554,7 @@ bool Map::Load()
 		{
 			const unsigned char xloc = tile.x;
 			const unsigned char yloc = row.y;
-			const unsigned char spec = static_cast<unsigned char>(tile.tile_spec);
+			const emf::MapTileSpec spec = tile.tile_spec;
 
 			if (!this->InBounds(xloc, yloc))
 			{
@@ -533,21 +562,21 @@ bool Map::Load()
 				continue;
 			}
 
-			this->GetTile(xloc, yloc).tilespec = static_cast<Map_Tile::TileSpec>(spec);
+			this->GetTile(xloc, yloc).tilespec = spec;
 
-			if (spec == Map_Tile::Chest)
+			if (spec == emf::MapTileSpec::Chest)
 			{
 				Map_Chest chest;
 				chest.maxchest = static_cast<int>(this->world->config["MaxChest"]);
 				chest.chestslots = static_cast<int>(this->world->config["ChestSlots"]);
-				chest.x = xloc;
-				chest.y = yloc;
+				chest.loc.x = xloc;
+				chest.loc.y = yloc;
 				chest.slots = 0;
 				chest.key = 0;
 				this->chests.push_back(std::make_shared<Map_Chest>(chest));
 			}
 
-			if (spec == Map_Tile::Spikes1)
+			if (spec == emf::MapTileSpec::TimedSpikes)
 			{
 				this->has_timed_spikes = true;
 			}
@@ -563,8 +592,7 @@ bool Map::Load()
 
 			Map_Warp newwarp;
 			newwarp.map = tile.warp.destination_map;
-			newwarp.x = tile.warp.destination_coords.x;
-			newwarp.y = tile.warp.destination_coords.y;
+			newwarp.loc = tile.warp.destination_coords;
 			newwarp.levelreq = tile.warp.level_required;
 			newwarp.spec = static_cast<Map_Warp::WarpSpec>(tile.warp.door);
 
@@ -585,6 +613,11 @@ bool Map::Load()
 		const unsigned char y = spawn.coords.y;
 		const short npc_id = spawn.id;
 
+		// Stationary spawns store the facing direction in spawn_time instead of a respawn time
+		const bool stationary = spawn.spawn_type >= NPC::StationarySpawnType;
+		const short respawn_time = stationary ? 0 : spawn.spawn_time;
+		const Direction direction = stationary ? static_cast<Direction>(spawn.spawn_time & 0x03) : Direction::Down;
+
 		if (!this->world->enf->Exists(npc_id))
 		{
 			Console::Wrn("An NPC spawn on map %i uses a non-existent NPC (#%i at %ix%i)", this->id, npc_id, x, y);
@@ -598,7 +631,7 @@ bool Map::Load()
 				continue;
 			}
 
-			NPC *newnpc = new NPC(this, npc_id, x, y, spawn.spawn_type, spawn.spawn_time, index++);
+			NPC *newnpc = new NPC(this, npc_id, spawn.coords, spawn.spawn_type, respawn_time, direction, index++);
 			this->npcs.push_back(newnpc);
 
 			newnpc->Spawn();
@@ -631,7 +664,7 @@ bool Map::Load()
 
 		auto chest = std::find_if(UTIL_CRANGE(this->chests), [&](const std::shared_ptr<Map_Chest>& c)
 		{
-			return c->x == x && c->y == y;
+			return c->loc.x == x && c->loc.y == y;
 		});
 
 		if (chest == this->chests.end())
@@ -746,9 +779,9 @@ void Map::Enter(Character *character, WarpAnimation animation)
 	builder.AddBreakString(character->SourceName());
 	builder.AddShort(character->PlayerID());
 	builder.AddShort(character->mapid);
-	builder.AddShort(character->x);
-	builder.AddShort(character->y);
-	builder.AddChar(character->direction);
+	builder.AddShort(character->loc.x);
+	builder.AddShort(character->loc.y);
+	builder.AddChar(static_cast<int>(character->direction));
 	builder.AddChar(6); // ?
 	builder.AddString(character->PaddedGuildTag());
 	builder.AddChar(character->level);
@@ -763,7 +796,7 @@ void Map::Enter(Character *character, WarpAnimation animation)
 	// equipment
 	character->AddPaperdollData(builder, "B000A0HSW");
 
-	builder.AddChar(character->sitting);
+	builder.AddChar(static_cast<int>(character->sitting));
 	builder.AddChar(character->IsHideInvisible());
 	builder.AddChar(animation);
 	builder.AddByte(255);
@@ -864,45 +897,45 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 {
 	int seedistance = this->world->config["SeeDistance"];
 
-	unsigned char target_x = from->x;
-	unsigned char target_y = from->y;
+	unsigned char target_x = from->loc.x;
+	unsigned char target_y = from->loc.y;
 
 	switch (direction)
 	{
-		case DIRECTION_UP:
+		case Direction::Up:
 			target_y -= 1;
 
-			if (target_y > from->y)
+			if (target_y > from->loc.y)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_RIGHT:
+		case Direction::Right:
 			target_x += 1;
 
-			if (target_x < from->x)
+			if (target_x < from->loc.x)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_DOWN:
+		case Direction::Down:
 			target_y += 1;
 
-			if (target_x < from->x)
+			if (target_x < from->loc.x)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_LEFT:
+		case Direction::Left:
 			target_x -= 1;
 
-			if (target_x > from->x)
+			if (target_x > from->loc.x)
 			{
 				return WalkFail;
 			}
@@ -936,7 +969,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 			}
 			else
 			{
-				from->Warp(warp.map, warp.x, warp.y);
+				from->Warp(warp.map, warp.loc.x, warp.loc.y);
 			}
 
 			return WalkWarped;
@@ -952,8 +985,8 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 	from->direction = direction;
 
-	from->x = target_x;
-	from->y = target_y;
+	from->loc.x = target_x;
+	from->loc.y = target_y;
 
 	int newx;
 	int newy;
@@ -971,52 +1004,52 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 	switch (direction)
 	{
-		case DIRECTION_UP:
+		case Direction::Up:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newy = from->y - seedistance + std::abs(i);
-				newx = from->x + i;
-				oldy = from->y + seedistance + 1 - std::abs(i);
-				oldx = from->x + i;
+				newy = from->loc.y - seedistance + std::abs(i);
+				newx = from->loc.x + i;
+				oldy = from->loc.y + seedistance + 1 - std::abs(i);
+				oldx = from->loc.x + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_RIGHT:
+		case Direction::Right:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newx = from->x + seedistance - std::abs(i);
-				newy = from->y + i;
-				oldx = from->x - seedistance - 1 + std::abs(i);
-				oldy = from->y + i;
+				newx = from->loc.x + seedistance - std::abs(i);
+				newy = from->loc.y + i;
+				oldx = from->loc.x - seedistance - 1 + std::abs(i);
+				oldy = from->loc.y + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_DOWN:
+		case Direction::Down:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newy = from->y + seedistance - std::abs(i);
-				newx = from->x + i;
-				oldy = from->y - seedistance - 1 + std::abs(i);
-				oldx = from->x + i;
+				newy = from->loc.y + seedistance - std::abs(i);
+				newx = from->loc.x + i;
+				oldy = from->loc.y - seedistance - 1 + std::abs(i);
+				oldx = from->loc.x + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_LEFT:
+		case Direction::Left:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newx = from->x - seedistance + std::abs(i);
-				newy = from->y + i;
-				oldx = from->x + seedistance + 1 - std::abs(i);
-				oldy = from->y + i;
+				newx = from->loc.x - seedistance + std::abs(i);
+				newy = from->loc.y + i;
+				oldx = from->loc.x + seedistance + 1 - std::abs(i);
+				oldy = from->loc.y + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
@@ -1034,11 +1067,11 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 		for (std::size_t i = 0; i < oldcoords.size(); ++i)
 		{
-			if (checkchar->x == oldcoords[i].first && checkchar->y == oldcoords[i].second)
+			if (checkchar->loc.x == oldcoords[i].first && checkchar->loc.y == oldcoords[i].second)
 			{
 				oldchars.push_back(checkchar);
 			}
-			else if (checkchar->x == newcoords[i].first && checkchar->y == newcoords[i].second)
+			else if (checkchar->loc.x == newcoords[i].first && checkchar->loc.y == newcoords[i].second)
 			{
 				newchars.push_back(checkchar);
 			}
@@ -1054,11 +1087,11 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 		for (std::size_t i = 0; i < oldcoords.size(); ++i)
 		{
-			if (checknpc->x == oldcoords[i].first && checknpc->y == oldcoords[i].second)
+			if (checknpc->loc.x == oldcoords[i].first && checknpc->loc.y == oldcoords[i].second)
 			{
 				oldnpcs.push_back(checknpc);
 			}
-			else if (checknpc->x == newcoords[i].first && checknpc->y == newcoords[i].second)
+			else if (checknpc->loc.x == newcoords[i].first && checknpc->loc.y == newcoords[i].second)
 			{
 				newnpcs.push_back(checknpc);
 			}
@@ -1069,7 +1102,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	{
 		for (std::size_t i = 0; i < oldcoords.size(); ++i)
 		{
-			if (checkitem->x == newcoords[i].first && checkitem->y == newcoords[i].second)
+			if (checkitem->loc.x == newcoords[i].first && checkitem->loc.y == newcoords[i].second)
 			{
 				newitems.push_back(checkitem);
 			}
@@ -1095,9 +1128,9 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	builder.AddBreakString(from->SourceName());
 	builder.AddShort(from->PlayerID());
 	builder.AddShort(from->mapid);
-	builder.AddShort(from->x);
-	builder.AddShort(from->y);
-	builder.AddChar(from->direction);
+	builder.AddShort(from->loc.x);
+	builder.AddShort(from->loc.y);
+	builder.AddChar(static_cast<int>(from->direction));
 	builder.AddChar(6); // ?
 	builder.AddString(from->PaddedGuildTag());
 	builder.AddChar(from->level);
@@ -1111,7 +1144,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	builder.AddShort(from->tp);
 	// equipment
 	from->AddPaperdollData(builder, "B000A0HSW");
-	builder.AddChar(from->sitting);
+	builder.AddChar(static_cast<int>(from->sitting));
 	builder.AddChar(from->IsHideInvisible());
 	builder.AddByte(255);
 	builder.AddChar(1); // 0 = NPC, 1 = player
@@ -1123,9 +1156,9 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		rbuilder.AddBreakString(character->SourceName());
 		rbuilder.AddShort(character->PlayerID());
 		rbuilder.AddShort(character->mapid);
-		rbuilder.AddShort(character->x);
-		rbuilder.AddShort(character->y);
-		rbuilder.AddChar(character->direction);
+		rbuilder.AddShort(character->loc.x);
+		rbuilder.AddShort(character->loc.y);
+		rbuilder.AddChar(static_cast<int>(character->direction));
 		rbuilder.AddChar(6); // ?
 		rbuilder.AddString(character->PaddedGuildTag());
 		rbuilder.AddChar(character->level);
@@ -1140,7 +1173,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		// equipment
 		character->AddPaperdollData(rbuilder, "B000A0HSW");
 
-		rbuilder.AddChar(character->sitting);
+		rbuilder.AddChar(static_cast<int>(character->sitting));
 		rbuilder.AddChar(character->IsHideInvisible());
 		rbuilder.AddByte(255);
 		rbuilder.AddChar(1); // 0 = NPC, 1 = player
@@ -1149,13 +1182,10 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		from->Send(rbuilder);
 	}
 
-	builder.Reset(5);
-	builder.SetID(PACKET_WALK, PACKET_PLAYER);
-
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(direction);
-	builder.AddChar(from->x);
-	builder.AddChar(from->y);
+	server::WalkPlayerServerPacket walk_player;
+	walk_player.player_id = from->PlayerID();
+	walk_player.direction = direction;
+	walk_player.coords = from->loc;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1164,23 +1194,16 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(walk_player);
 	}
 
-	builder.Reset(2 + newitems.size() * 9);
-	builder.SetID(PACKET_WALK, PACKET_REPLY);
-
-	builder.AddByte(255);
-	builder.AddByte(255);
+	server::WalkReplyServerPacket walk_reply;
+	walk_reply.items.reserve(newitems.size());
 	UTIL_FOREACH(newitems, item)
 	{
-		builder.AddShort(item->uid);
-		builder.AddShort(item->id);
-		builder.AddChar(item->x);
-		builder.AddChar(item->y);
-		builder.AddThree(item->amount);
+		walk_reply.items.push_back(Converters::ItemMapInfoFrom(*item));
 	}
-	from->Send(builder);
+	from->Send(walk_reply);
 
 	builder.SetID(PACKET_RANGE, PACKET_REPLY);
 	UTIL_FOREACH(newnpcs, npc)
@@ -1190,9 +1213,9 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		builder.AddByte(255);
 		builder.AddChar(npc->index);
 		builder.AddShort(npc->id);
-		builder.AddChar(npc->x);
-		builder.AddChar(npc->y);
-		builder.AddChar(npc->direction);
+		builder.AddChar(npc->loc.x);
+		builder.AddChar(npc->loc.y);
+		builder.AddChar(static_cast<int>(npc->direction));
 
 		from->Send(builder);
 	}
@@ -1204,11 +1227,11 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 	from->CheckQuestRules();
 
-	Map_Tile::TileSpec spec = this->GetSpec(from->x, from->y);
+	emf::MapTileSpec spec = this->GetSpec(from->loc.x, from->loc.y);
 
 	double spike_damage = this->world->config["SpikeDamage"];
 
-	if (spike_damage > 0.0 && (spec == Map_Tile::Spikes2 || spec == Map_Tile::Spikes3) && !from->IsHideInvisible())
+	if (spike_damage > 0.0 && (spec == emf::MapTileSpec::Spikes || spec == emf::MapTileSpec::HiddenSpikes) && !from->IsHideInvisible())
 	{
 		int amount = static_cast<int>(from->maxhp * spike_damage);
 
@@ -1228,45 +1251,45 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 {
 	int seedistance = this->world->config["SeeDistance"];
 
-	unsigned char target_x = from->x;
-	unsigned char target_y = from->y;
+	unsigned char target_x = from->loc.x;
+	unsigned char target_y = from->loc.y;
 
 	switch (direction)
 	{
-		case DIRECTION_UP:
+		case Direction::Up:
 			target_y -= 1;
 
-			if (target_y > from->y)
+			if (target_y > from->loc.y)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_RIGHT:
+		case Direction::Right:
 			target_x += 1;
 
-			if (target_x < from->x)
+			if (target_x < from->loc.x)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_DOWN:
+		case Direction::Down:
 			target_y += 1;
 
-			if (target_x < from->x)
+			if (target_x < from->loc.x)
 			{
 				return WalkFail;
 			}
 
 			break;
 
-		case DIRECTION_LEFT:
+		case Direction::Left:
 			target_x -= 1;
 
-			if (target_x > from->x)
+			if (target_x > from->loc.x)
 			{
 				return WalkFail;
 			}
@@ -1281,8 +1304,8 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 		return WalkFail;
 	}
 
-	from->x = target_x;
-	from->y = target_y;
+	from->loc.x = target_x;
+	from->loc.y = target_y;
 
 	int newx;
 	int newy;
@@ -1297,52 +1320,52 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 
 	switch (direction)
 	{
-		case DIRECTION_UP:
+		case Direction::Up:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newy = from->y - seedistance + std::abs(i);
-				newx = from->x + i;
-				oldy = from->y + seedistance + 1 - std::abs(i);
-				oldx = from->x + i;
+				newy = from->loc.y - seedistance + std::abs(i);
+				newx = from->loc.x + i;
+				oldy = from->loc.y + seedistance + 1 - std::abs(i);
+				oldx = from->loc.x + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_RIGHT:
+		case Direction::Right:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newx = from->x + seedistance - std::abs(i);
-				newy = from->y + i;
-				oldx = from->x - seedistance - 1 + std::abs(i);
-				oldy = from->y + i;
+				newx = from->loc.x + seedistance - std::abs(i);
+				newy = from->loc.y + i;
+				oldx = from->loc.x - seedistance - 1 + std::abs(i);
+				oldy = from->loc.y + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_DOWN:
+		case Direction::Down:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newy = from->y + seedistance - std::abs(i);
-				newx = from->x + i;
-				oldy = from->y - seedistance - 1 + std::abs(i);
-				oldx = from->x + i;
+				newy = from->loc.y + seedistance - std::abs(i);
+				newx = from->loc.x + i;
+				oldy = from->loc.y - seedistance - 1 + std::abs(i);
+				oldx = from->loc.x + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
 			}
 			break;
 
-		case DIRECTION_LEFT:
+		case Direction::Left:
 			for (int i = -seedistance; i <= seedistance; ++i)
 			{
-				newx = from->x - seedistance + std::abs(i);
-				newy = from->y + i;
-				oldx = from->x + seedistance + 1 - std::abs(i);
-				oldy = from->y + i;
+				newx = from->loc.x - seedistance + std::abs(i);
+				newy = from->loc.y + i;
+				oldx = from->loc.x + seedistance + 1 - std::abs(i);
+				oldy = from->loc.y + i;
 
 				newcoords.push_back(std::make_pair(newx, newy));
 				oldcoords.push_back(std::make_pair(oldx, oldy));
@@ -1357,11 +1380,11 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 	{
 		for (std::size_t i = 0; i < oldcoords.size(); ++i)
 		{
-			if (checkchar->x == oldcoords[i].first && checkchar->y == oldcoords[i].second)
+			if (checkchar->loc.x == oldcoords[i].first && checkchar->loc.y == oldcoords[i].second)
 			{
 				oldchars.push_back(checkchar);
 			}
-			else if (checkchar->x == newcoords[i].first && checkchar->y == newcoords[i].second)
+			else if (checkchar->loc.x == newcoords[i].first && checkchar->loc.y == newcoords[i].second)
 			{
 				newchars.push_back(checkchar);
 			}
@@ -1373,9 +1396,9 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 	builder.AddByte(255);
 	builder.AddChar(from->index);
 	builder.AddShort(from->id);
-	builder.AddChar(from->x);
-	builder.AddChar(from->y);
-	builder.AddChar(from->direction);
+	builder.AddChar(from->loc.x);
+	builder.AddChar(from->loc.y);
+	builder.AddChar(static_cast<int>(from->direction));
 
 	UTIL_FOREACH(newchars, character)
 	{
@@ -1386,9 +1409,9 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 	builder.SetID(PACKET_NPC, PACKET_PLAYER);
 
 	builder.AddChar(from->index);
-	builder.AddChar(from->x);
-	builder.AddChar(from->y);
-	builder.AddChar(from->direction);
+	builder.AddChar(from->loc.x);
+	builder.AddChar(from->loc.y);
+	builder.AddChar(static_cast<int>(from->direction));
 	builder.AddByte(255);
 	builder.AddByte(255);
 	builder.AddByte(255);
@@ -1449,7 +1472,7 @@ void Map::Attack(Character *from, Direction direction)
 
 	PacketBuilder builder(PACKET_ATTACK, PACKET_PLAYER, 3);
 	builder.AddShort(from->PlayerID());
-	builder.AddChar(direction);
+	builder.AddChar(static_cast<int>(direction));
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1467,8 +1490,8 @@ void Map::Attack(Character *from, Direction direction)
 	if (!from->CanInteractCombat())
 		return;
 
-	int target_x = from->x;
-	int target_y = from->y;
+	int target_x = from->loc.x;
+	int target_y = from->loc.y;
 
 	int range = 1;
 
@@ -1481,19 +1504,19 @@ void Map::Attack(Character *from, Direction direction)
 	{
 		switch (from->direction)
 		{
-			case DIRECTION_UP:
+			case Direction::Up:
 				target_y -= 1;
 				break;
 
-			case DIRECTION_RIGHT:
+			case Direction::Right:
 				target_x += 1;
 				break;
 
-			case DIRECTION_DOWN:
+			case Direction::Down:
 				target_y += 1;
 				break;
 
-			case DIRECTION_LEFT:
+			case Direction::Left:
 				target_x -= 1;
 				break;
 		}
@@ -1501,12 +1524,12 @@ void Map::Attack(Character *from, Direction direction)
 		UTIL_FOREACH(this->npcs, npc)
 		{
 			if ((npc->PubData().type == pub::NpcType::Passive || npc->PubData().type == pub::NpcType::Aggressive || from->SourceDutyAccess() >= static_cast<int>(this->world->admin_config["killnpc"]))
-			 && npc->alive && npc->x == target_x && npc->y == target_y)
+			 && npc->alive && npc->loc.x == target_x && npc->loc.y == target_y)
 			{
 				int amount = util::rand(from->mindam, from->maxdam);
 				double rand = util::rand(0.0, 1.0);
 				// Checks if target is facing you
-				bool critical = std::abs(int(npc->direction) - from->direction) != 2 || rand < static_cast<double>(this->world->config["CriticalRate"]);
+				bool critical = std::abs(int(npc->direction) - int(from->direction)) != 2 || rand < static_cast<double>(this->world->config["CriticalRate"]);
 
 				if (this->world->config["CriticalFirstHit"] && npc->hp == npc->PubData().hp)
 					critical = true;
@@ -1557,8 +1580,8 @@ bool Map::AttackPK(Character *from, Direction direction)
 
 	(void)direction;
 
-	int target_x = from->x;
-	int target_y = from->y;
+	int target_x = from->loc.x;
+	int target_y = from->loc.y;
 
 	int range = 1;
 
@@ -1571,31 +1594,31 @@ bool Map::AttackPK(Character *from, Direction direction)
 	{
 		switch (from->direction)
 		{
-			case DIRECTION_UP:
+			case Direction::Up:
 				target_y -= 1;
 				break;
 
-			case DIRECTION_RIGHT:
+			case Direction::Right:
 				target_x += 1;
 				break;
 
-			case DIRECTION_DOWN:
+			case Direction::Down:
 				target_y += 1;
 				break;
 
-			case DIRECTION_LEFT:
+			case Direction::Left:
 				target_x -= 1;
 				break;
 		}
 
 		UTIL_FOREACH(this->characters, character)
 		{
-			if (character->mapid == this->id && !character->nowhere && character->x == target_x && character->y == target_y)
+			if (character->mapid == this->id && !character->nowhere && character->loc.x == target_x && character->loc.y == target_y)
 			{
 				int amount = util::rand(from->mindam, from->maxdam);
 				double rand = util::rand(0.0, 1.0);
 				// Checks if target is facing you
-				bool critical = std::abs(int(character->direction) - from->direction) != 2 || rand < static_cast<double>(this->world->config["CriticalRate"]);
+				bool critical = std::abs(int(character->direction) - int(from->direction)) != 2 || rand < static_cast<double>(this->world->config["CriticalRate"]);
 
 				std::unordered_map<std::string, double> formula_vars;
 
@@ -1628,7 +1651,7 @@ bool Map::AttackPK(Character *from, Direction direction)
 				from_builder.AddShort(0);
 				from_builder.AddShort(character->PlayerID());
 				from_builder.AddThree(amount);
-				from_builder.AddChar(from->direction);
+				from_builder.AddChar(static_cast<int>(from->direction));
 				from_builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
 				from_builder.AddChar(character->hp == 0);
 
@@ -1636,7 +1659,7 @@ bool Map::AttackPK(Character *from, Direction direction)
 				builder.AddShort(from->PlayerID());
 				builder.AddShort(character->PlayerID());
 				builder.AddThree(amount);
-				builder.AddChar(from->direction);
+				builder.AddChar(static_cast<int>(from->direction));
 				builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
 				builder.AddChar(character->hp == 0);
 
@@ -1689,9 +1712,9 @@ void Map::Face(Character *from, Direction direction)
 
 	from->CancelSpell();
 
-	PacketBuilder builder(PACKET_FACE, PACKET_PLAYER, 3);
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(direction);
+	server::FacePlayerServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.direction = direction;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1700,7 +1723,7 @@ void Map::Face(Character *from, Direction direction)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -1710,34 +1733,25 @@ void Map::Sit(Character *from, SitState sit_type)
 
 	from->CancelSpell();
 
-	PacketBuilder builder((sit_type == SIT_CHAIR) ? PACKET_CHAIR : PACKET_SIT, PACKET_PLAYER, 6);
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(from->x);
-	builder.AddChar(from->y);
-	builder.AddChar(from->direction);
-	builder.AddChar(0); // ?
-
-	UTIL_FOREACH(this->characters, character)
+	if (sit_type == SitState::Chair)
 	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(builder);
+		SendSitToOthersInRange<server::ChairPlayerServerPacket>(this->characters, from);
+	}
+	else
+	{
+		SendSitToOthersInRange(this->characters, from);
 	}
 }
 
 void Map::Stand(Character *from)
 {
-	from->sitting = SIT_STAND;
+	from->sitting = SitState::Stand;
 
 	from->CancelSpell();
 
-	PacketBuilder builder(PACKET_SIT, PACKET_REMOVE, 4);
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(from->x);
-	builder.AddChar(from->y);
+	server::SitRemoveServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.coords = from->loc;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1746,15 +1760,15 @@ void Map::Stand(Character *from)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
-void Map::Emote(Character *from, enum Emote emote, bool echo)
+void Map::Emote(Character *from, eolib::protocol::Emote emote, bool echo)
 {
-	PacketBuilder builder(PACKET_EMOTE, PACKET_PLAYER, 3);
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(emote);
+	server::EmotePlayerServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.emote = emote;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1763,7 +1777,7 @@ void Map::Emote(Character *from, enum Emote emote, bool echo)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -1780,7 +1794,7 @@ bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target,
 		{
 			bool ghost = adminghost && (!character->CanInteractCombat() || character->IsHideNpc());
 
-			if (character->x == x && character->y == y && !ghost)
+			if (character->loc.x == x && character->loc.y == y && !ghost)
 			{
 				return true;
 			}
@@ -1791,7 +1805,7 @@ bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target,
 	{
 		UTIL_FOREACH(this->npcs, npc)
 		{
-			if (npc->alive && npc->x == x && npc->y == y)
+			if (npc->alive && npc->loc.x == x && npc->loc.y == y)
 			{
 				return true;
 			}
@@ -1806,14 +1820,14 @@ Map::~Map()
 	this->Unload();
 }
 
-bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
+bool Map::OpenDoor(Character *from, const eolib::protocol::Coords& coords)
 {
-	if (!this->InBounds(x, y) || (from && !from->InRange(x, y)))
+	if (!this->InBounds(coords.x, coords.y) || (from && !from->InRange(coords.x, coords.y)))
 	{
 		return false;
 	}
 
-	if (Map_Warp& warp = this->GetWarp(x, y))
+	if (Map_Warp& warp = this->GetWarp(coords.x, coords.y))
 	{
 		if (warp.spec == Map_Warp::NoDoor || warp.open)
 		{
@@ -1825,23 +1839,22 @@ bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
 			int keynum = warp.spec - static_cast<int>(Map_Warp::Door) + 1;
 			if (!from->CanInteractDoors() || !from->HasItem(this->world->eif->GetKey(keynum)))
 			{
-				PacketBuilder builder(PACKET_DOOR, PACKET_CLOSE, 1);
-				builder.AddChar(keynum);
-				from->Send(builder);
+				server::DoorCloseServerPacket packet;
+				packet.key = keynum;
+				from->Send(packet);
 
 				return false;
 			}
 		}
 
-		PacketBuilder builder(PACKET_DOOR, PACKET_OPEN, 3);
-		builder.AddChar(x);
-		builder.AddShort(y);
+		server::DoorOpenServerPacket packet;
+		packet.coords = coords;
 
 		UTIL_FOREACH(this->characters, character)
 		{
-			if (character->InRange(x, y))
+			if (character->InRange(coords.x, coords.y))
 			{
-				character->Send(builder);
+				character->Send(packet);
 			}
 		}
 
@@ -1849,8 +1862,7 @@ bool Map::OpenDoor(Character *from, unsigned char x, unsigned char y)
 
 		map_close_door_struct *close = new map_close_door_struct;
 		close->map = this;
-		close->x = x;
-		close->y = y;
+		close->loc = coords;
 
 		TimeEvent *event = new TimeEvent(map_close_door, close, this->world->config["DoorTimer"], 1);
 		this->world->timer.Register(event);
@@ -2015,7 +2027,7 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		builder.AddShort(from->PlayerID());
 		builder.AddShort(victim->PlayerID());
 		builder.AddThree(amount);
-		builder.AddChar(from->direction);
+		builder.AddChar(static_cast<int>(from->direction));
 		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100)));
 		builder.AddChar(victim->hp == 0);
 		builder.AddShort(spell_id);
@@ -2076,7 +2088,7 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		PacketBuilder builder(PACKET_SPELL, PACKET_TARGET_OTHER, 18);
 		builder.AddShort(victim->PlayerID());
 		builder.AddShort(from->PlayerID());
-		builder.AddChar(from->direction);
+		builder.AddChar(static_cast<int>(from->direction));
 		builder.AddShort(spell_id);
 		builder.AddInt(displayhp);
 		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100)));
@@ -2183,7 +2195,7 @@ std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, unsigned char x, un
 		UTIL_FOREACH(this->items, item)
 		{
 			++onmap;
-			if (item->x == x && item->y == y)
+			if (item->loc.x == x && item->loc.y == y)
 			{
 				++ontile;
 			}
@@ -2305,8 +2317,8 @@ void Map::DelSomeItem(short uid, int amount, Character *from)
 				builder.AddShort((*it)->id);
 				builder.AddShort((*it)->uid);
 				builder.AddThree((*it)->amount);
-				builder.AddChar((*it)->x);
-				builder.AddChar((*it)->y);
+				builder.AddChar((*it)->loc.x);
+				builder.AddChar((*it)->loc.y);
 
 				UTIL_FOREACH(this->characters, character)
 				{
@@ -2336,7 +2348,7 @@ bool Map::Walkable(unsigned char x, unsigned char y, bool npc) const
 	if (!InBounds(x, y) || !this->GetTile(x, y).Walkable(npc))
 		return false;
 
-	if (this->world->config["GhostArena"] && this->GetTile(x, y).tilespec == Map_Tile::Arena && this->Occupied(x, y, PlayerAndNPC))
+	if (this->world->config["GhostArena"] && this->GetTile(x, y).tilespec == emf::MapTileSpec::Arena && this->Occupied(x, y, PlayerAndNPC))
 		return false;
 
 	return true;
@@ -2358,10 +2370,10 @@ const Map_Tile& Map::GetTile(unsigned char x, unsigned char y) const
 	return this->tiles[y * this->width + x];
 }
 
-Map_Tile::TileSpec Map::GetSpec(unsigned char x, unsigned char y) const
+emf::MapTileSpec Map::GetSpec(unsigned char x, unsigned char y) const
 {
 	if (!InBounds(x, y))
-		return Map_Tile::None;
+		return Map_Tile::NoSpec;
 
 	return this->GetTile(x, y).tilespec;
 }
@@ -2382,7 +2394,7 @@ std::vector<Character *> Map::CharactersInRange(unsigned char x, unsigned char y
 
 	UTIL_FOREACH(this->characters, character)
 	{
-		if (util::path_length(character->x, character->y, x, y) <= range)
+		if (util::path_length(character->loc.x, character->loc.y, x, y) <= range)
 			characters.push_back(character);
 	}
 
@@ -2395,7 +2407,7 @@ std::vector<NPC *> Map::NPCsInRange(unsigned char x, unsigned char y, unsigned c
 
 	UTIL_FOREACH(this->npcs, npc)
 	{
-		if (util::path_length(npc->x, npc->y, x, y) <= range)
+		if (util::path_length(npc->loc.x, npc->loc.y, x, y) <= range)
 			npcs.push_back(npc);
 	}
 
@@ -2547,9 +2559,9 @@ void Map::TimedSpikes()
 		if (character->nowhere || character->IsHideInvisible())
 			continue;
 
-		Map_Tile::TileSpec spec = this->GetSpec(character->x, character->y);
+		emf::MapTileSpec spec = this->GetSpec(character->loc.x, character->loc.y);
 
-		if (spike_damage > 0.0 && spec == Map_Tile::Spikes1)
+		if (spike_damage > 0.0 && spec == emf::MapTileSpec::TimedSpikes)
 		{
 			int amount = static_cast<int>(character->maxhp * spike_damage);
 
