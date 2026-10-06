@@ -237,7 +237,9 @@ TEST_F(WalkTests, Player_Trading_ClosesTradeWithPartner)
 
     Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 3, 2));
 
-    EXPECT_TRUE(SentLegacy(partner, PACKET_TRADE, PACKET_CLOSE));
+    const auto close = LastSent<server::TradeCloseServerPacket>(partner);
+    ASSERT_TRUE(close);
+    EXPECT_EQ(walker.character->PlayerID(), static_cast<unsigned int>(close->partner_player_id));
     EXPECT_FALSE(walker.character->trading);
     EXPECT_FALSE(partner.character->trading);
     EXPECT_EQ(nullptr, walker.character->trade_partner);

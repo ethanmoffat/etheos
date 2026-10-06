@@ -1,4 +1,3 @@
-
 /* $Id$
  * EOSERV is released under the zlib license.
  * See LICENSE.txt for more info.
@@ -13,42 +12,62 @@
 #include "../map.hpp"
 #include "../party.hpp"
 #include "../quest.hpp"
+#include "../timer.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/data/eo_numeric_limits.hpp>
 #include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 namespace Handlers
 {
 
+// ByteCoords x and y are this value when an item is dropped at the player's feet
+constexpr int DropAtFeetCoord = 255;
+
+static int DecodeByteCoord(int value)
+{
+	const std::uint8_t byte = static_cast<std::uint8_t>(value);
+	return eolib::data::NumberEncoder::DecodeNumber(&byte, 1);
+}
+
 // Player using an item
-void Item_Use(Character *character, PacketReader &reader)
+void Item_Use(Character* character, const client::ItemUseClientPacket& packet)
 {
 	if (character->trading) return;
 
-	int id = reader.GetShort();
+	const int id = packet.item_id;
 
 	if (!character->HasItem(id))
 	{
-		PacketBuilder reply(PACKET_ITEM, PACKET_AGREE, 3);
-		reply.AddShort(id);
+		server::ItemAgreeServerPacket reply;
+		reply.item_id = id;
 		character->Send(reply);
-
 		return;
 	}
 
 	const pub::EifRecord& item = character->world->eif->Get(id);
-	PacketBuilder reply(PACKET_ITEM, PACKET_REPLY, 3);
-	reply.AddChar(static_cast<int>(item.type));
-	reply.AddShort(id);
+	server::ItemReplyServerPacket reply;
+	reply.item_type = item.type;
+	reply.used_item.id = id;
 
-	auto QuestUsedItems = [](Character* character, int id)
+	auto UseItem = [&reply](Character* character, int id)
 	{
+		character->DelItem(id, 1);
+
+		reply.used_item.amount = character->HasItem(id);
+		reply.weight = Converters::WeightFrom(character);
+
+		character->Send(reply);
+
 		UTIL_FOREACH(character->quests, q)
 		{
 			if (!q.second || q.second->GetQuest()->Disabled())
@@ -78,13 +97,6 @@ void Item_Use(Character *character, PacketReader &reader)
 					break;
 			}
 
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(6);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
 			if (scroll.map == 0)
 			{
 				character->Warp(character->SpawnMap(), character->SpawnLoc().x, character->SpawnLoc().y, WarpEffect::Scroll);
@@ -94,9 +106,7 @@ void Item_Use(Character *character, PacketReader &reader)
 				character->Warp(scroll.map, scroll.x, scroll.y, WarpEffect::Scroll);
 			}
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
@@ -126,16 +136,11 @@ void Item_Use(Character *character, PacketReader &reader)
 				character->tp = std::min(character->tp, character->maxtp);
 			}
 
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(14);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-			reply.AddInt(hpgain);
-			reply.AddShort(character->hp);
-			reply.AddShort(character->tp);
+			server::ItemReplyServerPacket::ItemTypeDataHeal heal;
+			heal.hp_gain = hpgain;
+			heal.hp = character->hp;
+			heal.tp = character->tp;
+			reply.item_type_data = heal;
 
 			server::RecoverAgreeServerPacket recover_packet;
 			recover_packet.player_id = character->PlayerID();
@@ -149,9 +154,7 @@ void Item_Use(Character *character, PacketReader &reader)
 				character->party->UpdateHP(character);
 			}
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
@@ -164,14 +167,9 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			character->haircolor = dye.hair_color;
 
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(7);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-			reply.AddChar(dye.hair_color);
+			server::ItemReplyServerPacket::ItemTypeDataHairDye hair_dye;
+			hair_dye.hair_color = dye.hair_color;
+			reply.item_type_data = hair_dye;
 
 			server::AvatarChange::ChangeTypeDataHairColor hair_color;
 			hair_color.hair_color = dye.hair_color;
@@ -182,42 +180,28 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			character->map->SendToNearby(character, avatar_agree, false);
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
 		case pub::ItemType::Alcohol:
 		{
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(6);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			character->drunk_until = Timer::GetTime() + Character::DrunkSeconds(AsAlcohol(item).potency);
+			UseItem(character, id);
 		}
 		break;
 
 		case pub::ItemType::EffectPotion:
 		{
-			character->DelItem(id, 1);
+			const ItemEffectPotionSpec potion = AsEffectPotion(item);
 
-			reply.ReserveMore(8);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-			reply.AddShort(AsEffectPotion(item).effect);
+			server::ItemReplyServerPacket::ItemTypeDataEffectPotion effect;
+			effect.effect_id = potion.effect;
+			reply.item_type_data = effect;
 
-			character->Effect(AsEffectPotion(item).effect, false);
+			character->Effect(potion.effect, false);
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
@@ -239,37 +223,16 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			character->CalculateStats();
 
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(32);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-			reply.AddShort(character->maxhp);
-			reply.AddShort(character->maxtp);
-
-			reply.AddShort(character->display_str);
-			reply.AddShort(character->display_intl);
-			reply.AddShort(character->display_wis);
-			reply.AddShort(character->display_agi);
-			reply.AddShort(character->display_con);
-			reply.AddShort(character->display_cha);
-
-			reply.AddShort(character->mindam);
-			reply.AddShort(character->maxdam);
-			reply.AddShort(character->accuracy);
-			reply.AddShort(character->evade);
-			reply.AddShort(character->armor);
+			server::ItemReplyServerPacket::ItemTypeDataCureCurse cure_curse;
+			cure_curse.stats = Converters::CharacterStatsEquipmentChangeFrom(character);
+			reply.item_type_data = cure_curse;
 
 			server::AvatarAgreeServerPacket avatar_agree;
 			avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
 			character->map->SendToNearby(character, avatar_agree, false);
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
@@ -291,39 +254,16 @@ void Item_Use(Character *character, PacketReader &reader)
 				character->CalculateStats();
 			}
 
-			character->DelItem(id, 1);
-
-			reply.ReserveMore(21);
-			reply.AddInt(character->HasItem(id));
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-			reply.AddInt(character->exp);
-
-			reply.AddChar(level_up ? character->level : 0);
-			reply.AddShort(character->statpoints);
-			reply.AddShort(character->skillpoints);
-			reply.AddShort(character->maxhp);
-			reply.AddShort(character->maxtp);
-			reply.AddShort(character->maxsp);
+			reply.item_type_data = Converters::ItemExpRewardFrom(character, level_up);
 
 			if (level_up)
 			{
-				PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
-				builder.AddShort(character->PlayerID());
-
-				UTIL_FOREACH(character->map->characters, check)
-				{
-					if (character->InRange(check))
-					{
-						check->Send(builder);
-					}
-				}
+				server::ItemAcceptServerPacket accept;
+				accept.player_id = character->PlayerID();
+				character->map->SendToNearby(character, accept, false);
 			}
 
-			character->Send(reply);
-
-			QuestUsedItems(character, id);
+			UseItem(character, id);
 		}
 		break;
 
@@ -333,154 +273,142 @@ void Item_Use(Character *character, PacketReader &reader)
 }
 
 // Drop an item on the ground
-void Item_Drop(Character *character, PacketReader &reader)
+void Item_Drop(Character* character, const client::ItemDropClientPacket& packet)
 {
 	if (character->trading) return;
 	if (!character->CanInteractItems()) return;
 
-	int id = reader.GetShort();
-	int amount;
+	const int id = packet.item.id;
 
 	if (character->world->eif->Get(id).special == pub::ItemSpecial::Lore)
 	{
 		return;
 	}
 
-	if (reader.Remaining() == 5)
-	{
-		amount = reader.GetThree();
-	}
-	else
-	{
-		amount = reader.GetInt();
-	}
-	unsigned char x = reader.GetByte(); // ?
-	unsigned char y = reader.GetByte(); // ?
-
-	amount = std::min<int>(amount, character->world->config["MaxDrop"]);
+	const int amount = std::min<int>(packet.item.amount, character->world->config["MaxDrop"]);
 
 	if (amount <= 0)
 	{
 		return;
 	}
 
-	if (x == 255 && y == 255)
+	eolib::protocol::Coords coords = character->loc;
+
+	if (packet.coords.x != DropAtFeetCoord || packet.coords.y != DropAtFeetCoord)
 	{
-		x = character->loc.x;
-		y = character->loc.y;
-	}
-	else
-	{
-		x = eolib::data::NumberEncoder::DecodeNumber(&x, 1);
-		y = eolib::data::NumberEncoder::DecodeNumber(&y, 1);
+		coords.x = DecodeByteCoord(packet.coords.x);
+		coords.y = DecodeByteCoord(packet.coords.y);
 	}
 
-	int distance = util::path_length(x, y, character->loc.x, character->loc.y);
+	const int distance = util::path_length(coords.x, coords.y, character->loc.x, character->loc.y);
 
 	if (distance > static_cast<int>(character->world->config["DropDistance"]))
 	{
 		return;
 	}
 
-	if (!character->map->Walkable(x, y))
+	if (!character->map->Walkable(coords.x, coords.y))
 	{
 		return;
 	}
 
-	if (character->HasItem(id) >= amount && character->mapid != static_cast<int>(character->world->config["JailMap"]))
+	if (character->HasItem(id) < amount || character->mapid == static_cast<int>(character->world->config["JailMap"]))
 	{
-		std::shared_ptr<Map_Item> item = character->map->AddItem(id, amount, x, y, character);
-
-		if (item)
-		{
-			item->owner = character->PlayerID();
-			item->unprotecttime = Timer::GetTime() + static_cast<double>(character->world->config["ProtectPlayerDrop"]);
-			character->DelItem(id, amount);
-
-			PacketBuilder reply(PACKET_ITEM, PACKET_DROP, 15);
-			reply.AddShort(id);
-			reply.AddThree(amount);
-			reply.AddInt(character->HasItem(id));
-			reply.AddShort(item->uid);
-			reply.AddChar(x);
-			reply.AddChar(y);
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-			character->Send(reply);
-		}
+		return;
 	}
+
+	std::shared_ptr<Map_Item> item = character->map->AddItem(id, amount, coords.x, coords.y, character);
+
+	if (!item)
+	{
+		return;
+	}
+
+	item->owner = character->PlayerID();
+	item->unprotecttime = Timer::GetTime() + static_cast<double>(character->world->config["ProtectPlayerDrop"]);
+	character->DelItem(id, amount);
+
+	server::ItemDropServerPacket reply;
+	reply.dropped_item.id = id;
+	reply.dropped_item.amount = amount;
+	reply.remaining_amount = character->HasItem(id);
+	reply.item_index = item->uid;
+	reply.coords = coords;
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
 }
 
 // Destroying an item
-void Item_Junk(Character *character, PacketReader &reader)
+void Item_Junk(Character* character, const client::ItemJunkClientPacket& packet)
 {
 	if (character->trading) return;
 
-	int id = reader.GetShort();
-	int amount = reader.GetInt();
+	const int id = packet.item.id;
+	const int amount = packet.item.amount;
 
-	if (amount <= 0)
+	// The reply reports the junked amount as a three
+	if (amount <= 0 || amount >= static_cast<int>(eolib::data::EoNumericLimits::ThreeMax))
 		return;
 
-	if (character->HasItem(id) >= amount)
-	{
-		character->DelItem(id, amount);
+	if (character->HasItem(id) < amount)
+		return;
 
-		PacketBuilder reply(PACKET_ITEM, PACKET_JUNK, 11);
-		reply.AddShort(id);
-		reply.AddThree(amount); // Overflows, does it matter?
-		reply.AddInt(character->HasItem(id));
-		reply.AddChar(static_cast<unsigned char>(character->weight));
-		reply.AddChar(static_cast<unsigned char>(character->maxweight));
-		character->Send(reply);
-	}
+	character->DelItem(id, amount);
+
+	server::ItemJunkServerPacket reply;
+	reply.junked_item.id = id;
+	reply.junked_item.amount = amount;
+	reply.remaining_amount = character->HasItem(id);
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
 }
 
 // Retrieve an item from the ground
-void Item_Get(Character *character, PacketReader &reader)
+void Item_Get(Character* character, const client::ItemGetClientPacket& packet)
 {
-	int uid = reader.GetShort();
+	std::shared_ptr<Map_Item> item = character->map->GetItem(packet.item_index);
 
-	std::shared_ptr<Map_Item> item = character->map->GetItem(uid);
-
-	if (item)
+	if (!item)
 	{
-		int distance = util::path_length(item->loc.x, item->loc.y, character->loc.x, character->loc.y);
-
-		if (distance > static_cast<int>(character->world->config["DropDistance"]))
-		{
-			return;
-		}
-
-		if (item->owner != character->PlayerID() && item->unprotecttime > Timer::GetTime())
-		{
-			return;
-		}
-
-		int taken = character->CanHoldItem(item->id, item->amount);
-
-		if (taken > 0)
-		{
-			character->AddItem(item->id, taken);
-
-			PacketBuilder reply(PACKET_ITEM, PACKET_GET, 9);
-			reply.AddShort(uid);
-			reply.AddShort(item->id);
-			reply.AddThree(taken);
-			reply.AddChar(static_cast<unsigned char>(character->weight));
-			reply.AddChar(static_cast<unsigned char>(character->maxweight));
-			character->Send(reply);
-
-			character->map->DelSomeItem(item->uid, taken, character);
-		}
+		return;
 	}
+
+	const int distance = util::path_length(item->loc.x, item->loc.y, character->loc.x, character->loc.y);
+
+	if (distance > static_cast<int>(character->world->config["DropDistance"]))
+	{
+		return;
+	}
+
+	if (item->owner != character->PlayerID() && item->unprotecttime > Timer::GetTime())
+	{
+		return;
+	}
+
+	const int taken = character->CanHoldItem(item->id, item->amount);
+
+	if (taken <= 0)
+	{
+		return;
+	}
+
+	character->AddItem(item->id, taken);
+
+	server::ItemGetServerPacket reply;
+	reply.taken_item_index = item->uid;
+	reply.taken_item.id = item->id;
+	reply.taken_item.amount = taken;
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
+
+	character->map->DelSomeItem(item->uid, taken, character);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ITEM)
-	Register(PACKET_USE, Item_Use, Playing);
-	Register(PACKET_DROP, Item_Drop, Playing);
-	Register(PACKET_JUNK, Item_Junk, Playing);
-	Register(PACKET_GET, Item_Get, Playing);
+	Register(Item_Use, Playing);
+	Register(Item_Drop, Playing);
+	Register(Item_Junk, Playing);
+	Register(Item_Get, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_ITEM)
 
 }

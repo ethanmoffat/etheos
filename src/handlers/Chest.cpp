@@ -1,4 +1,3 @@
-
 /* $Id$
  * EOSERV is released under the zlib license.
  * See LICENSE.txt for more info.
@@ -8,186 +7,132 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
+#include <memory>
 
 namespace Handlers
 {
 
-void Chest_Add(Character *character, PacketReader &reader)
+static std::shared_ptr<Map_Chest> TryGetChest(Character* character, const eolib::protocol::Coords& coords)
+{
+	if (util::path_length(character->loc.x, character->loc.y, coords.x, coords.y) > 1)
+		return nullptr;
+
+	if (character->map->GetSpec(coords.x, coords.y) != emf::MapTileSpec::Chest)
+		return nullptr;
+
+	auto& chests = character->map->chests;
+	auto it = std::find_if(chests.begin(), chests.end(), [&](const std::shared_ptr<Map_Chest>& chest) { return chest->loc == coords; });
+	return it != chests.end() ? *it : nullptr;
+}
+
+void Chest_Add(Character* character, const client::ChestAddClientPacket& packet)
 {
 	if (character->trading) return;
 	if (!character->CanInteractItems()) return;
 
-	int x = reader.GetChar();
-	int y = reader.GetChar();
-	int id = reader.GetShort();
-	int amount = reader.GetThree();
+	const int id = packet.add_item.id;
 
 	if (character->world->eif->Get(id).special == pub::ItemSpecial::Lore)
-	{
 		return;
-	}
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
-	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
-		{
-			UTIL_FOREACH(character->map->chests, chest)
-			{
-				if (chest->loc.x == x && chest->loc.y == y)
-				{
-					amount = std::min(amount, int(character->world->config["MaxChest"]) - chest->HasItem(id));
+	std::shared_ptr<Map_Chest> chest = TryGetChest(character, packet.coords);
 
-					if (character->HasItem(id) >= amount && chest->AddItem(id, amount))
-					{
-						character->DelItem(id, amount);
-						chest->Update(character->map, character);
+	if (!chest)
+		return;
 
-						PacketBuilder reply(PACKET_CHEST, PACKET_REPLY, 8 + chest->items.size() * 5);
-						reply.AddShort(id);
-						reply.AddInt(character->HasItem(id));
-						reply.AddChar(static_cast<unsigned char>(character->weight));
-						reply.AddChar(static_cast<unsigned char>(character->maxweight));
+	const int amount = std::min(packet.add_item.amount, int(character->world->config["MaxChest"]) - chest->HasItem(id));
 
-						UTIL_CIFOREACH(chest->items, item)
-						{
-							if (item->id != 0)
-							{
-								reply.AddShort(item->id);
-								reply.AddThree(item->amount);
-							}
-						}
+	if (character->HasItem(id) < amount || !chest->AddItem(id, amount))
+		return;
 
-						character->Send(reply);
-					}
+	character->DelItem(id, amount);
+	chest->Update(character->map, character);
 
-					break;
-				}
-			}
-		}
-	}
+	server::ChestReplyServerPacket reply;
+	reply.added_item_id = id;
+	reply.remaining_amount = character->HasItem(id);
+	reply.weight = Converters::WeightFrom(character);
+	reply.items = Converters::ChestItemsFrom(*chest);
+	character->Send(reply);
 }
 
 // Taking an item from a chest
-void Chest_Take(Character *character, PacketReader &reader)
+void Chest_Take(Character* character, const client::ChestTakeClientPacket& packet)
 {
-	int x = reader.GetChar();
-	int y = reader.GetChar();
-	int id = reader.GetShort();
+	std::shared_ptr<Map_Chest> chest = TryGetChest(character, packet.coords);
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
-	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
-		{
-			UTIL_FOREACH(character->map->chests, chest)
-			{
-				if (chest->loc.x == x && chest->loc.y == y)
-				{
-					int amount = chest->HasItem(id);
-					int taken = character->CanHoldItem(id, amount);
+	if (!chest)
+		return;
 
-					if (taken > 0)
-					{
-						chest->DelSomeItem(id, taken);
-						character->AddItem(id, taken);
+	const int id = packet.take_item_id;
+	const int taken = character->CanHoldItem(id, chest->HasItem(id));
 
-						PacketBuilder reply(PACKET_CHEST, PACKET_GET, 7 + (chest->items.size() + 1) * 5);
-						reply.AddShort(id);
-						reply.AddThree(taken);
-						reply.AddChar(static_cast<unsigned char>(character->weight));
-						reply.AddChar(static_cast<unsigned char>(character->maxweight));
+	if (taken <= 0)
+		return;
 
-						UTIL_CIFOREACH(chest->items, item)
-						{
-							if (item->id != 0)
-							{
-								reply.AddShort(item->id);
-								reply.AddThree(item->amount);
-							}
-						}
+	chest->DelSomeItem(id, taken);
+	character->AddItem(id, taken);
 
-						character->Send(reply);
+	server::ChestGetServerPacket reply;
+	reply.taken_item.id = id;
+	reply.taken_item.amount = taken;
+	reply.weight = Converters::WeightFrom(character);
+	reply.items = Converters::ChestItemsFrom(*chest);
+	character->Send(reply);
 
-						chest->Update(character->map, character);
-						break;
-					}
-				}
-			}
-		}
-	}
+	chest->Update(character->map, character);
 }
 
 // Opening a chest
-void Chest_Open(Character *character, PacketReader &reader)
+void Chest_Open(Character* character, const client::ChestOpenClientPacket& packet)
 {
-	int x = reader.GetChar();
-	int y = reader.GetChar();
+	if (util::path_length(character->loc.x, character->loc.y, packet.coords.x, packet.coords.y) > 1)
+		return;
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
+	std::shared_ptr<Map_Chest> chest = TryGetChest(character, packet.coords);
+
+	// A Chest_Close without a key tells the client the chest is broken
+	if (!chest)
 	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::Chest)
-		{
-			UTIL_FOREACH(character->map->chests, chest)
-			{
-				if (chest->loc.x == x && chest->loc.y == y)
-				{
-					PacketBuilder reply(PACKET_CHEST, PACKET_OPEN, 2);
-
-					if (chest->key > 0)
-					{
-						// Thanks daddy Sausage
-						// https://discord.com/channels/723989119503696013/787685796055482368/1046490342834315325
-
-						int key_item = character->world->eif->GetKey(chest->key);
-						if (!key_item)
-						{
-							reply.SetID(PACKET_CHEST, PACKET_CLOSE);
-							reply.AddString("N");
-							character->Send(reply);
-							break;
-						}
-						else if (!character->HasItem(key_item))
-						{
-							reply.SetID(PACKET_CHEST, PACKET_CLOSE);
-							reply.AddShort(chest->key);
-							character->Send(reply);
-							break;
-						}
-					}
-
-					reply.AddChar(x);
-					reply.AddChar(y);
-
-					reply.ReserveMore(chest->items.size() * 5);
-
-					UTIL_CIFOREACH(chest->items, item)
-					{
-						if (item->id != 0)
-						{
-							reply.AddShort(item->id);
-							reply.AddThree(item->amount);
-						}
-					}
-
-					character->Send(reply);
-					break;
-				}
-			}
-		}
+		character->Send(server::ChestCloseServerPacket());
+		return;
 	}
+
+	if (chest->key > 0 && !character->HasKey(chest->key))
+	{
+		server::ChestCloseServerPacket close;
+
+		// Thanks daddy Sausage
+		// https://discord.com/channels/723989119503696013/787685796055482368/1046490342834315325
+		// A key that no item opens is reported as a broken chest, since the client can't name the key
+		if (character->world->eif->GetKey(chest->key))
+			close.key = chest->key;
+
+		character->Send(close);
+		return;
+	}
+
+	server::ChestOpenServerPacket reply;
+	reply.coords = packet.coords;
+	reply.items = Converters::ChestItemsFrom(*chest);
+	character->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CHEST)
-	Register(PACKET_ADD, Chest_Add, Playing);
-	Register(PACKET_TAKE, Chest_Take, Playing);
-	Register(PACKET_OPEN, Chest_Open, Playing);
+	Register(Chest_Add, Playing);
+	Register(Chest_Take, Playing);
+	Register(Chest_Open, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_CHEST)
 
 }

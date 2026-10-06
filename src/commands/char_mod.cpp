@@ -13,7 +13,6 @@
 #include "../eodata.hpp"
 #include "../i18n.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
 
 #include <eolib/protocol/net/server/packets.hpp>
@@ -221,27 +220,12 @@ void Strip(const std::vector<std::string>& arguments, Command_Source* from)
 
 					if (victim->Unequip(victim->paperdoll[i], subloc))
 					{
-						PacketBuilder builder(PACKET_PAPERDOLL, PACKET_REMOVE, 43);
-						builder.AddShort(victim->PlayerID());
-						builder.AddChar(static_cast<int>(AvatarChangeType::Equipment));
-						builder.AddChar(0); // ?
-						victim->AddPaperdollData(builder, "BAHWS");
-						builder.AddShort(itemid);
-						builder.AddChar(subloc);
-						builder.AddShort(victim->maxhp);
-						builder.AddShort(victim->maxtp);
-						builder.AddShort(victim->display_str);
-						builder.AddShort(victim->display_intl);
-						builder.AddShort(victim->display_wis);
-						builder.AddShort(victim->display_agi);
-						builder.AddShort(victim->display_con);
-						builder.AddShort(victim->display_cha);
-						builder.AddShort(victim->mindam);
-						builder.AddShort(victim->maxdam);
-						builder.AddShort(victim->accuracy);
-						builder.AddShort(victim->evade);
-						builder.AddShort(victim->armor);
-						victim->Send(builder);
+						server::PaperdollRemoveServerPacket remove;
+						remove.change = Converters::EquipmentChangeFrom(victim);
+						remove.item_id = itemid;
+						remove.sub_loc = subloc;
+						remove.stats = Converters::CharacterStatsEquipmentChangeFrom(victim);
+						victim->Send(remove);
 					}
 				}
 			}

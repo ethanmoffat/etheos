@@ -7,6 +7,7 @@
 #include "wedding.hpp"
 
 #include "character.hpp"
+#include "converters.hpp"
 #include "map.hpp"
 #include "npc.hpp"
 #include "packet.hpp"
@@ -16,7 +17,11 @@
 #include "console.hpp"
 #include "util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <string>
+
+namespace server = eolib::protocol::net::server;
 
 static void wedding_tick(void *wedding_void)
 {
@@ -286,23 +291,19 @@ void Wedding::Tick()
 				{
 					if (p1->AddItem(ring_id, 1))
 					{
-						PacketBuilder reply(PACKET_ITEM, PACKET_GET, 9);
-						reply.AddShort(0); // UID
-						reply.AddShort(ring_id);
-						reply.AddThree(1);
-						reply.AddChar(static_cast<unsigned char>(p1->weight));
-						reply.AddChar(static_cast<unsigned char>(p1->maxweight));
+						server::ItemGetServerPacket reply;
+						reply.taken_item.id = ring_id;
+						reply.taken_item.amount = 1;
+						reply.weight = Converters::WeightFrom(p1);
 						p1->Send(reply);
 					}
 
 					if (p2->AddItem(ring_id, 1))
 					{
-						PacketBuilder reply(PACKET_ITEM, PACKET_GET, 9);
-						reply.AddShort(0); // UID
-						reply.AddShort(ring_id);
-						reply.AddThree(1);
-						reply.AddChar(static_cast<unsigned char>(p2->weight));
-						reply.AddChar(static_cast<unsigned char>(p2->maxweight));
+						server::ItemGetServerPacket reply;
+						reply.taken_item.id = ring_id;
+						reply.taken_item.amount = 1;
+						reply.weight = Converters::WeightFrom(p2);
 						p2->Send(reply);
 					}
 				}

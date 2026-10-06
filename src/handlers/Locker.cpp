@@ -1,4 +1,3 @@
-
 /* $Id$
  * EOSERV is released under the zlib license.
  * See LICENSE.txt for more info.
@@ -8,13 +7,15 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
-#include "../eoserver.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -22,198 +23,153 @@
 namespace Handlers
 {
 
-static PacketBuilder add_common(Character *character, short item, int amount)
+static bool LockerInReach(Character* character, const eolib::protocol::Coords& coords)
 {
-	character->DelItem(item, amount);
+	return util::path_length(character->loc.x, character->loc.y, coords.x, coords.y) <= 1
+		&& character->map->GetSpec(coords.x, coords.y) == emf::MapTileSpec::BankVault;
+}
 
-	character->CalculateStats();
-
-	PacketBuilder reply(PACKET_LOCKER, PACKET_REPLY, 8 + character->bank.size() * 5);
-	reply.AddShort(item);
-	reply.AddInt(character->HasItem(item));
-	reply.AddChar(static_cast<unsigned char>(character->weight));
-	reply.AddChar(static_cast<unsigned char>(character->maxweight));
-
-	UTIL_FOREACH(character->bank, item)
-	{
-		reply.AddShort(item.id);
-		reply.AddThree(item.amount);
-	}
-
+static server::LockerReplyServerPacket MakeLockerReply(Character* character, int item_id)
+{
+	server::LockerReplyServerPacket reply;
+	reply.deposited_item.id = item_id;
+	reply.deposited_item.amount = character->HasItem(item_id);
+	reply.weight = Converters::WeightFrom(character);
+	reply.locker_items = Converters::LockerItemsFrom(character);
 	return reply;
 }
 
 // Placing an item in a bank locker
-void Locker_Add(Character *character, PacketReader &reader)
+void Locker_Add(Character* character, const client::LockerAddClientPacket& packet)
 {
 	if (character->trading) return;
 
-	unsigned char x = reader.GetChar();
-	unsigned char y = reader.GetChar();
-	short item = reader.GetShort();
-	int amount = reader.GetThree();
+	const int item_id = packet.deposit_item.id;
+	int amount = packet.deposit_item.amount;
 
-	if (item == 1) return;
+	if (item_id == 1) return;
 	if (amount <= 0) return;
-	if (character->HasItem(item) < amount) return;
+	if (character->HasItem(item_id) < amount) return;
 
-	std::size_t lockermax = static_cast<int>(character->world->config["BaseBankSize"]) + character->bankmax * static_cast<int>(character->world->config["BankSizeStep"]);
+	if (!LockerInReach(character, packet.locker_coords))
+		return;
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
+	const int max_bank = static_cast<int>(character->world->config["MaxBank"]);
+
+	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const Character_Item& item) { return item.id == item_id; });
+
+	if (it != character->bank.end())
 	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
-		{
-			UTIL_IFOREACH(character->bank, it)
-			{
-				if (it->id == item)
-				{
-					if (it->amount + amount < 0)
-					{
-						return;
-					}
+		amount = std::min(amount, max_bank - it->amount);
 
-					amount = std::min<int>(amount, static_cast<int>(character->world->config["MaxBank"]) - it->amount);
+		if (amount <= 0)
+			return;
 
-					it->amount += amount;
+		it->amount += amount;
 
-					PacketBuilder reply = add_common(character, item, amount);
-					character->Send(reply);
-					return;
-				}
-			}
+		character->DelItem(item_id, amount);
+		character->CalculateStats();
+		character->Send(MakeLockerReply(character, item_id));
 
-			if (character->bank.size() >= lockermax)
-			{
-				PacketBuilder reply(PACKET_LOCKER, PACKET_SPEC);
-				reply.AddChar(static_cast<unsigned char>(lockermax));
-				character->Send(reply);
-				return;
-			}
-
-			amount = std::min<int>(amount, static_cast<int>(character->world->config["MaxBank"]));
-
-			Character_Item newitem;
-			newitem.id = item;
-			newitem.amount = amount;
-
-			character->bank.push_back(newitem);
-
-			PacketBuilder reply = add_common(character, item, amount);
-			character->Send(reply);
-		}
+		return;
 	}
+
+	const std::size_t locker_max = static_cast<int>(character->world->config["BaseBankSize"]) + character->bankmax * static_cast<int>(character->world->config["BankSizeStep"]);
+
+	if (character->bank.size() >= locker_max)
+	{
+		server::LockerSpecServerPacket reply;
+		reply.locker_max_items = static_cast<int>(locker_max);
+		character->Send(reply);
+		return;
+	}
+
+	amount = std::min(amount, max_bank);
+
+	Character_Item new_item;
+	new_item.id = item_id;
+	new_item.amount = amount;
+	character->bank.push_back(new_item);
+
+	character->DelItem(item_id, amount);
+	character->CalculateStats();
+	character->Send(MakeLockerReply(character, item_id));
 }
 
 // Taking an item from a bank locker
-void Locker_Take(Character *character, PacketReader &reader)
+void Locker_Take(Character* character, const client::LockerTakeClientPacket& packet)
 {
 	if (character->trading) return;
 
-	unsigned char x = reader.GetChar();
-	unsigned char y = reader.GetChar();
-	short item = reader.GetShort();
+	if (!LockerInReach(character, packet.locker_coords))
+		return;
 
-	// TODO: Limit number of items withdrawn to under weight
+	const int item_id = packet.take_item_id;
+	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const Character_Item& item) { return item.id == item_id; });
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
-	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
-		{
-			UTIL_IFOREACH(character->bank, it)
-			{
-				if (it->id == item)
-				{
-					int amount = it->amount;
-					int taken = character->CanHoldItem(it->id, amount);
+	if (it == character->bank.end())
+		return;
 
-					character->AddItem(item, taken);
+	const int taken = character->CanHoldItem(item_id, it->amount);
 
-					character->CalculateStats();
+	character->AddItem(item_id, taken);
+	character->CalculateStats();
 
-					PacketBuilder reply(PACKET_LOCKER, PACKET_GET, 7 + character->bank.size() * 5);
-					reply.AddShort(item);
-					reply.AddThree(taken);
-					reply.AddChar(static_cast<unsigned char>(character->weight));
-					reply.AddChar(static_cast<unsigned char>(character->maxweight));
+	it->amount -= taken;
 
-					it->amount -= taken;
+	if (it->amount <= 0)
+		character->bank.erase(it);
 
-					if (it->amount <= 0)
-						character->bank.erase(it);
-
-					UTIL_FOREACH(character->bank, item)
-					{
-						reply.AddShort(item.id);
-						reply.AddThree(item.amount);
-					}
-					character->Send(reply);
-
-					break;
-				}
-			}
-		}
-	}
+	server::LockerGetServerPacket reply;
+	reply.taken_item.id = item_id;
+	reply.taken_item.amount = taken;
+	reply.weight = Converters::WeightFrom(character);
+	reply.locker_items = Converters::LockerItemsFrom(character);
+	character->Send(reply);
 }
 
 // Opening a bank locker
-void Locker_Open(Character *character, PacketReader &reader)
+void Locker_Open(Character* character, const client::LockerOpenClientPacket& packet)
 {
-	unsigned char x = reader.GetChar();
-	unsigned char y = reader.GetChar();
+	if (!LockerInReach(character, packet.locker_coords))
+		return;
 
-	if (util::path_length(character->loc.x, character->loc.y, x, y) <= 1)
-	{
-		if (character->map->GetSpec(x, y) == emf::MapTileSpec::BankVault)
-		{
-			PacketBuilder reply(PACKET_LOCKER, PACKET_OPEN, 2 + character->bank.size() * 5);
-			reply.AddChar(x);
-			reply.AddChar(y);
-			UTIL_FOREACH(character->bank, item)
-			{
-				reply.AddShort(item.id);
-				reply.AddThree(item.amount);
-			}
-			character->Send(reply);
-		}
-	}
+	server::LockerOpenServerPacket reply;
+	reply.locker_coords = packet.locker_coords;
+	reply.locker_items = Converters::LockerItemsFrom(character);
+	character->Send(reply);
 }
 
 // Purchasing a locker space upgrade
-void Locker_Buy(Character *character, PacketReader &reader)
+void Locker_Buy(Character* character, const client::LockerBuyClientPacket&)
 {
 	if (character->trading) return;
 
-	(void)reader;
+	if (character->npc_type != pub::NpcType::Bank)
+		return;
 
-	if (character->npc_type == pub::NpcType::Bank)
-	{
-		int cost = static_cast<int>(character->world->config["BankUpgradeBase"]) + character->bankmax * static_cast<int>(character->world->config["BankUpgradeStep"]);
+	if (character->bankmax >= static_cast<int>(character->world->config["MaxBankUpgrades"]))
+		return;
 
-		if (character->bankmax >= static_cast<int>(character->world->config["MaxBankUpgrades"]))
-		{
-			return;
-		}
+	const int cost = static_cast<int>(character->world->config["BankUpgradeBase"]) + character->bankmax * static_cast<int>(character->world->config["BankUpgradeStep"]);
 
-		if (character->HasItem(1) < cost)
-		{
-			return;
-		}
+	if (character->HasItem(1) < cost)
+		return;
 
-		++character->bankmax;
-		character->DelItem(1, cost);
+	++character->bankmax;
+	character->DelItem(1, cost);
 
-		PacketBuilder reply(PACKET_LOCKER, PACKET_BUY, 5);
-		reply.AddInt(character->HasItem(1));
-		reply.AddChar(character->bankmax);
-		character->Send(reply);
-	}
+	server::LockerBuyServerPacket reply;
+	reply.gold_amount = character->HasItem(1);
+	reply.locker_upgrades = character->bankmax;
+	character->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_LOCKER)
-	Register(PACKET_ADD, Locker_Add, Playing);
-	Register(PACKET_TAKE, Locker_Take, Playing);
-	Register(PACKET_OPEN, Locker_Open, Playing);
-	Register(PACKET_BUY, Locker_Buy, Playing);
+	Register(Locker_Add, Playing);
+	Register(Locker_Take, Playing);
+	Register(Locker_Open, Playing);
+	Register(Locker_Buy, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_LOCKER)
 
 }

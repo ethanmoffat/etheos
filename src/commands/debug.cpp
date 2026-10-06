@@ -13,7 +13,6 @@
 #include "../i18n.hpp"
 #include "../map.hpp"
 #include "../npc.hpp"
-#include "../packet.hpp"
 #include "../quest.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
@@ -41,12 +40,10 @@ void SpawnItem(const std::vector<std::string>& arguments, Character* from)
 
 	if (from->AddItem(id, amount))
 	{
-		PacketBuilder reply(PACKET_ITEM, PACKET_GET, 9);
-		reply.AddShort(0); // UID
-		reply.AddShort(id);
-		reply.AddThree(amount);
-		reply.AddChar(static_cast<unsigned char>(from->weight));
-		reply.AddChar(static_cast<unsigned char>(from->maxweight));
+		server::ItemGetServerPacket reply;
+		reply.taken_item.id = id;
+		reply.taken_item.amount = amount;
+		reply.weight = Converters::WeightFrom(from);
 		from->Send(reply);
 	}
 }
@@ -70,15 +67,13 @@ void DropItem(const std::vector<std::string>& arguments, Character* from)
 			item->unprotecttime = Timer::GetTime() + double(from->world->config["ProtectPlayerDrop"]);
 			from->DelItem(id, amount);
 
-			PacketBuilder reply(PACKET_ITEM, PACKET_DROP, 15);
-			reply.AddShort(id);
-			reply.AddThree(amount);
-			reply.AddInt(from->HasItem(id));
-			reply.AddShort(item->uid);
-			reply.AddChar(x);
-			reply.AddChar(y);
-			reply.AddChar(static_cast<unsigned char>(from->weight));
-			reply.AddChar(static_cast<unsigned char>(from->maxweight));
+			server::ItemDropServerPacket reply;
+			reply.dropped_item.id = id;
+			reply.dropped_item.amount = amount;
+			reply.remaining_amount = from->HasItem(id);
+			reply.item_index = item->uid;
+			reply.coords = item->loc;
+			reply.weight = Converters::WeightFrom(from);
 			from->Send(reply);
 		}
 	}

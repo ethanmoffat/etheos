@@ -97,6 +97,16 @@ inline ItemKeySpec AsKey(const eolib::protocol::pub::EifRecord& item)
 	return ItemKeySpec{item.spec1};
 }
 
+struct ItemAlcoholSpec
+{
+	int potency;
+};
+
+inline ItemAlcoholSpec AsAlcohol(const eolib::protocol::pub::EifRecord& item)
+{
+	return ItemAlcoholSpec{item.spec1};
+}
+
 class EIF
 {
 	public:

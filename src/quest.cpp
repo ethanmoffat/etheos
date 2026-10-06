@@ -12,7 +12,6 @@
 #include "dialog.hpp"
 #include "eoplus.hpp"
 #include "map.hpp"
-#include "packet.hpp"
 #include "world.hpp"
 
 #include "console.hpp"
@@ -595,15 +594,9 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 
 		if (level_up)
 		{
-			UTIL_FOREACH(this->character->map->characters, character)
-			{
-				if (character != this->character && this->character->InRange(character))
-				{
-					PacketBuilder builder(PACKET_ITEM, PACKET_ACCEPT, 2);
-					builder.AddShort(character->PlayerID());
-					character->Send(builder);
-				}
-			}
+			server::ItemAcceptServerPacket accept;
+			accept.player_id = this->character->PlayerID();
+			this->character->map->SendToNearby(this->character, accept, false);
 		}
 	}
 	else if (function_name == "giveitem")
@@ -615,21 +608,19 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 		{
 			if (id == 1)
 			{
-				PacketBuilder builder(PACKET_ITEM, PACKET_GET, 9);
-				builder.AddShort(0); // UID
-				builder.AddShort(id);
-				builder.AddThree(amount);
-				builder.AddChar(static_cast<unsigned char>(this->character->weight));
-				builder.AddChar(static_cast<unsigned char>(this->character->maxweight));
-				this->character->Send(builder);
+				server::ItemGetServerPacket reply;
+				reply.taken_item.id = id;
+				reply.taken_item.amount = amount;
+				reply.weight = Converters::WeightFrom(this->character);
+				this->character->Send(reply);
 			}
 			else
 			{
-				PacketBuilder builder(PACKET_ITEM, PACKET_OBTAIN, 6);
-				builder.AddShort(id);
-				builder.AddThree(amount);
-				builder.AddChar(static_cast<unsigned char>(this->character->weight));
-				this->character->Send(builder);
+				server::ItemObtainServerPacket obtain;
+				obtain.item.id = id;
+				obtain.item.amount = amount;
+				obtain.current_weight = this->character->weight;
+				this->character->Send(obtain);
 			}
 		}
 	}
@@ -640,11 +631,11 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 
 		if (this->character->DelItem(id, amount))
 		{
-			PacketBuilder builder(PACKET_ITEM, PACKET_KICK, 7);
-			builder.AddShort(id);
-			builder.AddInt(this->character->HasItem(id));
-			builder.AddChar(static_cast<unsigned char>(this->character->weight));
-			this->character->Send(builder);
+			server::ItemKickServerPacket kick;
+			kick.item.id = id;
+			kick.item.amount = this->character->HasItem(id);
+			kick.current_weight = this->character->weight;
+			this->character->Send(kick);
 		}
 	}
 	else if (function_name == "setclass")

@@ -299,18 +299,25 @@ set(TestFiles
 	src/test/commands/debug_test.cpp
 	src/test/handlers/Account_test.cpp
 	src/test/handlers/Attack_test.cpp
+	src/test/handlers/Bank_test.cpp
 	src/test/handlers/Chair_test.cpp
+	src/test/handlers/Chest_test.cpp
 	src/test/handlers/Character_test.cpp
 	src/test/handlers/Connection_test.cpp
 	src/test/handlers/Door_test.cpp
 	src/test/handlers/Emote_test.cpp
 	src/test/handlers/Face_test.cpp
 	src/test/handlers/Init_test.cpp
+	src/test/handlers/Item_test.cpp
+	src/test/handlers/Locker_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Paperdoll_test.cpp
 	src/test/handlers/Refresh_test.cpp
+	src/test/handlers/Shop_test.cpp
 	src/test/handlers/Sit_test.cpp
 	src/test/handlers/Spell_test.cpp
 	src/test/handlers/StatSkill_test.cpp
+	src/test/handlers/Trade_test.cpp
 	src/test/handlers/Walk_test.cpp
 	src/test/handlers/Warp_test.cpp
 	src/test/handlers/Welcome_test.cpp

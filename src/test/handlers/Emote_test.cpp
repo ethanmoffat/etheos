@@ -3,6 +3,8 @@
 // include the CPP file with the Emote functions in it for testing
 #include "../../handlers/Emote.cpp"
 
+#include "../../timer.hpp"
+
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
 
@@ -78,8 +80,38 @@ INSTANTIATE_TEST_SUITE_P(Emotes, EmoteReportTests, testing::Values(
     std::make_tuple(0, false),
     std::make_tuple(1, true),
     std::make_tuple(10, true),
-    std::make_tuple(11, true),
+    std::make_tuple(11, false),
     std::make_tuple(12, false),
     std::make_tuple(13, false),
     std::make_tuple(14, true),
     std::make_tuple(15, false)));
+
+TEST_F(EmoteTests, Report_DrunkWhileDrunk_ShownToNearby)
+{
+    GivenMap(EmptyEmf(10, 10));
+    PlayingCharacter& emoter = GivenCharacter(2, 2);
+    PlayingCharacter& observer = GivenCharacter(3, 2);
+    emoter.character->drunk_until = Timer::GetTime() + Character::DrunkSeconds(0);
+
+    client::EmoteReportClientPacket packet;
+    packet.emote = eolib::protocol::Emote::Drunk;
+    Handlers::Emote_Report(emoter.character, packet);
+
+    const auto emote = LastSent<server::EmotePlayerServerPacket>(observer);
+    ASSERT_TRUE(emote);
+    EXPECT_EQ(eolib::protocol::Emote::Drunk, emote->emote);
+}
+
+TEST_F(EmoteTests, Report_DrunkAfterDrunkExpired_Ignored)
+{
+    GivenMap(EmptyEmf(10, 10));
+    PlayingCharacter& emoter = GivenCharacter(2, 2);
+    PlayingCharacter& observer = GivenCharacter(3, 2);
+    emoter.character->drunk_until = Timer::GetTime() - 1.0;
+
+    client::EmoteReportClientPacket packet;
+    packet.emote = eolib::protocol::Emote::Drunk;
+    Handlers::Emote_Report(emoter.character, packet);
+
+    EXPECT_FALSE(LastSent<server::EmotePlayerServerPacket>(observer));
+}

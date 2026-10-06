@@ -8,6 +8,7 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eoplus.hpp"
 #include "../i18n.hpp"
 #include "../packet.hpp"
@@ -16,9 +17,13 @@
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <cstddef>
 #include <string>
 #include <vector>
+
+namespace server = eolib::protocol::net::server;
 
 namespace Commands
 {
@@ -88,64 +93,10 @@ void Paperdoll(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		std::string home_str = victim->HomeString();
-		std::string guild_str = victim->GuildNameString();
-		std::string rank_str = victim->GuildRankString();
-
-		PacketBuilder reply(PACKET_PAPERDOLL, PACKET_REPLY,
-			12 + victim->SourceName().length() + home_str.length() + victim->partner.length() + victim->title.length()
-			+ guild_str.length() + rank_str.length() + victim->paperdoll.size() * 2);
-
-		reply.AddBreakString(victim->SourceName());
-		reply.AddBreakString(home_str);
-		reply.AddBreakString(victim->partner);
-		reply.AddBreakString(victim->title);
-		reply.AddBreakString(guild_str);
-		reply.AddBreakString(rank_str);
-		reply.AddShort(victim->PlayerID());
-		reply.AddChar(victim->clas);
-		reply.AddChar(victim->gender);
-		reply.AddChar(0);
-
-		UTIL_FOREACH(victim->paperdoll, item)
-		{
-			reply.AddShort(item);
-		}
-
-		if (victim->SourceDutyAccess() >= ADMIN_HGM && !victim->IsHideAdmin())
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_HGM_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_HGM);
-			}
-		}
-		else if (victim->SourceDutyAccess() >= ADMIN_GUIDE && !victim->IsHideAdmin())
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_GM_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_GM);
-			}
-		}
-		else
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_NORMAL);
-			}
-		}
-
+		server::PaperdollReplyServerPacket reply;
+		reply.details = Converters::CharacterDetailsFrom(victim);
+		reply.equipment = Converters::EquipmentPaperdollFrom(victim);
+		reply.icon = Converters::CharacterIconFrom(victim);
 		from->Send(reply);
 	}
 }

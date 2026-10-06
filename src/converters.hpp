@@ -50,7 +50,34 @@ namespace Converters
 
 	server::CharacterStatsReset CharacterStatsResetFrom(const Character* character);
 
+	server::CharacterStatsEquipmentChange CharacterStatsEquipmentChangeFrom(const Character* character);
+
+	/**
+	 * Creates the experience reward data of character after using an ExpReward item. level_up is true if the reward
+	 * raised the character's level.
+	 */
+	server::ItemReplyServerPacket::ItemTypeDataExpReward ItemExpRewardFrom(const Character* character, bool level_up);
+
+	/**
+	 * Creates the paperdoll and book details of character. Admins hidden with HideAdmin are shown as players.
+	 */
+	server::CharacterDetails CharacterDetailsFrom(Character* character);
+
+	server::EquipmentPaperdoll EquipmentPaperdollFrom(const Character* character);
+
+	/**
+	 * Gets the icon shown for character on the paperdoll, book and online list. Admins hidden with HideAdmin get the
+	 * player icons.
+	 */
+	server::CharacterIcon CharacterIconFrom(const Character* character);
+
 	server::LevelUpStats LevelUpStatsFrom(const Character* character);
+
+	eolib::protocol::net::Weight WeightFrom(const Character* character);
+
+	std::vector<eolib::protocol::net::ThreeItem> ChestItemsFrom(const Map_Chest& chest);
+
+	std::vector<eolib::protocol::net::ThreeItem> LockerItemsFrom(const Character* character);
 
 	/**
 	 * Creates the reply to a player selecting a character: the character's details and the revisions of the files the

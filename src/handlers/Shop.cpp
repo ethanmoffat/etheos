@@ -1,4 +1,3 @@
-
 /* $Id$
  * EOSERV is released under the zlib license.
  * See LICENSE.txt for more info.
@@ -8,215 +7,179 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
 #include "../npc.hpp"
 #include "../npc_data.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
 
-#include "../util.hpp"
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
-#include <cstddef>
+#include <algorithm>
 #include <cstdint>
 
 namespace Handlers
 {
 
+static bool IsShopSessionValid(Character* character, int session_id)
+{
+	return character->npc_type == pub::NpcType::Shop
+	    && character->world->CheckSession(character->npc->id, session_id);
+}
+
 // Crafting an item
-void Shop_Create(Character *character, PacketReader &reader)
+void Shop_Create(Character* character, const client::ShopCreateClientPacket& packet)
 {
 	if (character->trading) return;
 
-	short item = reader.GetShort();
-	/*int shopid = reader.GetInt();*/
+	if (!IsShopSessionValid(character, packet.session_id))
+		return;
 
-	if (character->npc_type == pub::NpcType::Shop)
+	const auto& shop_craft = character->npc->Data().shop_craft;
+	const auto match = std::find_if(shop_craft.begin(), shop_craft.end(),
+		[&packet](const server::ShopCraftItem& craft) { return craft.item_id == packet.craft_item_id; });
+
+	if (match == shop_craft.end())
+		return;
+
+	const bool has_ingredients = std::all_of(match->ingredients.begin(), match->ingredients.end(),
+		[character](const eolib::protocol::net::CharItem& ingredient) { return character->HasItem(ingredient.id) >= ingredient.amount; });
+
+	if (!has_ingredients)
+		return;
+
+	server::ShopCreateServerPacket reply;
+	reply.craft_item_id = match->item_id;
+
+	for (const eolib::protocol::net::CharItem& ingredient : match->ingredients)
 	{
-		UTIL_FOREACH_CREF(character->npc->Data().shop_craft, checkitem)
-		{
-			if (checkitem->id == item)
-			{
-				bool hasitems = true;
+		character->DelItem(ingredient.id, ingredient.amount);
 
-				UTIL_FOREACH(checkitem->ingredients, ingredient)
-				{
-					if (character->HasItem(ingredient.id) < ingredient.amount)
-					{
-						hasitems = false;
-					}
-				}
-
-				if (hasitems)
-				{
-					PacketBuilder reply(PACKET_SHOP, PACKET_CREATE, 4 + checkitem->ingredients.size() * 6);
-					reply.AddShort(item);
-					reply.AddChar(static_cast<unsigned char>(character->weight));
-					reply.AddChar(static_cast<unsigned char>(character->maxweight));
-					UTIL_FOREACH(checkitem->ingredients, ingredient)
-					{
-						character->DelItem(ingredient.id, ingredient.amount);
-						reply.AddShort(ingredient.id);
-						reply.AddInt(character->HasItem(ingredient.id));
-					}
-					character->AddItem(checkitem->id, 1);
-					character->Send(reply);
-				}
-			}
-		}
+		eolib::protocol::net::Item& remaining = reply.ingredients.emplace_back();
+		remaining.id = ingredient.id;
+		remaining.amount = character->HasItem(ingredient.id);
 	}
+
+	character->AddItem(match->item_id, 1);
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
 }
 
 // Purchasing an item from a store
-void Shop_Buy(Character *character, PacketReader &reader)
+void Shop_Buy(Character* character, const client::ShopBuyClientPacket& packet)
 {
 	if (character->trading) return;
 
-	short item = reader.GetShort();
-	int amount = reader.GetInt();
-	/*int shopid = reader.GetInt();*/
+	const int item_id = packet.buy_item.id;
+	const int amount = packet.buy_item.amount;
 
 	if (amount <= 0 || amount > static_cast<int>(character->world->config["MaxShopBuy"])) return;
 	if (character->weight >= character->maxweight) return;
 
 	// TODO: Limit number of items bought to under weight
 
-	if (character->npc_type == pub::NpcType::Shop)
-	{
-		UTIL_FOREACH_CREF(character->npc->Data().shop_trade, checkitem)
-		{
-			if (checkitem->id == item && checkitem->buy != 0)
-			{
-				std::int_least64_t cost64 = std::int_least64_t(amount) * std::int_least64_t(checkitem->buy);
+	if (!IsShopSessionValid(character, packet.session_id))
+		return;
 
-				if (cost64 < 0 || cost64 > int(character->world->config["MaxItem"]))
-					break;
+	const auto& shop_trade = character->npc->Data().shop_trade;
+	const auto match = std::find_if(shop_trade.begin(), shop_trade.end(),
+		[item_id](const server::ShopTradeItem& trade) { return trade.item_id == item_id && trade.buy_price != 0; });
 
-				int cost = int(cost64);
+	if (match == shop_trade.end())
+		return;
 
-				if (character->HasItem(1) < cost)
-					break;
+	const std::int_least64_t cost64 = std::int_least64_t(amount) * std::int_least64_t(match->buy_price);
 
-				character->DelItem(1, cost);
-				character->AddItem(item, amount);
+	if (cost64 < 0 || cost64 > int(character->world->config["MaxItem"]))
+		return;
 
-				PacketBuilder reply(PACKET_SHOP, PACKET_BUY, 12);
-				reply.AddInt(character->HasItem(1));
-				reply.AddShort(item);
-				reply.AddInt(amount);
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-				character->Send(reply);
+	const int cost = int(cost64);
 
-				break;
-			}
-		}
-	}
+	if (character->HasItem(1) < cost)
+		return;
+
+	character->DelItem(1, cost);
+	character->AddItem(item_id, amount);
+
+	server::ShopBuyServerPacket reply;
+	reply.gold_amount = character->HasItem(1);
+	reply.bought_item.id = item_id;
+	reply.bought_item.amount = amount;
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
 }
 
 // Selling an item to a store
-void Shop_Sell(Character *character, PacketReader &reader)
+void Shop_Sell(Character* character, const client::ShopSellClientPacket& packet)
 {
 	if (character->trading) return;
 
-	short item = reader.GetShort();
-	int amount = reader.GetInt();
-	/*int shopid = reader.GetInt();*/
+	const int item_id = packet.sell_item.id;
+	const int amount = packet.sell_item.amount;
 
 	if (amount <= 0 || amount > static_cast<int>(character->world->config["MaxItem"])) return;
 
-	if (character->npc_type == pub::NpcType::Shop)
-	{
-		UTIL_FOREACH_CREF(character->npc->Data().shop_trade, checkitem)
-		{
-			if (checkitem->id == item && checkitem->sell != 0)
-			{
-				std::int_least64_t owed64 = std::int_least64_t(amount) * std::int_least64_t(checkitem->sell);
+	if (!IsShopSessionValid(character, packet.session_id))
+		return;
 
-				if (owed64 < 0 || owed64 > (int(character->world->config["MaxItem"]) - character->HasItem(1)))
-					break;
+	const auto& shop_trade = character->npc->Data().shop_trade;
+	const auto match = std::find_if(shop_trade.begin(), shop_trade.end(),
+		[item_id](const server::ShopTradeItem& trade) { return trade.item_id == item_id && trade.sell_price != 0; });
 
-				int owed = int(owed64);
+	if (match == shop_trade.end())
+		return;
 
-				if (character->HasItem(item) < amount)
-					break;
+	const std::int_least64_t owed64 = std::int_least64_t(amount) * std::int_least64_t(match->sell_price);
 
-				character->DelItem(item, amount);
-				character->AddItem(1, owed);
+	if (owed64 < 0 || owed64 > (int(character->world->config["MaxItem"]) - character->HasItem(1)))
+		return;
 
-				PacketBuilder reply(PACKET_SHOP, PACKET_SELL, 12);
-				reply.AddInt(character->HasItem(item));
-				reply.AddShort(item);
-				reply.AddInt(character->HasItem(1));
-				reply.AddChar(static_cast<unsigned char>(character->weight));
-				reply.AddChar(static_cast<unsigned char>(character->maxweight));
-				character->Send(reply);
+	const int owed = int(owed64);
 
-				break;
-			}
-		}
+	if (character->HasItem(item_id) < amount)
+		return;
 
-	}
+	character->DelItem(item_id, amount);
+	character->AddItem(1, owed);
+
+	server::ShopSellServerPacket reply;
+	reply.sold_item.amount = character->HasItem(item_id);
+	reply.sold_item.id = item_id;
+	reply.gold_amount = character->HasItem(1);
+	reply.weight = Converters::WeightFrom(character);
+	character->Send(reply);
 }
 
 // Talking to a store NPC
-void Shop_Open(Character *character, PacketReader &reader)
+void Shop_Open(Character* character, const client::ShopOpenClientPacket& packet)
 {
-	short id = reader.GetShort();
+	const auto match = std::find_if(
+		character->map->npcs.begin(),
+		character->map->npcs.end(),
+		[&packet](const NPC* npc) { return npc->index == packet.npc_index && (!npc->Data().shop_trade.empty() || !npc->Data().shop_craft.empty()); });
 
-	UTIL_FOREACH(character->map->npcs, npc)
-	{
-		if (npc->index == id && (npc->Data().shop_trade.size() > 0 || npc->Data().shop_craft.size() > 0))
-		{
-			character->npc = npc;
-			character->npc_type = pub::NpcType::Shop;
+	if (match == character->map->npcs.end())
+		return;
 
-			PacketBuilder reply(PACKET_SHOP, PACKET_OPEN,
-				5 + npc->Data().shop_name.length() + npc->Data().shop_trade.size() * 9 + npc->Data().shop_craft.size() * 14);
-			reply.AddShort(npc->id);
-			reply.AddBreakString(npc->Data().shop_name.c_str());
+	NPC* npc = *match;
+	character->npc = npc;
+	character->npc_type = pub::NpcType::Shop;
 
-			UTIL_FOREACH_CREF(npc->Data().shop_trade, item)
-			{
-				reply.AddShort(item->id);
-				reply.AddThree(item->buy);
-				reply.AddThree(item->sell);
-				reply.AddChar(static_cast<int>(character->world->config["MaxShopBuy"]));
-			}
-			reply.AddByte(255);
-
-			UTIL_FOREACH_CREF(npc->Data().shop_craft, item)
-			{
-				std::size_t i = 0;
-
-				reply.AddShort(item->id);
-
-				for (; i < item->ingredients.size(); ++i)
-				{
-					reply.AddShort(item->ingredients[i].id);
-					reply.AddChar(item->ingredients[i].amount);
-				}
-
-				for (; i < 4; ++i)
-				{
-					reply.AddShort(0);
-					reply.AddChar(0);
-				}
-			}
-			reply.AddByte(255);
-
-			character->Send(reply);
-
-			break;
-		}
-	}
+	server::ShopOpenServerPacket reply;
+	reply.session_id = npc->id;
+	reply.shop_name = npc->Data().shop_name;
+	reply.trade_items = npc->Data().shop_trade;
+	reply.craft_items = npc->Data().shop_craft;
+	character->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_SHOP)
-	Register(PACKET_CREATE, Shop_Create, Playing);
-	Register(PACKET_BUY, Shop_Buy, Playing);
-	Register(PACKET_SELL, Shop_Sell, Playing);
-	Register(PACKET_OPEN, Shop_Open, Playing);
+	Register(Shop_Create, Playing);
+	Register(Shop_Buy, Playing);
+	Register(Shop_Sell, Playing);
+	Register(Shop_Open, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_SHOP)
 
 }

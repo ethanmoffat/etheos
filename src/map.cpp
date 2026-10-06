@@ -341,13 +341,8 @@ int Map_Chest::DelSomeItem(short item_id, int amount)
 
 void Map_Chest::Update(Map *map, Character *exclude) const
 {
-	PacketBuilder builder(PACKET_CHEST, PACKET_AGREE, this->items.size() * 5);
-
-	UTIL_FOREACH(this->items, item)
-	{
-		builder.AddShort(item.id);
-		builder.AddThree(item.amount);
-	}
+	server::ChestAgreeServerPacket agree;
+	agree.items = Converters::ChestItemsFrom(*this);
 
 	UTIL_FOREACH(map->characters, character)
 	{
@@ -358,7 +353,7 @@ void Map_Chest::Update(Map *map, Character *exclude) const
 
 		if (util::path_length(character->loc.x, character->loc.y, this->loc.x, this->loc.y) <= 1)
 		{
-			character->Send(builder);
+			character->Send(agree);
 		}
 	}
 }
@@ -830,6 +825,17 @@ void Map::SendToNearby(const eolib::protocol::Coords& coords, const eolib::proto
 	UTIL_FOREACH(this->characters, character)
 	{
 		if (character->InRange(coords.x, coords.y))
+		{
+			character->Send(packet);
+		}
+	}
+}
+
+void Map::SendToNearby(const Map_Item& item, const eolib::protocol::net::Packet& packet, const Character *except)
+{
+	UTIL_FOREACH(this->characters, character)
+	{
+		if (character != except && character->InRange(item))
 		{
 			character->Send(packet);
 		}
@@ -2048,22 +2054,13 @@ std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, unsigned char x, un
 
 	newitem->uid = GenerateItemID();
 
-	PacketBuilder builder(PACKET_ITEM, PACKET_ADD, 9);
-	builder.AddShort(id);
-	builder.AddShort(newitem->uid);
-	builder.AddThree(amount);
-	builder.AddChar(x);
-	builder.AddChar(y);
+	server::ItemAddServerPacket packet;
+	packet.item_id = newitem->id;
+	packet.item_index = newitem->uid;
+	packet.item_amount = newitem->amount;
+	packet.coords = newitem->loc;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if ((from && character == from) || !character->InRange(*newitem))
-		{
-			continue;
-		}
-
-		character->Send(builder);
-	}
+	this->SendToNearby(*newitem, packet, from);
 
 	this->items.push_back(newitem);
 	return newitem;
@@ -2109,18 +2106,9 @@ void Map::DelItem(short uid, Character *from)
 
 std::list<std::shared_ptr<Map_Item>>::iterator Map::DelItem(std::list<std::shared_ptr<Map_Item>>::iterator it, Character *from)
 {
-	PacketBuilder builder(PACKET_ITEM, PACKET_REMOVE, 2);
-	builder.AddShort((*it)->uid);
-
-	UTIL_FOREACH(this->characters, character)
-	{
-		if ((from && character == from) || !character->InRange(**it))
-		{
-			continue;
-		}
-
-		character->Send(builder);
-	}
+	server::ItemRemoveServerPacket remove;
+	remove.item_index = (*it)->uid;
+	this->SendToNearby(**it, remove, from);
 
 	return this->items.erase(it);
 }
@@ -2138,34 +2126,17 @@ void Map::DelSomeItem(short uid, int amount, Character *from)
 			{
 				(*it)->amount -= amount;
 
-				PacketBuilder builder(PACKET_ITEM, PACKET_REMOVE, 2);
-				builder.AddShort((*it)->uid);
+				server::ItemRemoveServerPacket remove;
+				remove.item_index = (*it)->uid;
+				this->SendToNearby(**it, remove, from);
 
-				UTIL_FOREACH(this->characters, character)
-				{
-					if ((from && character == from) || !character->InRange(**it))
-					{
-						continue;
-					}
+				server::ItemAddServerPacket packet;
+				packet.item_id = (*it)->id;
+				packet.item_index = (*it)->uid;
+				packet.item_amount = (*it)->amount;
+				packet.coords = (*it)->loc;
 
-					character->Send(builder);
-				}
-
-				builder.Reset(9);
-				builder.SetID(PACKET_ITEM, PACKET_ADD);
-				builder.AddShort((*it)->id);
-				builder.AddShort((*it)->uid);
-				builder.AddThree((*it)->amount);
-				builder.AddChar((*it)->loc.x);
-				builder.AddChar((*it)->loc.y);
-
-				UTIL_FOREACH(this->characters, character)
-				{
-					if (!character->InRange(**it))
-						continue;
-
-					character->Send(builder);
-				}
+				this->SendToNearby(**it, packet);
 			}
 			else
 			{

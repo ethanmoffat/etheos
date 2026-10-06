@@ -34,34 +34,6 @@ struct NPC_Drop
 };
 
 /**
- * Used by the NPC_Data class to store trade shop data
- */
-struct NPC_Shop_Trade_Item
-{
-	unsigned short id;
-	int buy;
-	int sell;
-};
-
-/**
- * Used by the NPC_Shop_Craft_Item class to store item ingredients
- */
-struct NPC_Shop_Craft_Ingredient
-{
-	unsigned short id;
-	unsigned char amount;
-};
-
-/**
- * Used by the NPC_Data class to store craft shop data
- */
-struct NPC_Shop_Craft_Item
-{
-	unsigned short id;
-	std::vector<NPC_Shop_Craft_Ingredient> ingredients;
-};
-
-/**
  * Used by the NPC_Data class to store innkeeper citizenship information
  */
 struct NPC_Citizenship
@@ -79,8 +51,8 @@ class NPC_Data
 		double drops_chance_total;
 		std::string shop_name;
 		std::string skill_name;
-		std::vector<std::unique_ptr<NPC_Shop_Trade_Item>> shop_trade;
-		std::vector<std::unique_ptr<NPC_Shop_Craft_Item>> shop_craft;
+		std::vector<eolib::protocol::net::server::ShopTradeItem> shop_trade;
+		std::vector<eolib::protocol::net::server::ShopCraftItem> shop_craft;
 		std::vector<eolib::protocol::net::server::SkillLearn> skill_learn;
 		std::unique_ptr<NPC_Citizenship> citizenship;
 

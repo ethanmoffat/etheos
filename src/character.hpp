@@ -242,6 +242,13 @@ class Character : public Command_Source
 		double last_walk;
 		int attacks;
 
+		double drunk_until = 0.0;
+
+		// How long the client sends drunk emotes for after using alcohol of the given potency
+		static constexpr double DrunkSeconds(int potency) { return (100 + (potency * 10)) / 8.0; }
+
+		bool IsDrunk() const;
+
 		// warp_effect while no warp is waiting for Warp_Accept
 		static constexpr WarpEffect NoPendingWarp = static_cast<WarpEffect>(-1);
 
@@ -310,6 +317,7 @@ class Character : public Command_Source
 		void Effect(int effect, bool echo = true);
 		void PlayBard(unsigned char instrument, unsigned char note, bool echo = true);
 		int HasItem(short item, bool include_trade = false);
+		bool HasKey(int key);
 		bool HasSpell(short spell);
 		short SpellLevel(short spell);
 		bool AddItem(short item, int amount);
@@ -359,7 +367,6 @@ class Character : public Command_Source
 		void Dress(EquipLocation, unsigned short gfx_id);
 		void Undress();
 		void Undress(EquipLocation);
-		void AddPaperdollData(PacketBuilder&, const char* format);
 
 		struct PaperdollGraphics
 		{

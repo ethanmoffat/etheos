@@ -252,6 +252,7 @@ class Map
 		void SendToNearby(const Character *from, const eolib::protocol::net::Packet& packet, bool echo);
 		void SendToNearby(const NPC *from, const eolib::protocol::net::Packet& packet, const Character *except = nullptr);
 		void SendToNearby(const eolib::protocol::Coords& coords, const eolib::protocol::net::Packet& packet);
+		void SendToNearby(const Map_Item& item, const eolib::protocol::net::Packet& packet, const Character *except = nullptr);
 
 		/**
 		 * Sends packet to every character on the map.

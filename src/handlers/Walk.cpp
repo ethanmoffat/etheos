@@ -10,11 +10,11 @@
 #include "../config.hpp"
 #include "../eodata.hpp"
 #include "../npc.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
 
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/client/structs.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 namespace Handlers
 {
@@ -51,9 +51,9 @@ static void walk_common(Character* character, const client::WalkAction& walk, Ma
 
 		if (character->trading)
 		{
-			PacketBuilder builder(PACKET_TRADE, PACKET_CLOSE, 2);
-			builder.AddShort(character->PlayerID());
-			character->trade_partner->Send(builder);
+			server::TradeCloseServerPacket trade_close;
+			trade_close.partner_player_id = character->PlayerID();
+			character->trade_partner->Send(trade_close);
 
 			character->trading = false;
 			character->trade_inventory.clear();

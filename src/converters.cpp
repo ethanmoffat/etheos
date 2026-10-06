@@ -197,6 +197,85 @@ server::CharacterStatsReset CharacterStatsResetFrom(const Character* character)
 	return stats;
 }
 
+server::CharacterStatsEquipmentChange CharacterStatsEquipmentChangeFrom(const Character* character)
+{
+	server::CharacterStatsEquipmentChange stats;
+	stats.max_hp = character->maxhp;
+	stats.max_tp = character->maxtp;
+	stats.base_stats = CharacterBaseStatsFrom(character);
+	stats.secondary_stats = CharacterSecondaryStatsFrom(character);
+	return stats;
+}
+
+server::ItemReplyServerPacket::ItemTypeDataExpReward ItemExpRewardFrom(const Character* character, bool level_up)
+{
+	server::ItemReplyServerPacket::ItemTypeDataExpReward exp_reward;
+	exp_reward.experience = character->exp;
+	exp_reward.level_up = level_up ? character->level : 0;
+	exp_reward.stat_points = character->statpoints;
+	exp_reward.skill_points = character->skillpoints;
+	exp_reward.max_hp = character->maxhp;
+	exp_reward.max_tp = character->maxtp;
+	exp_reward.max_sp = character->maxsp;
+	return exp_reward;
+}
+
+static bool ShowsAdmin(const Character* character, AdminLevel level)
+{
+	return character->SourceDutyAccess() >= level && !character->IsHideAdmin();
+}
+
+server::CharacterDetails CharacterDetailsFrom(Character* character)
+{
+	server::CharacterDetails details;
+	details.name = character->SourceName();
+	details.home = character->HomeString();
+	details.partner = character->partner;
+	details.title = character->title;
+	details.guild = character->GuildNameString();
+	details.guild_rank = character->GuildRankString();
+	details.player_id = character->PlayerID();
+	details.class_id = character->clas;
+	details.gender = static_cast<eolib::protocol::Gender>(character->gender);
+	details.admin = ShowsAdmin(character, ADMIN_GUIDE)
+		? static_cast<eolib::protocol::AdminLevel>(character->SourceDutyAccess())
+		: eolib::protocol::AdminLevel::Player;
+	return details;
+}
+
+server::EquipmentPaperdoll EquipmentPaperdollFrom(const Character* character)
+{
+	const auto& paperdoll = character->paperdoll;
+
+	server::EquipmentPaperdoll equipment;
+	equipment.boots = paperdoll[Character::Boots];
+	equipment.accessory = paperdoll[Character::Accessory];
+	equipment.gloves = paperdoll[Character::Gloves];
+	equipment.belt = paperdoll[Character::Belt];
+	equipment.armor = paperdoll[Character::Armor];
+	equipment.necklace = paperdoll[Character::Necklace];
+	equipment.hat = paperdoll[Character::Hat];
+	equipment.shield = paperdoll[Character::Shield];
+	equipment.weapon = paperdoll[Character::Weapon];
+	equipment.ring = {paperdoll[Character::Ring1], paperdoll[Character::Ring2]};
+	equipment.armlet = {paperdoll[Character::Armlet1], paperdoll[Character::Armlet2]};
+	equipment.bracer = {paperdoll[Character::Bracer1], paperdoll[Character::Bracer2]};
+	return equipment;
+}
+
+server::CharacterIcon CharacterIconFrom(const Character* character)
+{
+	const bool party = character->party != nullptr;
+
+	if (ShowsAdmin(character, ADMIN_HGM))
+		return party ? server::CharacterIcon::HgmParty : server::CharacterIcon::Hgm;
+
+	if (ShowsAdmin(character, ADMIN_GUIDE))
+		return party ? server::CharacterIcon::GmParty : server::CharacterIcon::Gm;
+
+	return party ? server::CharacterIcon::Party : server::CharacterIcon::Player;
+}
+
 server::LevelUpStats LevelUpStatsFrom(const Character* character)
 {
 	server::LevelUpStats stats;
@@ -207,6 +286,47 @@ server::LevelUpStats LevelUpStatsFrom(const Character* character)
 	stats.max_tp = character->maxtp;
 	stats.max_sp = character->maxsp;
 	return stats;
+}
+
+eolib::protocol::net::Weight WeightFrom(const Character* character)
+{
+	eolib::protocol::net::Weight weight;
+	weight.current = character->weight;
+	weight.max = character->maxweight;
+	return weight;
+}
+
+std::vector<eolib::protocol::net::ThreeItem> ChestItemsFrom(const Map_Chest& chest)
+{
+	std::vector<eolib::protocol::net::ThreeItem> items;
+	items.reserve(chest.items.size());
+
+	for (const Map_Chest_Item& item : chest.items)
+	{
+		if (item.id == 0)
+			continue;
+
+		eolib::protocol::net::ThreeItem& net_item = items.emplace_back();
+		net_item.id = item.id;
+		net_item.amount = item.amount;
+	}
+
+	return items;
+}
+
+std::vector<eolib::protocol::net::ThreeItem> LockerItemsFrom(const Character* character)
+{
+	std::vector<eolib::protocol::net::ThreeItem> items;
+	items.reserve(character->bank.size());
+
+	for (const Character_Item& item : character->bank)
+	{
+		eolib::protocol::net::ThreeItem& net_item = items.emplace_back();
+		net_item.id = item.id;
+		net_item.amount = item.amount;
+	}
+
+	return items;
 }
 
 // The admin level the client is told the character has. Some lower levels are raised to unlock client features that
@@ -336,8 +456,7 @@ server::WelcomeReplyServerPacket::WelcomeCodeDataEnterGame EnterGameFrom(Charact
 	server::WelcomeReplyServerPacket::WelcomeCodeDataEnterGame data;
 	data.news = std::move(news);
 	data.news.resize(NewsLineCount);
-	data.weight.current = character->weight;
-	data.weight.max = character->maxweight;
+	data.weight = WeightFrom(character);
 
 	data.items.reserve(character->inventory.size());
 	UTIL_FOREACH(character->inventory, item)

@@ -122,21 +122,20 @@ void NPC_Data::Load()
 					return;
 				}
 
-				this->shop_trade.resize(parts.size() / 3);
+				this->shop_trade.reserve(parts.size() / 3);
 
 				for (std::size_t i = 0; i < parts.size(); i += 3)
 				{
-					std::unique_ptr<NPC_Shop_Trade_Item> item(new NPC_Shop_Trade_Item);
-					item->id = util::to_int(parts[i]);
-					item->buy = util::to_int(parts[i+1]);
-					item->sell = util::to_int(parts[i+2]);
+					server::ShopTradeItem& item = this->shop_trade.emplace_back();
+					item.item_id = util::to_int(parts[i]);
+					item.buy_price = util::to_int(parts[i+1]);
+					item.sell_price = util::to_int(parts[i+2]);
+					item.max_buy_amount = static_cast<int>(this->world->config["MaxShopBuy"]);
 
-					if (item->buy != 0 && item->sell != 0 && item->sell > item->buy)
+					if (item.buy_price != 0 && item.sell_price != 0 && item.sell_price > item.buy_price)
 					{
-						Console::Wrn("item #%i (vendor #%i) has a higher sell price than buy price.", item->id, shop_vend_id);
+						Console::Wrn("item #%i (vendor #%i) has a higher sell price than buy price.", item.item_id, shop_vend_id);
 					}
-
-					this->shop_trade[i/3] = std::move(item);
 				}
 			}
 		}
@@ -154,27 +153,19 @@ void NPC_Data::Load()
 					return;
 				}
 
-				this->shop_craft.resize(parts.size() / 9);
+				this->shop_craft.reserve(parts.size() / 9);
 
 				for (std::size_t i = 0; i < parts.size(); i += 9)
 				{
-					std::unique_ptr<NPC_Shop_Craft_Item> item(new NPC_Shop_Craft_Item);
-					std::vector<NPC_Shop_Craft_Ingredient> ingredients;
-					ingredients.resize(4);
+					server::ShopCraftItem& item = this->shop_craft.emplace_back();
+					item.item_id = util::to_int(parts[i]);
+					item.ingredients.resize(4);
 
-					item->id = util::to_int(parts[i]);
-
-					for (int ii = 0; ii < 4; ++ii)
+					for (std::size_t ii = 0; ii < item.ingredients.size(); ++ii)
 					{
-						NPC_Shop_Craft_Ingredient ingredient;
-						ingredient.id = util::to_int(parts[i+1+ii*2]);
-						ingredient.amount = util::to_int(parts[i+2+ii*2]);
-						ingredients[ii] = ingredient;
+						item.ingredients[ii].id = util::to_int(parts[i+1+ii*2]);
+						item.ingredients[ii].amount = util::to_int(parts[i+2+ii*2]);
 					}
-
-					item->ingredients = ingredients;
-
-					this->shop_craft[i/9] = std::move(item);
 				}
 			}
 		}

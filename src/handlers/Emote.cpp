@@ -18,8 +18,7 @@ void Emote_Report(Character* character, const client::EmoteReportClientPacket& p
 {
 	const Emote emote = packet.emote;
 
-	// TODO: Restrict drunk emote
-	if ((emote >= Emote::Happy && emote <= Emote::Embarrassed) || emote == Emote::Drunk || emote == Emote::Playful)
+	if ((emote >= Emote::Happy && emote <= Emote::Embarrassed) || (emote == Emote::Drunk && character->IsDrunk()) || emote == Emote::Playful)
 	{
 		character->Emote(emote, false);
 	}

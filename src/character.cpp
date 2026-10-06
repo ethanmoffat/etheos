@@ -675,6 +675,15 @@ void Character::PlayBard(unsigned char instrument, unsigned char note, bool echo
 	}
 }
 
+bool Character::HasKey(int key)
+{
+	return std::any_of(this->inventory.begin(), this->inventory.end(), [&](const Character_Item& item)
+	{
+		const pub::EifRecord& item_record = this->world->eif->Get(item.id);
+		return item_record.type == pub::ItemType::Key && AsKey(item_record).key == key && this->HasItem(item.id) > 0;
+	});
+}
+
 int Character::HasItem(short item, bool include_trade)
 {
 	UTIL_IFOREACH(this->inventory, it)
@@ -701,6 +710,11 @@ int Character::HasItem(short item, bool include_trade)
 	}
 
 	return 0;
+}
+
+bool Character::IsDrunk() const
+{
+	return Timer::GetTime() < this->drunk_until;
 }
 
 bool Character::HasSpell(short spell)
@@ -1265,9 +1279,9 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpEffect eff
 
 	if (this->trading)
 	{
-		PacketBuilder builder(PACKET_TRADE, PACKET_CLOSE, 2);
-		builder.AddShort(this->PlayerID());
-		this->trade_partner->Send(builder);
+		server::TradeCloseServerPacket trade_close;
+		trade_close.partner_player_id = this->PlayerID();
+		this->trade_partner->Send(trade_close);
 
 		this->trading = false;
 		this->trade_inventory.clear();
@@ -1600,16 +1614,14 @@ void Character::DropAll(Character *killer)
 				map_item->unprotecttime = Timer::GetTime() + static_cast<double>(this->world->config["ProtectDeathDrop"]);
 			}
 
-			PacketBuilder builder(PACKET_ITEM, PACKET_DROP, 15);
-			builder.AddShort(it->id);
-			builder.AddThree(it->amount);
-			builder.AddInt(0);
-			builder.AddShort(map_item->uid);
-			builder.AddChar(this->loc.x);
-			builder.AddChar(this->loc.y);
-			builder.AddChar(static_cast<unsigned char>(this->weight));
-			builder.AddChar(static_cast<unsigned char>(this->maxweight));
-			this->Send(builder);
+			server::ItemDropServerPacket drop;
+			drop.dropped_item.id = it->id;
+			drop.dropped_item.amount = it->amount;
+			drop.remaining_amount = 0;
+			drop.item_index = map_item->uid;
+			drop.coords = this->loc;
+			drop.weight = Converters::WeightFrom(this);
+			this->Send(drop);
 		}
 
 		it = this->inventory.erase(it);
@@ -1650,41 +1662,24 @@ void Character::DropAll(Character *killer)
 
 			if (this->player->character->Unequip(id, subloc))
 			{
-				PacketBuilder builder(PACKET_PAPERDOLL, PACKET_REMOVE, 43);
-				builder.AddShort(this->PlayerID());
-				builder.AddChar(static_cast<int>(AvatarChangeType::Equipment));
-				builder.AddChar(0); // sound
-				this->AddPaperdollData(builder, "BAHWS");
-				builder.AddShort(id);
-				builder.AddChar(subloc);
-				builder.AddShort(this->maxhp);
-				builder.AddShort(this->maxtp);
-				builder.AddShort(this->display_str);
-				builder.AddShort(this->display_intl);
-				builder.AddShort(this->display_wis);
-				builder.AddShort(this->display_agi);
-				builder.AddShort(this->display_con);
-				builder.AddShort(this->display_cha);
-				builder.AddShort(this->mindam);
-				builder.AddShort(this->maxdam);
-				builder.AddShort(this->accuracy);
-				builder.AddShort(this->evade);
-				builder.AddShort(this->armor);
-				this->Send(builder);
+				server::PaperdollRemoveServerPacket remove;
+				remove.change = Converters::EquipmentChangeFrom(this);
+				remove.item_id = id;
+				remove.sub_loc = subloc;
+				remove.stats = Converters::CharacterStatsEquipmentChangeFrom(this);
+				this->Send(remove);
 			}
 
 			this->player->character->DelItem(id, 1);
 
-			PacketBuilder builder(PACKET_ITEM, PACKET_DROP, 15);
-			builder.AddShort(id);
-			builder.AddThree(1);
-			builder.AddInt(0);
-			builder.AddShort(map_item->uid);
-			builder.AddChar(this->loc.x);
-			builder.AddChar(this->loc.y);
-			builder.AddChar(static_cast<unsigned char>(this->weight));
-			builder.AddChar(static_cast<unsigned char>(this->maxweight));
-			this->Send(builder);
+			server::ItemDropServerPacket drop;
+			drop.dropped_item.id = id;
+			drop.dropped_item.amount = 1;
+			drop.remaining_amount = 0;
+			drop.item_index = map_item->uid;
+			drop.coords = this->loc;
+			drop.weight = Converters::WeightFrom(this);
+			this->Send(drop);
 		}
 
 		++i;
@@ -1915,24 +1910,6 @@ Character::PaperdollGraphics Character::GetPaperdollGraphics()
 	return graphics;
 }
 
-void Character::AddPaperdollData(PacketBuilder& builder, const char* format)
-{
-	const PaperdollGraphics graphics = this->GetPaperdollGraphics();
-
-	for (const char* p = format; *p != '\0'; ++p)
-	{
-		switch (*p)
-		{
-			case 'B': builder.AddShort(graphics.boots); break;
-			case 'A': builder.AddShort(graphics.armor); break;
-			case 'H': builder.AddShort(graphics.hat); break;
-			case 'W': builder.AddShort(graphics.weapon); break;
-			case 'S': builder.AddShort(graphics.shield); break;
-			case '0': builder.AddShort(0); break;
-		}
-	}
-}
-
 void Character::AddChatLog(std::string marker, std::string name, std::string msg)
 {
 	if (int(chat_log.size()) >= int(this->world->config["ReportChatLogSize"]))
@@ -2099,9 +2076,9 @@ void Character::Logout()
 
 	if (this->trading)
 	{
-		PacketBuilder builder(PACKET_TRADE, PACKET_CLOSE, 2);
-		builder.AddShort(this->PlayerID());
-		this->trade_partner->Send(builder);
+		server::TradeCloseServerPacket trade_close;
+		trade_close.partner_player_id = this->PlayerID();
+		this->trade_partner->Send(trade_close);
 
 		this->player->client->state = EOClient::Playing;
 		this->trading = false;

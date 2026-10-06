@@ -75,6 +75,7 @@ public:
         character->trade_agree = false;
         character->jukebox_open = false;
         character->usage = 0;
+        character->bankmax = 0;
         character->goldbank = 0;
         character->mindam = character->maxdam = 0;
         character->accuracy = character->evade = character->armor = 0;
