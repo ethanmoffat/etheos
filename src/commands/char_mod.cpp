@@ -15,6 +15,8 @@
 #include "../packet.hpp"
 #include "../world.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <functional>
@@ -22,6 +24,7 @@
 #include <vector>
 
 namespace pub = eolib::protocol::pub;
+namespace server = eolib::protocol::net::server;
 
 namespace Commands
 {
@@ -229,7 +232,7 @@ void Strip(const std::vector<std::string>& arguments, Command_Source* from)
 					{
 						PacketBuilder builder(PACKET_PAPERDOLL, PACKET_REMOVE, 43);
 						builder.AddShort(victim->PlayerID());
-						builder.AddChar(SLOT_CLOTHES);
+						builder.AddChar(static_cast<int>(AvatarChangeType::Equipment));
 						builder.AddChar(0); // ?
 						victim->AddPaperdollData(builder, "BAHWS");
 						builder.AddShort(itemid);
@@ -252,22 +255,16 @@ void Strip(const std::vector<std::string>& arguments, Command_Source* from)
 				}
 			}
 
-			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-			builder.AddShort(victim->PlayerID());
-			builder.AddChar(SLOT_CLOTHES);
-			builder.AddChar(0);
-			builder.AddShort(0);
-			builder.AddShort(0);
-			builder.AddShort(0);
-			builder.AddShort(0);
-			builder.AddShort(0);
+			server::AvatarAgreeServerPacket avatar_agree;
+			avatar_agree.change = server::AvatarChange::ForEquipment({});
+			avatar_agree.change.player_id = victim->PlayerID();
 
 			UTIL_FOREACH(victim->map->characters, updatecharacter)
 			{
 				if (updatecharacter == victim || !victim->InRange(updatecharacter))
 					continue;
 
-				updatecharacter->Send(builder);
+				updatecharacter->Send(avatar_agree);
 			}
 		}
 		else

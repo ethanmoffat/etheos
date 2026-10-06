@@ -40,7 +40,7 @@ void Character_Request(Player* player, const net::client::CharacterRequestClient
 
 void Character_Create(Player* player, const net::client::CharacterCreateClientPacket& packet)
 {
-	if (packet.session_id != player->char_op_id)
+	if (!player->world->CheckSession(player->char_op_id, packet.session_id))
 	{
 		player->client->Close();
 		return;
@@ -102,7 +102,7 @@ void Character_Remove(Player* player, const net::client::CharacterRemoveClientPa
 		return (c->id == static_cast<unsigned int>(packet.character_id));
 	});
 
-	if (packet.session_id != player->char_op_id || it == player->characters.end())
+	if (!player->world->CheckSession(player->char_op_id, packet.session_id) || it == player->characters.end())
 	{
 		player->client->Close();
 		return;

@@ -187,6 +187,18 @@ TEST_F(WelcomeTests, Agree_WrongSessionId_ClosesClient)
     Handlers::Welcome_Agree(player(), AgreeMap(player()->id + 1, TestMapId));
 }
 
+TEST_F(WelcomeTests, Agree_WrongSessionIdWithEnforceSessionsOff_UploadsFile)
+{
+    server->world->config["EnforceSessions"] = false;
+
+    EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(1);
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    auto request = client::WelcomeAgreeClientPacket::ForEif({});
+    request.session_id = player()->id + 1;
+    Handlers::Welcome_Agree(player(), request);
+}
+
 TEST_F(WelcomeTests, Agree_PubFile_UploadsWholeFile)
 {
     server::InitInitServerPacket reply;

@@ -8,6 +8,7 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
 #include "../party.hpp"
@@ -86,11 +87,11 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			if (scroll.map == 0)
 			{
-				character->Warp(character->SpawnMap(), character->SpawnLoc().x, character->SpawnLoc().y, WARP_ANIMATION_SCROLL);
+				character->Warp(character->SpawnMap(), character->SpawnLoc().x, character->SpawnLoc().y, WarpEffect::Scroll);
 			}
 			else
 			{
-				character->Warp(scroll.map, scroll.x, scroll.y, WARP_ANIMATION_SCROLL);
+				character->Warp(scroll.map, scroll.x, scroll.y, WarpEffect::Scroll);
 			}
 
 			character->Send(reply);
@@ -178,17 +179,18 @@ void Item_Use(Character *character, PacketReader &reader)
 
 			reply.AddChar(dye.hair_color);
 
-			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 5);
-			builder.AddShort(character->PlayerID());
-			builder.AddChar(SLOT_HAIRCOLOR);
-			builder.AddChar(0); // subloc
-			builder.AddChar(dye.hair_color);
+			server::AvatarChange::ChangeTypeDataHairColor hair_color;
+			hair_color.hair_color = dye.hair_color;
+
+			server::AvatarAgreeServerPacket avatar_agree;
+			avatar_agree.change = server::AvatarChange::ForHairColor(hair_color);
+			avatar_agree.change.player_id = character->PlayerID();
 
 			UTIL_FOREACH(character->map->characters, updatecharacter)
 			{
 				if (updatecharacter != character && character->InRange(updatecharacter))
 				{
-					updatecharacter->Send(builder);
+					updatecharacter->Send(avatar_agree);
 				}
 			}
 
@@ -272,17 +274,14 @@ void Item_Use(Character *character, PacketReader &reader)
 			reply.AddShort(character->evade);
 			reply.AddShort(character->armor);
 
-			PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-			builder.AddShort(character->PlayerID());
-			builder.AddChar(SLOT_CLOTHES);
-			builder.AddChar(0); // sound
-			character->AddPaperdollData(builder, "BAHWS");
+			server::AvatarAgreeServerPacket avatar_agree;
+			avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
 			UTIL_FOREACH(character->map->characters, updatecharacter)
 			{
 				if (updatecharacter != character && character->InRange(updatecharacter))
 				{
-					updatecharacter->Send(builder);
+					updatecharacter->Send(avatar_agree);
 				}
 			}
 

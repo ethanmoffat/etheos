@@ -1859,7 +1859,7 @@ void World::Jail(Command_Source *from, Character *victim, bool announce)
 	if (charfrom && charfrom->IsHideWarp())
 		bubbles = false;
 
-	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["JailX"]), static_cast<int>(this->config["JailY"]), bubbles ? WARP_ANIMATION_ADMIN : WARP_ANIMATION_NONE);
+	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["JailX"]), static_cast<int>(this->config["JailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
 }
 
 void World::Unjail(Command_Source *from, Character *victim)
@@ -1874,7 +1874,7 @@ void World::Unjail(Command_Source *from, Character *victim)
 	if (victim->mapid != static_cast<int>(this->config["JailMap"]))
 		return;
 
-	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["UnJailX"]), static_cast<int>(this->config["UnJailY"]), bubbles ? WARP_ANIMATION_ADMIN : WARP_ANIMATION_NONE);
+	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["UnJailX"]), static_cast<int>(this->config["UnJailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
 }
 
 void World::Ban(Command_Source *from, Character *victim, int duration, bool announce)
@@ -1975,6 +1975,11 @@ static std::list<int> PKExceptUnserialize(std::string serialized)
 	}
 
 	return list;
+}
+
+bool World::CheckSession(int expected, int received)
+{
+	return !this->config["EnforceSessions"] || expected == received;
 }
 
 bool World::PKExcept(const Map *map)

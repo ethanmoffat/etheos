@@ -93,6 +93,16 @@ TEST_F(CharacterTests, Create_WrongSessionId_ClosesClient)
     Handlers::Character_Create(player(), CharacterCreate(SessionId + 1, "testchar"));
 }
 
+TEST_F(CharacterTests, Create_WrongSessionIdWithEnforceSessionsOff_IsProcessed)
+{
+    player()->world->config["EnforceSessions"] = false;
+
+    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    Handlers::Character_Create(player(), CharacterCreate(SessionId + 1, "test char!"));
+}
+
 TEST_F(CharacterTests, Create_HairStyleOutOfRange_ClosesClient)
 {
     EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(0);
@@ -168,6 +178,20 @@ TEST_F(CharacterTests, Remove_WrongSessionId_ClosesClient)
     Handlers::Character_Remove(player(), request);
 
     EXPECT_EQ(1u, player()->characters.size());
+}
+
+TEST_F(CharacterTests, Remove_UnknownCharacterWithEnforceSessionsOff_ClosesClient)
+{
+    player()->world->config["EnforceSessions"] = false;
+    test_player->AddCharacter(1, "first");
+
+    EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(0);
+    EXPECT_CALL(*client, Close(false)).Times(1);
+
+    net::client::CharacterRemoveClientPacket request;
+    request.session_id = SessionId + 1;
+    request.character_id = 2;
+    Handlers::Character_Remove(player(), request);
 }
 
 TEST_F(CharacterTests, Take_OwnedCharacter_RepliesWithNewSessionId)

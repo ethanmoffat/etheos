@@ -28,6 +28,7 @@ enum AdminLevel : unsigned char
 using Direction = eolib::protocol::Direction;
 using Emote = eolib::protocol::Emote;
 using SitState = eolib::protocol::net::server::SitState;
+using AvatarChangeType = eolib::protocol::net::server::AvatarChangeType;
 
 enum QuestPage : unsigned char
 {
@@ -61,13 +62,6 @@ enum PaperdollIcon : unsigned char
 	ICON_GM_PARTY = 9,
 	ICON_HGM_PARTY = 10,
 	ICON_SLN_BOT = 20
-};
-
-enum AvatarSlot : unsigned char
-{
-	SLOT_CLOTHES = 1,
-	SLOT_HAIR = 2,
-	SLOT_HAIRCOLOR = 3
 };
 
 enum TalkReply : short

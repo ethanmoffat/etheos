@@ -100,6 +100,53 @@ server::ItemMapInfo ItemMapInfoFrom(const Map_Item& item)
 	return info;
 }
 
+server::NearbyInfo NearbyInfoFrom(Character* viewer)
+{
+	server::NearbyInfo nearby;
+
+	UTIL_FOREACH(viewer->map->characters, character)
+	{
+		if (viewer->InRange(character))
+		{
+			nearby.characters.push_back(CharacterMapInfoFrom(character));
+		}
+	}
+
+	UTIL_FOREACH(viewer->map->npcs, npc)
+	{
+		if (npc->alive && viewer->InRange(npc))
+		{
+			nearby.npcs.push_back(NpcMapInfoFrom(npc));
+		}
+	}
+
+	UTIL_FOREACH(viewer->map->items, item)
+	{
+		if (viewer->InRange(*item))
+		{
+			nearby.items.push_back(ItemMapInfoFrom(*item));
+		}
+	}
+
+	return nearby;
+}
+
+server::AvatarChange EquipmentChangeFrom(Character* character)
+{
+	const Character::PaperdollGraphics graphics = character->GetPaperdollGraphics();
+
+	server::AvatarChange::ChangeTypeDataEquipment data;
+	data.equipment.boots = graphics.boots;
+	data.equipment.armor = graphics.armor;
+	data.equipment.hat = graphics.hat;
+	data.equipment.weapon = graphics.weapon;
+	data.equipment.shield = graphics.shield;
+
+	server::AvatarChange change = server::AvatarChange::ForEquipment(std::move(data));
+	change.player_id = character->PlayerID();
+	return change;
+}
+
 // The admin level the client is told the character has. Some lower levels are raised to unlock client features that
 // the character's commands need.
 static AdminLevel ClientAdminLevel(Character* character)

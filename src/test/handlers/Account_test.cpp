@@ -151,6 +151,18 @@ TEST_F(AccountTests, Create_WrongSessionId_ClosesClient)
     Handlers::Account_Create(&client, AccountCreate(12346, "testuser"));
 }
 
+TEST_F(AccountTests, Create_WrongSessionIdWithEnforceSessionsOff_IsProcessed)
+{
+    server->world->config["EnforceSessions"] = false;
+    MockClient client(server.get());
+    client.create_id = 12345;
+
+    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(client, Close(_)).Times(0);
+
+    Handlers::Account_Create(&client, AccountCreate(12346, "test user!"));
+}
+
 TEST_F(AccountTests, Create_InvalidName_RepliesNotApproved)
 {
     MockClient client(server.get());

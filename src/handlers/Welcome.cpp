@@ -11,7 +11,6 @@
 #include "../config.hpp"
 #include "../eoclient.hpp"
 #include "../map.hpp"
-#include "../npc.hpp"
 #include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
@@ -86,7 +85,7 @@ void Welcome_Request(Player* player, const client::WelcomeRequestClientPacket& p
 // Welcome message after you login.
 void Welcome_Msg(Player* player, const client::WelcomeMsgClientPacket& packet)
 {
-	if (packet.session_id != player->id || player->character == nullptr || player->character->id != static_cast<unsigned int>(packet.character_id))
+	if (!player->world->CheckSession(player->id, packet.session_id) || player->character == nullptr || player->character->id != static_cast<unsigned int>(packet.character_id))
 	{
 		player->client->Send(server::WelcomeReplyServerPacket::ForServerBusy());
 		player->client->Close();
@@ -113,41 +112,15 @@ void Welcome_Msg(Player* player, const client::WelcomeMsgClientPacket& packet)
 
 	player->client->state = EOClient::Playing;
 
-	server::NearbyInfo nearby;
-
-	UTIL_FOREACH(player->character->map->characters, character)
-	{
-		if (player->character->InRange(character))
-		{
-			nearby.characters.push_back(Converters::CharacterMapInfoFrom(character));
-		}
-	}
-
-	UTIL_FOREACH(player->character->map->npcs, npc)
-	{
-		if (npc->alive && player->character->InRange(npc))
-		{
-			nearby.npcs.push_back(Converters::NpcMapInfoFrom(npc));
-		}
-	}
-
-	UTIL_FOREACH(player->character->map->items, item)
-	{
-		if (player->character->InRange(*item))
-		{
-			nearby.items.push_back(Converters::ItemMapInfoFrom(*item));
-		}
-	}
-
 	auto news = ReadNews(player->world->config["NewsFile"]);
 	player->Send(server::WelcomeReplyServerPacket::ForEnterGame(
-		Converters::EnterGameFrom(player->character, std::move(news), std::move(nearby))));
+		Converters::EnterGameFrom(player->character, std::move(news), Converters::NearbyInfoFrom(player->character))));
 }
 
 // Client wants a file
 void Welcome_Agree(Player* player, const client::WelcomeAgreeClientPacket& packet)
 {
-	if (packet.session_id != player->id)
+	if (!player->world->CheckSession(player->id, packet.session_id))
 	{
 		player->client->Close();
 		return;

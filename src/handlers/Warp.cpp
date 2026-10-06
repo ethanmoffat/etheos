@@ -7,133 +7,72 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
+#include "../converters.hpp"
 #include "../eoclient.hpp"
-#include "../map.hpp"
-#include "../npc.hpp"
 #include "../player.hpp"
+#include "../world.hpp"
 
-#include "../util.hpp"
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
-#include <memory>
 #include <stdexcept>
-#include <vector>
+#include <utility>
 
 namespace Handlers
 {
 
-// Player accepting a warp request from the server
-void Warp_Accept(Character *character, PacketReader &reader)
+static bool IsPendingWarp(Character* character, int map_id, int session_id)
 {
-	//int map = reader.GetShort();
-	(void)reader;
-
-	int anim = character->warp_anim;
-
-	// Removed (character->mapid == map) check as it interferes with fallback maps
-
-	if (anim != WARP_ANIMATION_INVALID)
+	if (character->warp_effect == Character::NoPendingWarp)
 	{
-		character->warp_anim = WARP_ANIMATION_INVALID;
+		return false;
 	}
-	else
+
+	if (!character->world->CheckSession(character->warp_session_id, session_id)
+	 || !character->world->CheckSession(character->mapid, map_id))
+	{
+		character->player->client->Close();
+		return false;
+	}
+
+	return true;
+}
+
+// Player accepting a warp request from the server
+void Warp_Accept(Character* character, const client::WarpAcceptClientPacket& packet)
+{
+	if (!IsPendingWarp(character, packet.map_id, packet.session_id))
 	{
 		return;
 	}
 
-	std::vector<Character *> updatecharacters;
-	std::vector<NPC *> updatenpcs;
-	std::vector<std::shared_ptr<Map_Item>> updateitems;
+	// The original server always sends MapSwitch, which is the only case that carries the warp effect
+	server::WarpAgreeServerPacket::WarpTypeDataMapSwitch map_switch;
+	map_switch.map_id = character->mapid;
+	map_switch.warp_effect = character->warp_effect;
 
-	UTIL_FOREACH(character->map->characters, checkcharacter)
-	{
-		if (checkcharacter->InRange(character))
-		{
-			updatecharacters.push_back(checkcharacter);
-		}
-	}
+	server::WarpAgreeServerPacket reply = server::WarpAgreeServerPacket::ForMapSwitch(std::move(map_switch));
+	reply.nearby = Converters::NearbyInfoFrom(character);
 
-	UTIL_FOREACH(character->map->npcs, npc)
-	{
-		if (character->InRange(npc) && npc->alive)
-		{
-			updatenpcs.push_back(npc);
-		}
-	}
-
-	UTIL_FOREACH(character->map->items, item)
-	{
-		if (character->InRange(*item))
-		{
-			updateitems.push_back(item);
-		}
-	}
-
-	PacketBuilder reply(PACKET_WARP, PACKET_AGREE,
-		7 + updatecharacters.size() * 60 + updatenpcs.size() * 6 + updateitems.size() * 9);
-
-	reply.AddChar(2); // ?
-	reply.AddShort(character->mapid);
-	reply.AddChar(anim);
-	reply.AddChar(static_cast<unsigned char>(updatecharacters.size()));
-	reply.AddByte(255);
-	UTIL_FOREACH(updatecharacters, character)
-	{
-		reply.AddBreakString(character->SourceName());
-		reply.AddShort(character->PlayerID());
-		reply.AddShort(character->mapid);
-		reply.AddShort(character->loc.x);
-		reply.AddShort(character->loc.y);
-		reply.AddChar(static_cast<int>(character->direction));
-		reply.AddChar(6); // ?
-		reply.AddString(character->PaddedGuildTag());
-		reply.AddChar(character->level);
-		reply.AddChar(character->gender);
-		reply.AddChar(character->hairstyle);
-		reply.AddChar(character->haircolor);
-		reply.AddChar(character->race);
-		reply.AddShort(character->maxhp);
-		reply.AddShort(character->hp);
-		reply.AddShort(character->maxtp);
-		reply.AddShort(character->tp);
-		// equipment
-		character->AddPaperdollData(reply, "B000A0HSW");
-
-		reply.AddChar(static_cast<int>(character->sitting));
-		reply.AddChar(character->IsHideInvisible());
-		reply.AddByte(255);
-	}
-	UTIL_FOREACH(updatenpcs, npc)
-	{
-		reply.AddChar(npc->index);
-		reply.AddShort(npc->id);
-		reply.AddChar(npc->loc.x);
-		reply.AddChar(npc->loc.y);
-		reply.AddChar(static_cast<int>(npc->direction));
-	}
-	reply.AddByte(255);
-	UTIL_FOREACH(updateitems, item)
-	{
-		reply.AddShort(item->uid);
-		reply.AddShort(item->id);
-		reply.AddChar(item->loc.x);
-		reply.AddChar(item->loc.y);
-		reply.AddThree(item->amount);
-	}
+	character->warp_effect = Character::NoPendingWarp;
 	character->Send(reply);
 }
 
 // Player needs a copy of the map they're being warped to
-void Warp_Take(Character *character, PacketReader &reader)
+void Warp_Take(Character* character, const client::WarpTakeClientPacket& packet)
 {
-	(void)reader;
+	if (!IsPendingWarp(character, packet.map_id, packet.session_id))
+	{
+		return;
+	}
 
 	if (!character->player->client->UploadMap(character->mapid, server::InitReply::WarpMap))
 		throw std::runtime_error("Failed to upload file");
 }
 
 PACKET_HANDLER_REGISTER(PACKET_WARP)
-	Register(PACKET_ACCEPT, Warp_Accept, Playing);
-	Register(PACKET_TAKE, Warp_Take, Playing, 0.15);
+	Register(Warp_Accept, Playing);
+	Register(Warp_Take, Playing, 0.15);
 PACKET_HANDLER_REGISTER_END(PACKET_WARP)
 
 }

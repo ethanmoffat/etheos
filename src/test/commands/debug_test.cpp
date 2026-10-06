@@ -4,6 +4,7 @@
 #include "../../commands/debug.cpp"
 
 #include <eolib/data/eo_writer.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 #include <eolib/protocol/pub/structs.hpp>
 
 #include <cstdint>
@@ -13,6 +14,7 @@
 #include <vector>
 
 namespace pub = eolib::protocol::pub;
+namespace server = eolib::protocol::net::server;
 
 namespace
 {
@@ -90,6 +92,25 @@ TEST_F(SpawnNpcTests, SpawnNPC_Stationary_SpawnsFacingGivenDirection)
     EXPECT_EQ(0, npc->respawn_time);
     EXPECT_EQ(Direction::Right, npc->direction);
     EXPECT_EQ(spawner->loc, npc->loc);
+}
+
+TEST_F(SpawnNpcTests, SpawnNPC_Spawned_ShowsNpcToNearby)
+{
+    Character* spawner = GivenSpawner();
+
+    Commands::SpawnNPC({std::to_string(TestNpcId), "1", "7", "3"}, spawner);
+
+    ASSERT_EQ(1u, map->npcs.size());
+    const NPC* npc = map->npcs.front();
+    const auto range_reply = LastSent<server::RangeReplyServerPacket>(*playing.front());
+    ASSERT_TRUE(range_reply);
+    EXPECT_TRUE(range_reply->nearby.characters.empty());
+    EXPECT_TRUE(range_reply->nearby.items.empty());
+    ASSERT_EQ(1u, range_reply->nearby.npcs.size());
+    EXPECT_EQ(npc->index, range_reply->nearby.npcs[0].index);
+    EXPECT_EQ(TestNpcId, range_reply->nearby.npcs[0].id);
+    EXPECT_EQ(npc->loc, range_reply->nearby.npcs[0].coords);
+    EXPECT_EQ(Direction::Right, range_reply->nearby.npcs[0].direction);
 }
 
 TEST_F(SpawnNpcTests, SpawnNPC_DefaultSpeed_SpawnsMovingNpcs)

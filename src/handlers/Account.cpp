@@ -57,7 +57,7 @@ void Account_Request(EOClient* client, const net::client::AccountRequestClientPa
 // Account creation
 void Account_Create(EOClient* client, const net::client::AccountCreateClientPacket& packet)
 {
-	if (packet.session_id != client->create_id)
+	if (!client->server()->world->CheckSession(client->create_id, packet.session_id))
 	{
 		client->Close();
 		return;

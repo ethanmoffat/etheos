@@ -8,6 +8,7 @@
 
 #include "character.hpp"
 #include "config.hpp"
+#include "converters.hpp"
 #include "eodata.hpp"
 #include "map.hpp"
 #include "npc_data.hpp"
@@ -20,6 +21,8 @@
 #include "console.hpp"
 #include "util.hpp"
 #include "util/rpn.hpp"
+
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <array>
@@ -34,6 +37,7 @@
 #include <vector>
 
 namespace pub = eolib::protocol::pub;
+namespace server = eolib::protocol::net::server;
 
 static double speed_table[8] = {0.9, 0.6, 1.3, 1.9, 3.7, 7.5, 15.0, 0.0};
 
@@ -148,20 +152,14 @@ void NPC::Spawn(NPC *parent)
 	this->last_talk = Timer::GetTime();
 	this->act_speed = speed_table[this->spawn_type];
 
-	PacketBuilder builder(PACKET_RANGE, PACKET_REPLY, 8);
-	builder.AddChar(0);
-	builder.AddByte(255);
-	builder.AddChar(this->index);
-	builder.AddShort(this->id);
-	builder.AddChar(this->loc.x);
-	builder.AddChar(this->loc.y);
-	builder.AddChar(static_cast<int>(this->direction));
+	server::RangeReplyServerPacket range_reply;
+	range_reply.nearby.npcs.push_back(Converters::NpcMapInfoFrom(this));
 
 	UTIL_FOREACH(this->map->characters, character)
 	{
 		if (character->InRange(this))
 		{
-			character->Send(builder);
+			character->Send(range_reply);
 		}
 	}
 }

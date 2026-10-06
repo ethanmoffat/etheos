@@ -8,19 +8,19 @@
 
 #include "../character.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+
 namespace Handlers
 {
 
 // User requesting data of all objects in their location
-void Refresh_Request(Character *character, PacketReader &reader)
+void Refresh_Request(Character* character, const client::RefreshRequestClientPacket&)
 {
-	(void)reader;
-
 	character->Refresh();
 }
 
 PACKET_HANDLER_REGISTER(PACKET_REFRESH)
-	Register(PACKET_REQUEST, Refresh_Request, Playing);
+	Register(Refresh_Request, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_REFRESH)
 
 }

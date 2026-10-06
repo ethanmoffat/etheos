@@ -206,6 +206,8 @@ class World
 		bool PKExcept(const Map *map);
 		bool PKExcept(int mapid);
 
+		bool CheckSession(int expected, int received);
+
 		bool IsInstrument(int graphic_id);
 
 		void LoadCommandAudit();

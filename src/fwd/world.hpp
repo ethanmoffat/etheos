@@ -7,24 +7,14 @@
 #ifndef FWD_WORLD_HPP_INCLUDED
 #define FWD_WORLD_HPP_INCLUDED
 
+#include <eolib/protocol/net/server/enums.hpp>
+
 class World;
 
 struct Board;
 struct Board_Post;
 struct Home;
 
-enum WarpAnimation : unsigned char
-{
-	WARP_ANIMATION_NONE = 0,
-	WARP_ANIMATION_SCROLL = 1,
-	WARP_ANIMATION_ADMIN = 2,
-	WARP_ANIMATION_INVALID = 255,
-};
-
-enum WarpReply : unsigned char
-{
-	WARP_LOCAL = 1,
-	WARP_SWITCH = 2,
-};
+using WarpEffect = eolib::protocol::net::server::WarpEffect;
 
 #endif // FWD_WORLD_HPP_INCLUDED

@@ -8,6 +8,7 @@
 
 #include "arena.hpp"
 #include "config.hpp"
+#include "converters.hpp"
 #include "database.hpp"
 #include "eoclient.hpp"
 #include "eodata.hpp"
@@ -28,6 +29,8 @@
 #include "util/rpn.hpp"
 #include "util/variant.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <array>
 #include <ctime>
@@ -42,6 +45,7 @@
 #include <vector>
 
 namespace pub = eolib::protocol::pub;
+namespace server = eolib::protocol::net::server;
 
 void character_cast_spell(void *character_void)
 {
@@ -467,7 +471,8 @@ Character::Character(std::string name, World *world, Database *database)
 	this->next_arena = 0;
 	this->arena = 0;
 
-	this->warp_anim = WARP_ANIMATION_INVALID;
+	this->warp_effect = NoPendingWarp;
+	this->warp_session_id = 0;
 
 	this->sitting = static_cast<SitState>(GetRow<int>(row, "sitting"));
 	this->hidden = GetRow<int>(row, "hidden");
@@ -1208,40 +1213,45 @@ bool Character::InRange(const Map_Item &other) const
 	return this->InRange(other.loc.x, other.loc.y);
 }
 
-void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation animation)
+void Character::Warp(short map, unsigned char x, unsigned char y, WarpEffect effect)
 {
 	if (map <= 0 || map > int(this->world->maps.size()) || !this->world->GetMap(map)->exists)
 	{
 		return;
 	}
 
-	PacketBuilder builder(PACKET_WARP, PACKET_REQUEST);
+	// A client can still answer an earlier warp request, so a pending warp keeps its session
+	if (this->warp_effect == NoPendingWarp)
+	{
+		this->warp_session_id = this->world->GenerateOperationID([](const EOClient *c)
+		{
+			return (c->player && c->player->character) ? c->player->character->warp_session_id : 0;
+		});
+	}
+
+	server::WarpRequestServerPacket request;
 
 	if (this->mapid == map && !this->nowhere)
 	{
-		builder.ReserveMore(5);
-		builder.AddChar(WARP_LOCAL);
-		builder.AddShort(map);
-		builder.AddChar(x);
-		builder.AddChar(y);
+		request = server::WarpRequestServerPacket::ForLocal();
 	}
 	else
 	{
-		builder.ReserveMore(14);
-		builder.AddChar(WARP_SWITCH);
-		builder.AddShort(map);
+		const Map *target = this->world->GetMap(map);
+		const auto rid = target->ClientRid();
 
-		const auto rid = this->world->GetMap(map)->ClientRid();
-		builder.AddShort(rid[0]);
-		builder.AddShort(rid[1]);
-		builder.AddThree(this->world->GetMap(map)->filesize);
-		builder.AddChar(0); // ?
-		builder.AddChar(0); // ?
+		server::WarpRequestServerPacket::WarpTypeDataMapSwitch map_switch;
+		map_switch.map_rid = {rid[0], rid[1]};
+		map_switch.map_file_size = target->filesize;
+		request = server::WarpRequestServerPacket::ForMapSwitch(std::move(map_switch));
 	}
+
+	request.map_id = map;
+	request.session_id = this->warp_session_id;
 
 	if (this->map && this->map->exists)
 	{
-		this->map->Leave(this, animation);
+		this->map->Leave(this, effect);
 	}
 
 	this->map = this->world->GetMap(map);
@@ -1278,12 +1288,12 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation 
 		this->trade_partner = 0;
 	}
 
-	this->warp_anim = animation;
+	this->warp_effect = effect;
 	this->nowhere = false;
 
-	this->map->Enter(this, animation);
+	this->map->Enter(this, effect);
 
-	this->Send(builder);
+	this->Send(request);
 
 	if (this->arena)
 	{
@@ -1301,86 +1311,9 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpAnimation 
 
 void Character::Refresh()
 {
-	std::vector<Character *> updatecharacters;
-	std::vector<NPC *> updatenpcs;
-	std::vector<std::shared_ptr<Map_Item>> updateitems;
-
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		if (this->InRange(character))
-		{
-			updatecharacters.push_back(character);
-		}
-	}
-
-	UTIL_FOREACH(this->map->npcs, npc)
-	{
-		if (this->InRange(npc) && npc->alive)
-		{
-			updatenpcs.push_back(npc);
-		}
-	}
-
-	UTIL_FOREACH(this->map->items, item)
-	{
-		if (this->InRange(*item))
-		{
-			updateitems.push_back(item);
-		}
-	}
-
-	PacketBuilder builder(PACKET_REFRESH, PACKET_REPLY, 3 + updatecharacters.size() * 60 + updatenpcs.size() * 6 + updateitems.size() * 9);
-	builder.AddChar(static_cast<char>(updatecharacters.size())); // Number of players
-	builder.AddByte(255);
-
-	UTIL_FOREACH(updatecharacters, character)
-	{
-		builder.AddBreakString(character->SourceName());
-		builder.AddShort(character->PlayerID());
-		builder.AddShort(character->mapid);
-		builder.AddShort(character->loc.x);
-		builder.AddShort(character->loc.y);
-		builder.AddChar(static_cast<int>(character->direction));
-		builder.AddChar(6); // ?
-		builder.AddString(character->PaddedGuildTag());
-		builder.AddChar(character->level);
-		builder.AddChar(character->gender);
-		builder.AddChar(character->hairstyle);
-		builder.AddChar(character->haircolor);
-		builder.AddChar(character->race);
-		builder.AddShort(character->maxhp);
-		builder.AddShort(character->hp);
-		builder.AddShort(character->maxtp);
-		builder.AddShort(character->tp);
-		// equipment
-		character->AddPaperdollData(builder, "B000A0HSW");
-
-		builder.AddChar(static_cast<int>(character->sitting));
-		builder.AddChar(character->IsHideInvisible());
-		builder.AddByte(255);
-	}
-
-	UTIL_FOREACH(updatenpcs, npc)
-	{
-		builder.AddChar(npc->index);
-		builder.AddShort(npc->id);
-		builder.AddChar(npc->loc.x);
-		builder.AddChar(npc->loc.y);
-		builder.AddChar(static_cast<int>(npc->direction));
-	}
-
-	builder.AddByte(255);
-
-	UTIL_FOREACH(updateitems, item)
-	{
-		builder.AddShort(item->uid);
-		builder.AddShort(item->id);
-		builder.AddChar(item->loc.x);
-		builder.AddChar(item->loc.y);
-		builder.AddThree(item->amount);
-	}
-
-	this->Send(builder);
+	server::RefreshReplyServerPacket reply;
+	reply.nearby = Converters::NearbyInfoFrom(this);
+	this->Send(reply);
 }
 
 void Character::ShowBoard(Board *board)
@@ -1724,7 +1657,7 @@ void Character::DropAll(Character *killer)
 			{
 				PacketBuilder builder(PACKET_PAPERDOLL, PACKET_REMOVE, 43);
 				builder.AddShort(this->PlayerID());
-				builder.AddChar(SLOT_CLOTHES);
+				builder.AddChar(static_cast<int>(AvatarChangeType::Equipment));
 				builder.AddChar(0); // sound
 				this->AddPaperdollData(builder, "BAHWS");
 				builder.AddShort(id);
@@ -1875,7 +1808,7 @@ void Character::DeathRespawn()
 		this->DropAll(nullptr);
 	}
 
-	this->map->Leave(this, WARP_ANIMATION_NONE, true);
+	this->map->Leave(this, WarpEffect::None, true);
 	this->nowhere = true;
 	this->map = this->world->GetMap(this->SpawnMap());
 	this->mapid = this->SpawnMap();
@@ -1891,7 +1824,7 @@ void Character::DeathRespawn()
 		Character* character = client.player->character;
 		character->map = nullptr;
 		const eolib::protocol::Coords spawn_loc = character->SpawnLoc();
-		character->Warp(character->SpawnMap(), spawn_loc.x, spawn_loc.y, WARP_ANIMATION_NONE);
+		character->Warp(character->SpawnMap(), spawn_loc.x, spawn_loc.y, WarpEffect::None);
 	});
 }
 
@@ -1936,18 +1869,15 @@ void Character::Dress(EquipLocation loc, unsigned short gfx_id)
 
 	this->cosmetic_paperdoll[loc] = gfx_id;
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-	builder.AddShort(this->PlayerID());
-	builder.AddChar(SLOT_CLOTHES);
-	builder.AddChar(0); // sound
-	this->AddPaperdollData(builder, "BAHWS");
+	server::AvatarAgreeServerPacket avatar_agree;
+	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
 	UTIL_FOREACH(this->map->characters, updatecharacter)
 	{
 		if (!this->InRange(updatecharacter))
 			continue;
 
-		updatecharacter->Send(builder);
+		updatecharacter->Send(avatar_agree);
 	}
 }
 
@@ -1956,18 +1886,15 @@ void Character::Undress()
 	for (std::size_t i = 0; i < cosmetic_paperdoll.size(); ++i)
 		this->cosmetic_paperdoll[i] = 0;
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-	builder.AddShort(this->PlayerID());
-	builder.AddChar(SLOT_CLOTHES);
-	builder.AddChar(0); // sound
-	this->AddPaperdollData(builder, "BAHWS");
+	server::AvatarAgreeServerPacket avatar_agree;
+	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
 	UTIL_FOREACH(this->map->characters, updatecharacter)
 	{
 		if (!this->InRange(updatecharacter))
 			continue;
 
-		updatecharacter->Send(builder);
+		updatecharacter->Send(avatar_agree);
 	}
 }
 
@@ -1975,18 +1902,15 @@ void Character::Undress(EquipLocation loc)
 {
 	this->cosmetic_paperdoll[loc] = 0;
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-	builder.AddShort(this->PlayerID());
-	builder.AddChar(SLOT_CLOTHES);
-	builder.AddChar(0); // sound
-	this->AddPaperdollData(builder, "BAHWS");
+	server::AvatarAgreeServerPacket avatar_agree;
+	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
 	UTIL_FOREACH(this->map->characters, updatecharacter)
 	{
 		if (!this->InRange(updatecharacter))
 			continue;
 
-		updatecharacter->Send(builder);
+		updatecharacter->Send(avatar_agree);
 	}
 }
 

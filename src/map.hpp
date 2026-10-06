@@ -253,8 +253,8 @@ class Map
 		 */
 		static void PatchGlobalPK(std::vector<std::uint8_t>& content);
 
-		void Enter(Character *, WarpAnimation animation = WARP_ANIMATION_NONE);
-		void Leave(Character *, WarpAnimation animation = WARP_ANIMATION_NONE, bool silent = false);
+		void Enter(Character *, WarpEffect effect = WarpEffect::None);
+		void Leave(Character *, WarpEffect effect = WarpEffect::None, bool silent = false);
 
 		void Msg(Character *from, std::string message, bool echo = true);
 		void Msg(NPC *from, std::string message);

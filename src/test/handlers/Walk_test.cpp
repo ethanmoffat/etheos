@@ -55,7 +55,7 @@ TEST_F(WalkTests, Player_OpenTile_MovesAndNotifiesNearby)
     EXPECT_EQ(3, walker.character->loc.x);
     EXPECT_EQ(2, walker.character->loc.y);
     EXPECT_EQ(0, Timestamp(100) - walker.character->timestamp);
-    EXPECT_FALSE(SentLegacy(walker, PACKET_REFRESH, PACKET_REPLY));
+    EXPECT_FALSE(LastSent<server::RefreshReplyServerPacket>(walker));
 
     const auto walk = LastSent<server::WalkPlayerServerPacket>(observer);
     ASSERT_TRUE(walk);
@@ -96,6 +96,47 @@ TEST_F(WalkTests, Player_ItemComingIntoView_IsListedInReply)
     EXPECT_EQ(3 + see_distance, reply->items[0].coords.x);
     EXPECT_EQ(2, reply->items[0].coords.y);
     EXPECT_EQ(5, reply->items[0].amount);
+}
+
+TEST_F(WalkTests, Player_CharacterComingIntoView_ExchangesPlayersAgree)
+{
+    GivenMap(EmptyEmf(30, 10));
+    const int see_distance = server->world->config["SeeDistance"];
+    PlayingCharacter& walker = GivenCharacter(2, 2);
+    PlayingCharacter& observer = GivenCharacter(3 + see_distance, 2);
+
+    Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 3, 2));
+
+    const auto shown_walker = LastSent<server::PlayersAgreeServerPacket>(observer);
+    ASSERT_TRUE(shown_walker);
+    ASSERT_EQ(1u, shown_walker->nearby.characters.size());
+    EXPECT_EQ(walker.character->PlayerID(), shown_walker->nearby.characters[0].player_id);
+    EXPECT_EQ(3, shown_walker->nearby.characters[0].coords.x);
+    EXPECT_FALSE(shown_walker->nearby.characters[0].warp_effect);
+
+    const auto shown_observer = LastSent<server::PlayersAgreeServerPacket>(walker);
+    ASSERT_TRUE(shown_observer);
+    ASSERT_EQ(1u, shown_observer->nearby.characters.size());
+    EXPECT_EQ(observer.character->PlayerID(), shown_observer->nearby.characters[0].player_id);
+}
+
+TEST_F(WalkTests, Player_CharacterLeavingView_ExchangesAvatarRemove)
+{
+    GivenMap(EmptyEmf(30, 10));
+    const int see_distance = server->world->config["SeeDistance"];
+    PlayingCharacter& walker = GivenCharacter(2 + see_distance, 2);
+    PlayingCharacter& observer = GivenCharacter(2, 2);
+
+    Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 3 + see_distance, 2));
+
+    const auto removed_walker = LastSent<server::AvatarRemoveServerPacket>(observer);
+    ASSERT_TRUE(removed_walker);
+    EXPECT_EQ(walker.character->PlayerID(), removed_walker->player_id);
+    EXPECT_FALSE(removed_walker->warp_effect);
+
+    const auto removed_observer = LastSent<server::AvatarRemoveServerPacket>(walker);
+    ASSERT_TRUE(removed_observer);
+    EXPECT_EQ(observer.character->PlayerID(), removed_observer->player_id);
 }
 
 TEST_F(WalkTests, Player_TimestampTooSoon_IsIgnored)
@@ -146,7 +187,7 @@ TEST_F(WalkTests, Player_InvalidDirection_RefreshesClient)
 
     EXPECT_EQ(2, walker.character->loc.x);
     EXPECT_EQ(2, walker.character->loc.y);
-    EXPECT_TRUE(SentLegacy(walker, PACKET_REFRESH, PACKET_REPLY));
+    EXPECT_TRUE(LastSent<server::RefreshReplyServerPacket>(walker));
 }
 
 TEST_F(WalkTests, Player_BlockedTile_RefreshesClient)
@@ -159,7 +200,7 @@ TEST_F(WalkTests, Player_BlockedTile_RefreshesClient)
     Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 3, 2));
 
     EXPECT_EQ(2, walker.character->loc.x);
-    EXPECT_TRUE(SentLegacy(walker, PACKET_REFRESH, PACKET_REPLY));
+    EXPECT_TRUE(LastSent<server::RefreshReplyServerPacket>(walker));
 }
 
 TEST_F(WalkTests, Player_MapEdge_RefreshesClient)
@@ -170,7 +211,7 @@ TEST_F(WalkTests, Player_MapEdge_RefreshesClient)
     Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Left, 0, 2));
 
     EXPECT_EQ(0, walker.character->loc.x);
-    EXPECT_TRUE(SentLegacy(walker, PACKET_REFRESH, PACKET_REPLY));
+    EXPECT_TRUE(LastSent<server::RefreshReplyServerPacket>(walker));
 }
 
 TEST_F(WalkTests, Player_ClientPositionMismatch_MovesAndRefreshesClient)
@@ -181,7 +222,7 @@ TEST_F(WalkTests, Player_ClientPositionMismatch_MovesAndRefreshesClient)
     Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 4, 2));
 
     EXPECT_EQ(3, walker.character->loc.x);
-    EXPECT_TRUE(SentLegacy(walker, PACKET_REFRESH, PACKET_REPLY));
+    EXPECT_TRUE(LastSent<server::RefreshReplyServerPacket>(walker));
 }
 
 TEST_F(WalkTests, Player_Trading_ClosesTradeWithPartner)

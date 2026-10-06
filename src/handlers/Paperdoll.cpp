@@ -7,6 +7,7 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
 #include "../packet.hpp"
@@ -107,7 +108,7 @@ void Paperdoll_Remove(Character *character, PacketReader &reader)
 	{
 		PacketBuilder reply(PACKET_PAPERDOLL, PACKET_REMOVE, 43);
 		reply.AddShort(character->PlayerID());
-		reply.AddChar(SLOT_CLOTHES);
+		reply.AddChar(static_cast<int>(AvatarChangeType::Equipment));
 		reply.AddChar(0); // sound
 		character->AddPaperdollData(reply, "BAHWS");
 
@@ -130,18 +131,15 @@ void Paperdoll_Remove(Character *character, PacketReader &reader)
 	}
 	// TODO: Only send this if they change a viewable item
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-	builder.AddShort(character->PlayerID());
-	builder.AddChar(SLOT_CLOTHES);
-	builder.AddChar(0); // sound
-	character->AddPaperdollData(builder, "BAHWS");
+	server::AvatarAgreeServerPacket avatar_agree;
+	avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
 	UTIL_FOREACH(character->map->characters, updatecharacter)
 	{
 		if (updatecharacter == character || !character->InRange(updatecharacter))
 			continue;
 
-		updatecharacter->Send(builder);
+		updatecharacter->Send(avatar_agree);
 	}
 }
 
@@ -159,7 +157,7 @@ void Paperdoll_Add(Character *character, PacketReader &reader)
 	{
 		PacketBuilder reply(PACKET_PAPERDOLL, PACKET_AGREE, 46);
 		reply.AddShort(character->PlayerID());
-		reply.AddChar(SLOT_CLOTHES);
+		reply.AddChar(static_cast<int>(AvatarChangeType::Equipment));
 		reply.AddChar(0); // sound
 		character->AddPaperdollData(reply, "BAHWS");
 
@@ -184,18 +182,15 @@ void Paperdoll_Add(Character *character, PacketReader &reader)
 
 	// TODO: Only send this if they change a viewable item
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 14);
-	builder.AddShort(character->PlayerID());
-	builder.AddChar(SLOT_CLOTHES);
-	builder.AddChar(0); // sound
-	character->AddPaperdollData(builder, "BAHWS");
+	server::AvatarAgreeServerPacket avatar_agree;
+	avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
 	UTIL_FOREACH(character->map->characters, updatecharacter)
 	{
 		if (updatecharacter == character || !character->InRange(updatecharacter))
 			continue;
 
-		updatecharacter->Send(builder);
+		updatecharacter->Send(avatar_agree);
 	}
 }
 

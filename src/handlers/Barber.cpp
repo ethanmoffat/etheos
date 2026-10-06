@@ -74,23 +74,24 @@ void Barber_Buy(Character *character, PacketReader &reader)
 		PacketBuilder reply(PACKET_BARBER, PACKET_AGREE, 10);
 		reply.AddInt(character->HasItem(1));
 		reply.AddShort(character->PlayerID());
-		reply.AddChar(SLOT_HAIR);
+		reply.AddChar(static_cast<int>(AvatarChangeType::Hair));
 		reply.AddChar(0); // subloc
 		reply.AddChar(style);
 		reply.AddChar(color);
 
-		PacketBuilder builder(PACKET_AVATAR, PACKET_AGREE, 6);
-		builder.AddShort(character->PlayerID());
-		builder.AddChar(SLOT_HAIR);
-		builder.AddChar(0); // subloc
-		builder.AddChar(style);
-		builder.AddChar(color);
+		server::AvatarChange::ChangeTypeDataHair hair;
+		hair.hair_style = style;
+		hair.hair_color = color;
+
+		server::AvatarAgreeServerPacket avatar_agree;
+		avatar_agree.change = server::AvatarChange::ForHair(hair);
+		avatar_agree.change.player_id = character->PlayerID();
 
 		UTIL_FOREACH(character->map->characters, updatecharacter)
 		{
 			if (updatecharacter != character && character->InRange(updatecharacter))
 			{
-				updatecharacter->Send(builder);
+				updatecharacter->Send(avatar_agree);
 			}
 		}
 

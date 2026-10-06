@@ -765,7 +765,7 @@ unsigned char Map::GenerateNPCIndex() const
 	return lowest_free_id;
 }
 
-void Map::Enter(Character *character, WarpAnimation animation)
+void Map::Enter(Character *character, WarpEffect effect)
 {
 	this->characters.push_back(character);
 	character->map = this;
@@ -773,34 +773,11 @@ void Map::Enter(Character *character, WarpAnimation animation)
 	character->attacks = 0;
 	character->CancelSpell();
 
-	PacketBuilder builder(PACKET_PLAYERS, PACKET_AGREE, 63);
+	server::CharacterMapInfo info = Converters::CharacterMapInfoFrom(character);
+	info.warp_effect = effect;
 
-	builder.AddByte(255);
-	builder.AddBreakString(character->SourceName());
-	builder.AddShort(character->PlayerID());
-	builder.AddShort(character->mapid);
-	builder.AddShort(character->loc.x);
-	builder.AddShort(character->loc.y);
-	builder.AddChar(static_cast<int>(character->direction));
-	builder.AddChar(6); // ?
-	builder.AddString(character->PaddedGuildTag());
-	builder.AddChar(character->level);
-	builder.AddChar(character->gender);
-	builder.AddChar(character->hairstyle);
-	builder.AddChar(character->haircolor);
-	builder.AddChar(character->race);
-	builder.AddShort(character->maxhp);
-	builder.AddShort(character->hp);
-	builder.AddShort(character->maxtp);
-	builder.AddShort(character->tp);
-	// equipment
-	character->AddPaperdollData(builder, "B000A0HSW");
-
-	builder.AddChar(static_cast<int>(character->sitting));
-	builder.AddChar(character->IsHideInvisible());
-	builder.AddChar(animation);
-	builder.AddByte(255);
-	builder.AddChar(1); // 0 = NPC, 1 = player
+	server::PlayersAgreeServerPacket players_agree;
+	players_agree.nearby.characters.push_back(std::move(info));
 
 	UTIL_FOREACH(this->characters, checkcharacter)
 	{
@@ -809,22 +786,22 @@ void Map::Enter(Character *character, WarpAnimation animation)
 			continue;
 		}
 
-		checkcharacter->Send(builder);
+		checkcharacter->Send(players_agree);
 	}
 
 	character->CheckQuestRules();
 }
 
-void Map::Leave(Character *character, WarpAnimation animation, bool silent)
+void Map::Leave(Character *character, WarpEffect effect, bool silent)
 {
 	if (!silent)
 	{
-		PacketBuilder builder(PACKET_AVATAR, PACKET_REMOVE, 3);
-		builder.AddShort(character->PlayerID());
+		server::AvatarRemoveServerPacket avatar_remove;
+		avatar_remove.player_id = character->PlayerID();
 
-		if (animation != WARP_ANIMATION_NONE)
+		if (effect != WarpEffect::None)
 		{
-			builder.AddChar(animation);
+			avatar_remove.warp_effect = effect;
 		}
 
 		UTIL_FOREACH(this->characters, checkcharacter)
@@ -834,7 +811,7 @@ void Map::Leave(Character *character, WarpAnimation animation, bool silent)
 				continue;
 			}
 
-			checkcharacter->Send(builder);
+			checkcharacter->Send(avatar_remove);
 		}
 	}
 
@@ -1109,77 +1086,28 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		}
 	}
 
-	PacketBuilder builder(PACKET_AVATAR, PACKET_REMOVE, 2);
-	builder.AddShort(from->PlayerID());
+	server::AvatarRemoveServerPacket avatar_remove;
+	avatar_remove.player_id = from->PlayerID();
 
 	UTIL_FOREACH(oldchars, character)
 	{
-		PacketBuilder rbuilder(PACKET_AVATAR, PACKET_REMOVE, 2);
-		rbuilder.AddShort(character->PlayerID());
+		server::AvatarRemoveServerPacket old_avatar_remove;
+		old_avatar_remove.player_id = character->PlayerID();
 
-		character->Send(builder);
-		from->Send(rbuilder);
+		character->Send(avatar_remove);
+		from->Send(old_avatar_remove);
 	}
 
-	builder.Reset(62);
-	builder.SetID(PACKET_PLAYERS, PACKET_AGREE);
-
-	builder.AddByte(255);
-	builder.AddBreakString(from->SourceName());
-	builder.AddShort(from->PlayerID());
-	builder.AddShort(from->mapid);
-	builder.AddShort(from->loc.x);
-	builder.AddShort(from->loc.y);
-	builder.AddChar(static_cast<int>(from->direction));
-	builder.AddChar(6); // ?
-	builder.AddString(from->PaddedGuildTag());
-	builder.AddChar(from->level);
-	builder.AddChar(from->gender);
-	builder.AddChar(from->hairstyle);
-	builder.AddChar(from->haircolor);
-	builder.AddChar(from->race);
-	builder.AddShort(from->maxhp);
-	builder.AddShort(from->hp);
-	builder.AddShort(from->maxtp);
-	builder.AddShort(from->tp);
-	// equipment
-	from->AddPaperdollData(builder, "B000A0HSW");
-	builder.AddChar(static_cast<int>(from->sitting));
-	builder.AddChar(from->IsHideInvisible());
-	builder.AddByte(255);
-	builder.AddChar(1); // 0 = NPC, 1 = player
+	server::PlayersAgreeServerPacket players_agree;
+	players_agree.nearby.characters.push_back(Converters::CharacterMapInfoFrom(from));
 
 	UTIL_FOREACH(newchars, character)
 	{
-		PacketBuilder rbuilder(PACKET_PLAYERS, PACKET_AGREE, 62);
-		rbuilder.AddByte(255);
-		rbuilder.AddBreakString(character->SourceName());
-		rbuilder.AddShort(character->PlayerID());
-		rbuilder.AddShort(character->mapid);
-		rbuilder.AddShort(character->loc.x);
-		rbuilder.AddShort(character->loc.y);
-		rbuilder.AddChar(static_cast<int>(character->direction));
-		rbuilder.AddChar(6); // ?
-		rbuilder.AddString(character->PaddedGuildTag());
-		rbuilder.AddChar(character->level);
-		rbuilder.AddChar(character->gender);
-		rbuilder.AddChar(character->hairstyle);
-		rbuilder.AddChar(character->haircolor);
-		rbuilder.AddChar(character->race);
-		rbuilder.AddShort(character->maxhp);
-		rbuilder.AddShort(character->hp);
-		rbuilder.AddShort(character->maxtp);
-		rbuilder.AddShort(character->tp);
-		// equipment
-		character->AddPaperdollData(rbuilder, "B000A0HSW");
+		server::PlayersAgreeServerPacket new_players_agree;
+		new_players_agree.nearby.characters.push_back(Converters::CharacterMapInfoFrom(character));
 
-		rbuilder.AddChar(static_cast<int>(character->sitting));
-		rbuilder.AddChar(character->IsHideInvisible());
-		rbuilder.AddByte(255);
-		rbuilder.AddChar(1); // 0 = NPC, 1 = player
-
-		character->Send(builder);
-		from->Send(rbuilder);
+		character->Send(players_agree);
+		from->Send(new_players_agree);
 	}
 
 	server::WalkPlayerServerPacket walk_player;
@@ -1205,19 +1133,11 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	}
 	from->Send(walk_reply);
 
-	builder.SetID(PACKET_RANGE, PACKET_REPLY);
 	UTIL_FOREACH(newnpcs, npc)
 	{
-		builder.Reset(8);
-		builder.AddChar(0);
-		builder.AddByte(255);
-		builder.AddChar(npc->index);
-		builder.AddShort(npc->id);
-		builder.AddChar(npc->loc.x);
-		builder.AddChar(npc->loc.y);
-		builder.AddChar(static_cast<int>(npc->direction));
-
-		from->Send(builder);
+		server::RangeReplyServerPacket range_reply;
+		range_reply.nearby.npcs.push_back(Converters::NpcMapInfoFrom(npc));
+		from->Send(range_reply);
 	}
 
 	UTIL_FOREACH(oldnpcs, npc)
@@ -1391,23 +1311,15 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 		}
 	}
 
-	PacketBuilder builder(PACKET_RANGE, PACKET_REPLY, 8);
-	builder.AddChar(0);
-	builder.AddByte(255);
-	builder.AddChar(from->index);
-	builder.AddShort(from->id);
-	builder.AddChar(from->loc.x);
-	builder.AddChar(from->loc.y);
-	builder.AddChar(static_cast<int>(from->direction));
+	server::RangeReplyServerPacket range_reply;
+	range_reply.nearby.npcs.push_back(Converters::NpcMapInfoFrom(from));
 
 	UTIL_FOREACH(newchars, character)
 	{
-		character->Send(builder);
+		character->Send(range_reply);
 	}
 
-	builder.Reset(7);
-	builder.SetID(PACKET_NPC, PACKET_PLAYER);
-
+	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 7);
 	builder.AddChar(from->index);
 	builder.AddChar(from->loc.x);
 	builder.AddChar(from->loc.y);
@@ -1647,29 +1559,23 @@ bool Map::AttackPK(Character *from, Direction direction)
 
 				character->hp -= limitamount;
 
-				PacketBuilder from_builder(PACKET_AVATAR, PACKET_REPLY, 10);
-				from_builder.AddShort(0);
-				from_builder.AddShort(character->PlayerID());
-				from_builder.AddThree(amount);
-				from_builder.AddChar(static_cast<int>(from->direction));
-				from_builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
-				from_builder.AddChar(character->hp == 0);
+				server::AvatarReplyServerPacket avatar_reply;
+				avatar_reply.victim_id = character->PlayerID();
+				avatar_reply.damage = amount;
+				avatar_reply.direction = from->direction;
+				avatar_reply.hp_percentage = util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100);
+				avatar_reply.dead = character->hp == 0;
 
-				PacketBuilder builder(PACKET_AVATAR, PACKET_REPLY, 10);
-				builder.AddShort(from->PlayerID());
-				builder.AddShort(character->PlayerID());
-				builder.AddThree(amount);
-				builder.AddChar(static_cast<int>(from->direction));
-				builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
-				builder.AddChar(character->hp == 0);
+				// The attacker's own copy has no attacker id
+				from->Send(avatar_reply);
 
-				from->Send(from_builder);
+				avatar_reply.player_id = from->PlayerID();
 
 				UTIL_FOREACH(this->characters, checkchar)
 				{
 					if (from != checkchar && character->InRange(checkchar))
 					{
-						checkchar->Send(builder);
+						checkchar->Send(avatar_reply);
 					}
 				}
 
@@ -1686,9 +1592,7 @@ bool Map::AttackPK(Character *from, Direction direction)
 					}
 				}
 
-				builder.Reset(4);
-				builder.SetID(PACKET_RECOVER, PACKET_PLAYER);
-
+				PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 4);
 				builder.AddShort(character->hp);
 				builder.AddShort(character->tp);
 				character->Send(builder);
@@ -2023,19 +1927,19 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 
 		victim->hp -= limitamount;
 
-		PacketBuilder builder(PACKET_AVATAR, PACKET_ADMIN, 12);
-		builder.AddShort(from->PlayerID());
-		builder.AddShort(victim->PlayerID());
-		builder.AddThree(amount);
-		builder.AddChar(static_cast<int>(from->direction));
-		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100)));
-		builder.AddChar(victim->hp == 0);
-		builder.AddShort(spell_id);
+		server::AvatarAdminServerPacket avatar_admin;
+		avatar_admin.caster_id = from->PlayerID();
+		avatar_admin.victim_id = victim->PlayerID();
+		avatar_admin.damage = amount;
+		avatar_admin.caster_direction = from->direction;
+		avatar_admin.hp_percentage = util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100);
+		avatar_admin.victim_died = victim->hp == 0;
+		avatar_admin.spell_id = spell_id;
 
 		UTIL_FOREACH(this->characters, character)
 		{
 			if (victim->InRange(character))
-				character->Send(builder);
+				character->Send(avatar_admin);
 		}
 
 		if (victim->hp == 0)
@@ -2051,9 +1955,7 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 			}
 		}
 
-		builder.Reset(4);
-		builder.SetID(PACKET_RECOVER, PACKET_PLAYER);
-
+		PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 4);
 		builder.AddShort(victim->hp);
 		builder.AddShort(victim->tp);
 		victim->Send(builder);

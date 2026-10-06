@@ -253,7 +253,11 @@ class Character : public Command_Source
 		double last_walk;
 		int attacks;
 
-		WarpAnimation warp_anim;
+		// warp_effect while no warp is waiting for Warp_Accept
+		static constexpr WarpEffect NoPendingWarp = static_cast<WarpEffect>(-1);
+
+		WarpEffect warp_effect;
+		unsigned short warp_session_id;
 
 		enum EquipLocation
 		{
@@ -336,7 +340,7 @@ class Character : public Command_Source
 		bool InRange(const Character *) const;
 		bool InRange(const NPC *) const;
 		bool InRange(const Map_Item&) const;
-		void Warp(short map, unsigned char x, unsigned char y, WarpAnimation animation = WARP_ANIMATION_NONE);
+		void Warp(short map, unsigned char x, unsigned char y, WarpEffect effect = WarpEffect::None);
 		void Refresh();
 		void ShowBoard(Board *board = 0);
 		std::string PaddedGuildTag();

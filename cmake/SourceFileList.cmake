@@ -287,6 +287,7 @@ set(TestFiles
 	src/test/database_test.cpp
 	src/test/eoclient_test.cpp
 	src/test/eodata_test.cpp
+	src/test/map_pk_test.cpp
 	src/test/map_test.cpp
 	src/test/packet_dispatch_test.cpp
 	src/test/socket_test.cpp
@@ -301,8 +302,10 @@ set(TestFiles
 	src/test/handlers/Face_test.cpp
 	src/test/handlers/Init_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Refresh_test.cpp
 	src/test/handlers/Sit_test.cpp
 	src/test/handlers/Walk_test.cpp
+	src/test/handlers/Warp_test.cpp
 	src/test/handlers/Welcome_test.cpp
 	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp

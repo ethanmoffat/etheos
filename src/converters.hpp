@@ -33,6 +33,16 @@ namespace Converters
 	server::ItemMapInfo ItemMapInfoFrom(const Map_Item& item);
 
 	/**
+	 * Creates the list of characters, living NPCs and items on the map that are in range of viewer.
+	 */
+	server::NearbyInfo NearbyInfoFrom(Character* viewer);
+
+	/**
+	 * Creates the change that shows a character's current equipment to other players.
+	 */
+	server::AvatarChange EquipmentChangeFrom(Character* character);
+
+	/**
 	 * Creates the reply to a player selecting a character: the character's details and the revisions of the files the
 	 * client needs. login_warning tells the client to show the first login message.
 	 */

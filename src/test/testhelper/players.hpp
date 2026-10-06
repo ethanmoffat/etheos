@@ -38,6 +38,9 @@ public:
         character->real_name = name;
         character->player = player.get();
         character->level = 0;
+        character->clas = 0;
+        character->hp = character->maxhp = 0;
+        character->tp = character->maxtp = 0;
         character->gender = GENDER_FEMALE;
         character->hairstyle = 1;
         character->haircolor = 0;
@@ -52,6 +55,8 @@ public:
         character->board = nullptr;
         character->spell_event = nullptr;
         character->spell_ready = false;
+        character->warp_effect = Character::NoPendingWarp;
+        character->warp_session_id = 0;
         character->map = nullptr;
         character->paperdoll.fill(0);
         character->cosmetic_paperdoll.fill(0);
