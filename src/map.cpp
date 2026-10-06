@@ -59,23 +59,14 @@ static constexpr std::size_t emf_type_offset = 0x1F;
 // Everything before the NPC spawn list
 static constexpr std::size_t emf_header_size = 0x2E;
 
-template <typename TPacket = server::SitPlayerServerPacket>
-static void SendSitToOthersInRange(const std::list<Character *>& characters, Character *from)
+template <typename TPacket>
+static TPacket SitPacketFor(const Character *from)
 {
 	TPacket packet;
 	packet.player_id = from->PlayerID();
 	packet.coords = from->loc;
 	packet.direction = from->direction;
-
-	UTIL_FOREACH(characters, character)
-	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(packet);
-	}
+	return packet;
 }
 
 void map_spawn_chests(void *map_void)
@@ -379,7 +370,7 @@ Map::Map(int id, World *world)
 	this->exists = false;
 	this->rid = {0, 0};
 	this->pk = false;
-	this->effect = EffectNone;
+	this->effect = emf::MapTimedEffect::None;
 	this->filesize = 0;
 	this->width = 0;
 	this->height = 0;
@@ -538,7 +529,7 @@ bool Map::Load()
 
 	this->rid = {file.rid[0], file.rid[1]};
 	this->pk = file.type == emf::MapType::Pk;
-	this->effect = static_cast<EffectType>(file.timed_effect);
+	this->effect = file.timed_effect;
 	this->width = file.width + 1;
 	this->height = file.height + 1;
 
@@ -779,15 +770,7 @@ void Map::Enter(Character *character, WarpEffect effect)
 	server::PlayersAgreeServerPacket players_agree;
 	players_agree.nearby.characters.push_back(std::move(info));
 
-	UTIL_FOREACH(this->characters, checkcharacter)
-	{
-		if (checkcharacter == character || !character->InRange(checkcharacter))
-		{
-			continue;
-		}
-
-		checkcharacter->Send(players_agree);
-	}
+	this->SendToNearby(character, players_agree, false);
 
 	character->CheckQuestRules();
 }
@@ -804,15 +787,7 @@ void Map::Leave(Character *character, WarpEffect effect, bool silent)
 			avatar_remove.warp_effect = effect;
 		}
 
-		UTIL_FOREACH(this->characters, checkcharacter)
-		{
-			if (checkcharacter == character || !character->InRange(checkcharacter))
-			{
-				continue;
-			}
-
-			checkcharacter->Send(avatar_remove);
-		}
+		this->SendToNearby(character, avatar_remove, false);
 	}
 
 	if (this->wedding)
@@ -826,6 +801,47 @@ void Map::Leave(Character *character, WarpEffect effect, bool silent)
 	);
 
 	character->map = 0;
+}
+
+void Map::SendToNearby(const Character *from, const eolib::protocol::net::Packet& packet, bool echo)
+{
+	UTIL_FOREACH(this->characters, character)
+	{
+		if ((echo || character != from) && from->InRange(character))
+		{
+			character->Send(packet);
+		}
+	}
+}
+
+void Map::SendToNearby(const NPC *from, const eolib::protocol::net::Packet& packet, const Character *except)
+{
+	UTIL_FOREACH(this->characters, character)
+	{
+		if (character != except && character->InRange(from))
+		{
+			character->Send(packet);
+		}
+	}
+}
+
+void Map::SendToNearby(const eolib::protocol::Coords& coords, const eolib::protocol::net::Packet& packet)
+{
+	UTIL_FOREACH(this->characters, character)
+	{
+		if (character->InRange(coords.x, coords.y))
+		{
+			character->Send(packet);
+		}
+	}
+}
+
+void Map::SendToMap(const eolib::protocol::net::Packet& packet)
+{
+	UTIL_FOREACH(this->characters, character)
+	{
+		character->Send(packet);
+	}
 }
 
 void Map::Msg(Character *from, std::string message, bool echo)
@@ -854,20 +870,14 @@ void Map::Msg(NPC *from, std::string message)
 {
 	message = util::text_cap(message, static_cast<int>(this->world->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from->PubData().name) + "  "));
 
-	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 4 + message.length());
-	builder.AddByte(255);
-	builder.AddByte(255);
-	builder.AddChar(from->index);
-	builder.AddChar(static_cast<unsigned char>(message.length()));
-	builder.AddString(message);
+	server::NpcUpdateChat chat;
+	chat.npc_index = from->index;
+	chat.message = message;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (!character->InRange(from))
-			continue;
+	server::NpcPlayerServerPacket packet;
+	packet.chats.push_back(chat);
 
-		character->Send(builder);
-	}
+	this->SendToNearby(from, packet);
 }
 
 Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
@@ -1115,15 +1125,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 	walk_player.direction = direction;
 	walk_player.coords = from->loc;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(walk_player);
-	}
+	this->SendToNearby(from, walk_player, false);
 
 	server::WalkReplyServerPacket walk_reply;
 	walk_reply.items.reserve(newitems.size());
@@ -1319,24 +1321,15 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 		character->Send(range_reply);
 	}
 
-	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 7);
-	builder.AddChar(from->index);
-	builder.AddChar(from->loc.x);
-	builder.AddChar(from->loc.y);
-	builder.AddChar(static_cast<int>(from->direction));
-	builder.AddByte(255);
-	builder.AddByte(255);
-	builder.AddByte(255);
+	server::NpcUpdatePosition position;
+	position.npc_index = from->index;
+	position.coords = from->loc;
+	position.direction = from->direction;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (!character->InRange(from))
-		{
-			continue;
-		}
+	server::NpcPlayerServerPacket packet;
+	packet.positions.push_back(position);
 
-		character->Send(builder);
-	}
+	this->SendToNearby(from, packet);
 
 	UTIL_FOREACH(oldchars, character)
 	{
@@ -1382,19 +1375,11 @@ void Map::Attack(Character *from, Direction direction)
 		}
 	}
 
-	PacketBuilder builder(PACKET_ATTACK, PACKET_PLAYER, 3);
-	builder.AddShort(from->PlayerID());
-	builder.AddChar(static_cast<int>(direction));
+	server::AttackPlayerServerPacket attack;
+	attack.player_id = from->PlayerID();
+	attack.direction = direction;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(builder);
-	}
+	this->SendToNearby(from, attack, false);
 
 	if (is_instrument)
 		return;
@@ -1592,10 +1577,10 @@ bool Map::AttackPK(Character *from, Direction direction)
 					}
 				}
 
-				PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 4);
-				builder.AddShort(character->hp);
-				builder.AddShort(character->tp);
-				character->Send(builder);
+				server::RecoverPlayerServerPacket recover_packet;
+				recover_packet.hp = character->hp;
+				recover_packet.tp = character->tp;
+				character->Send(recover_packet);
 
 				return true;
 			}
@@ -1620,15 +1605,7 @@ void Map::Face(Character *from, Direction direction)
 	packet.player_id = from->PlayerID();
 	packet.direction = direction;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(packet);
-	}
+	this->SendToNearby(from, packet, false);
 }
 
 void Map::Sit(Character *from, SitState sit_type)
@@ -1639,11 +1616,11 @@ void Map::Sit(Character *from, SitState sit_type)
 
 	if (sit_type == SitState::Chair)
 	{
-		SendSitToOthersInRange<server::ChairPlayerServerPacket>(this->characters, from);
+		this->SendToNearby(from, SitPacketFor<server::ChairPlayerServerPacket>(from), false);
 	}
 	else
 	{
-		SendSitToOthersInRange(this->characters, from);
+		this->SendToNearby(from, SitPacketFor<server::SitPlayerServerPacket>(from), false);
 	}
 }
 
@@ -1657,15 +1634,7 @@ void Map::Stand(Character *from)
 	packet.player_id = from->PlayerID();
 	packet.coords = from->loc;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character == from || !from->InRange(character))
-		{
-			continue;
-		}
-
-		character->Send(packet);
-	}
+	this->SendToNearby(from, packet, false);
 }
 
 void Map::Emote(Character *from, eolib::protocol::Emote emote, bool echo)
@@ -1674,15 +1643,7 @@ void Map::Emote(Character *from, eolib::protocol::Emote emote, bool echo)
 	packet.player_id = from->PlayerID();
 	packet.emote = emote;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (!echo && (character == from || !from->InRange(character)))
-		{
-			continue;
-		}
-
-		character->Send(packet);
-	}
+	this->SendToNearby(from, packet, echo);
 }
 
 bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target, bool adminghost) const
@@ -1754,13 +1715,7 @@ bool Map::OpenDoor(Character *from, const eolib::protocol::Coords& coords)
 		server::DoorOpenServerPacket packet;
 		packet.coords = coords;
 
-		UTIL_FOREACH(this->characters, character)
-		{
-			if (character->InRange(coords.x, coords.y))
-			{
-				character->Send(packet);
-			}
-		}
+		this->SendToNearby(coords, packet);
 
 		warp.open = true;
 
@@ -1813,23 +1768,18 @@ void Map::SpellSelf(Character *from, unsigned short spell_id)
 
 	from->hp = std::min(from->hp, from->maxhp);
 
-	PacketBuilder builder(PACKET_SPELL, PACKET_TARGET_SELF, 15);
-	builder.AddShort(from->PlayerID());
-	builder.AddShort(spell_id);
-	builder.AddInt(spell->hp_heal);
-	builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(from->hp) / double(from->maxhp) * 100.0), 0, 100)));
+	server::SpellTargetSelfServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.spell_id = spell_id;
+	packet.spell_heal_hp = spell->hp_heal;
+	packet.hp_percentage = util::clamp<int>(static_cast<int>(double(from->hp) / double(from->maxhp) * 100.0), 0, 100);
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character != from && from->InRange(character))
-			character->Send(builder);
-	}
+	this->SendToNearby(from, packet, false);
 
-	builder.AddShort(from->hp);
-	builder.AddShort(from->tp);
-	builder.AddShort(1);
+	packet.hp = from->hp;
+	packet.tp = from->tp;
 
-	from->Send(builder);
+	from->Send(packet);
 }
 
 void Map::SpellAttack(Character *from, NPC *npc, unsigned short spell_id)
@@ -1936,11 +1886,7 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		avatar_admin.victim_died = victim->hp == 0;
 		avatar_admin.spell_id = spell_id;
 
-		UTIL_FOREACH(this->characters, character)
-		{
-			if (victim->InRange(character))
-				character->Send(avatar_admin);
-		}
+		this->SendToNearby(victim, avatar_admin, true);
 
 		if (victim->hp == 0)
 		{
@@ -1955,10 +1901,10 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 			}
 		}
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 4);
-		builder.AddShort(victim->hp);
-		builder.AddShort(victim->tp);
-		victim->Send(builder);
+		server::RecoverPlayerServerPacket recover_packet;
+		recover_packet.hp = victim->hp;
+		recover_packet.tp = victim->tp;
+		victim->Send(recover_packet);
 
 		if (victim->party)
 		{
@@ -1987,23 +1933,19 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		if (!this->world->config["LimitDamage"])
 			victim->hp = std::min(victim->hp, victim->maxhp);
 
-		PacketBuilder builder(PACKET_SPELL, PACKET_TARGET_OTHER, 18);
-		builder.AddShort(victim->PlayerID());
-		builder.AddShort(from->PlayerID());
-		builder.AddChar(static_cast<int>(from->direction));
-		builder.AddShort(spell_id);
-		builder.AddInt(displayhp);
-		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100)));
+		server::SpellTargetOtherServerPacket packet;
+		packet.victim_id = victim->PlayerID();
+		packet.caster_id = from->PlayerID();
+		packet.target_type = eolib::protocol::net::client::SpellTargetType::Player;
+		packet.spell_id = spell_id;
+		packet.spell_heal_hp = displayhp;
+		packet.hp_percentage = util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100);
 
-		UTIL_FOREACH(this->characters, character)
-		{
-			if (character != victim && victim->InRange(character))
-				character->Send(builder);
-		}
+		this->SendToNearby(victim, packet, false);
 
-		builder.AddShort(victim->hp);
+		packet.hp = victim->hp;
 
-		victim->Send(builder);
+		victim->Send(packet);
 
 		if (victim->party)
 		{
@@ -2011,10 +1953,10 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		}
 	}
 
-	PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 4);
-	builder.AddShort(from->hp);
-	builder.AddShort(from->tp);
-	from->Send(builder);
+	server::RecoverPlayerServerPacket recover_packet;
+	recover_packet.hp = from->hp;
+	recover_packet.tp = from->tp;
+	from->Send(recover_packet);
 }
 
 void Map::SpellGroup(Character *from, unsigned short spell_id)
@@ -2035,11 +1977,11 @@ void Map::SpellGroup(Character *from, unsigned short spell_id)
 
 	std::set<Character *> in_range;
 
-	PacketBuilder builder(PACKET_SPELL, PACKET_TARGET_GROUP, 8 + from->party->members.size() * 10);
-	builder.AddShort(spell_id);
-	builder.AddShort(from->PlayerID());
-	builder.AddShort(from->tp);
-	builder.AddShort(displayhp);
+	server::SpellTargetGroupServerPacket packet;
+	packet.spell_id = spell_id;
+	packet.caster_id = from->PlayerID();
+	packet.caster_tp = from->tp;
+	packet.spell_heal_hp = displayhp;
 
 	UTIL_FOREACH(from->party->members, member)
 	{
@@ -2061,16 +2003,11 @@ void Map::SpellGroup(Character *from, unsigned short spell_id)
 		if (!this->world->config["LimitDamage"])
 			member->hp = std::min(member->hp, member->maxhp);
 
-		// wat?
-		builder.AddByte(255);
-		builder.AddByte(255);
-		builder.AddByte(255);
-		builder.AddByte(255);
-		builder.AddByte(255);
-
-		builder.AddShort(member->PlayerID());
-		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(member->hp) / double(member->maxhp) * 100.0), 0, 100)));
-		builder.AddShort(member->hp);
+		server::GroupHealTargetPlayer target;
+		target.player_id = member->PlayerID();
+		target.hp_percentage = util::clamp<int>(static_cast<int>(double(member->hp) / double(member->maxhp) * 100.0), 0, 100);
+		target.hp = member->hp;
+		packet.players.push_back(target);
 
 		UTIL_FOREACH(this->characters, character)
 		{
@@ -2081,7 +2018,7 @@ void Map::SpellGroup(Character *from, unsigned short spell_id)
 
 	UTIL_FOREACH(in_range, character)
 	{
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -2316,30 +2253,24 @@ std::vector<NPC *> Map::NPCsInRange(unsigned char x, unsigned char y, unsigned c
 	return npcs;
 }
 
-void Map::Effect(MapEffect effect, unsigned char param)
+void Map::Quake(int strength)
 {
-	PacketBuilder builder(PACKET_EFFECT, PACKET_USE, 2);
-	builder.AddChar(effect);
-	builder.AddChar(param);
-
-	UTIL_FOREACH(this->characters, character)
-	{
-		character->Send(builder);
-	}
+	server::EffectUseServerPacket::EffectDataQuake quake;
+	quake.quake_strength = strength;
+	this->SendToMap(server::EffectUseServerPacket::ForQuake(quake));
 }
 
 void Map::TileEffect(unsigned char x, unsigned char y, unsigned short effect)
 {
-	PacketBuilder builder(PACKET_EFFECT, PACKET_AGREE, 4);
-	builder.AddChar(x);
-	builder.AddChar(y);
-	builder.AddShort(effect);
+	server::TileEffect tile_effect;
+	tile_effect.coords.x = x;
+	tile_effect.coords.y = y;
+	tile_effect.effect_id = effect;
 
-	UTIL_FOREACH(this->characters, character)
-	{
-		if (character->InRange(x, y))
-			character->Send(builder);
-	}
+	server::EffectAgreeServerPacket packet;
+	packet.effects.push_back(tile_effect);
+
+	this->SendToNearby(tile_effect.coords, packet);
 }
 
 bool Map::Evacuate()
@@ -2449,8 +2380,7 @@ void Map::TimedSpikes()
 	if (!this->has_timed_spikes)
 		return;
 
-	PacketBuilder builder(PACKET_EFFECT, PACKET_REPORT, 1);
-	builder.AddByte(83); // S
+	const server::EffectReportServerPacket spike_timer;
 
 	double spike_damage = this->world->config["SpikeDamage"];
 
@@ -2474,7 +2404,7 @@ void Map::TimedSpikes()
 		}
 		else
 		{
-			character->Send(builder);
+			character->Send(spike_timer);
 		}
 	}
 
@@ -2486,7 +2416,7 @@ void Map::TimedSpikes()
 
 void Map::TimedDrains()
 {
-	if (this->effect == EffectHPDrain)
+	if (this->effect == emf::MapTimedEffect::HpDrain)
 	{
 		double hpdrain_damage = this->world->config["DrainHPDamage"];
 
@@ -2518,10 +2448,10 @@ void Map::TimedDrains()
 			{
 				int damage = damage_map[i++];
 
-				PacketBuilder builder(PACKET_EFFECT, PACKET_TARGET_OTHER, 6 + this->characters.size() * 5);
-				builder.AddShort(damage);
-				builder.AddShort(character->hp);
-				builder.AddShort(character->maxhp);
+				server::EffectTargetOtherServerPacket packet;
+				packet.damage = damage;
+				packet.hp = character->hp;
+				packet.max_hp = character->maxhp;
 
 				std::size_t ii = 0;
 
@@ -2535,17 +2465,19 @@ void Map::TimedDrains()
 					if (!character->InRange(other) || other == character)
 						continue;
 
-					builder.AddShort(other->PlayerID());
-					builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(other->hp) / double(other->maxhp) * 100.0), 0, 100)));
-					builder.AddShort(damage);
+					server::MapDrainDamageOther drained;
+					drained.player_id = other->PlayerID();
+					drained.hp_percentage = util::clamp<int>(static_cast<int>(double(other->hp) / double(other->maxhp) * 100.0), 0, 100);
+					drained.damage = damage;
+					packet.others.push_back(drained);
 				}
 
-				character->Send(builder);
+				character->Send(packet);
 			}
 		}
 	}
 
-	if (this->effect == EffectTPDrain)
+	if (this->effect == emf::MapTimedEffect::TpDrain)
 	{
 		double tpdrain_damage = this->world->config["DrainTPDamage"];
 
@@ -2562,13 +2494,12 @@ void Map::TimedDrains()
 
 				character->tp -= amount;
 
-				PacketBuilder builder(PACKET_EFFECT, PACKET_SPEC, 7);
-				builder.AddChar(1);
-				builder.AddShort(amount);
-				builder.AddShort(character->tp);
-				builder.AddShort(character->maxtp);
+				server::EffectSpecServerPacket::MapDamageTypeDataTpDrain tp_drain;
+				tp_drain.tp_damage = amount;
+				tp_drain.tp = character->tp;
+				tp_drain.max_tp = character->maxtp;
 
-				character->Send(builder);
+				character->Send(server::EffectSpecServerPacket::ForTpDrain(tp_drain));
 			}
 		}
 	}
@@ -2579,10 +2510,10 @@ void Map::TimedQuakes(bool initialize)
 	std::string configString;
 	switch (this->effect)
 	{
-		case EffectQuake1: configString = "Quake1"; break;
-		case EffectQuake2: configString = "Quake2"; break;
-		case EffectQuake3: configString = "Quake3"; break;
-		case EffectQuake4: configString = "Quake4"; break;
+		case emf::MapTimedEffect::Quake1: configString = "Quake1"; break;
+		case emf::MapTimedEffect::Quake2: configString = "Quake2"; break;
+		case emf::MapTimedEffect::Quake3: configString = "Quake3"; break;
+		case emf::MapTimedEffect::Quake4: configString = "Quake4"; break;
 		default: return;
 	}
 
@@ -2604,7 +2535,7 @@ void Map::TimedQuakes(bool initialize)
 		if (!initialize)
 		{
 			auto quakeStrength = util::rand(util::to_int(quakeData[2]), util::to_int(quakeData[3]));
-			this->Effect(MAP_EFFECT_QUAKE, util::clamp(quakeStrength, 0, 8));
+			this->Quake(util::clamp(quakeStrength, 0, 8));
 		}
 	}
 }

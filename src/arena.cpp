@@ -9,14 +9,17 @@
 #include "character.hpp"
 #include "eoclient.hpp"
 #include "map.hpp"
-#include "packet.hpp"
 #include "timer.hpp"
 #include "world.hpp"
 
 #include "console.hpp"
 #include "util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <vector>
+
+namespace server = eolib::protocol::net::server;
 
 void arena_spawn(void *arena_void)
 {
@@ -58,13 +61,7 @@ void Arena::Spawn(bool force)
 
 	if (this->occupants >= this->block && !force)
 	{
-		PacketBuilder builder(PACKET_ARENA, PACKET_DROP);
-
-		UTIL_FOREACH(this->map->characters, character)
-		{
-			character->Send(builder);
-		}
-
+		this->map->SendToMap(server::ArenaDropServerPacket());
 		return;
 	}
 
@@ -104,13 +101,9 @@ void Arena::Spawn(bool force)
 		act.character->Warp(act.map, act.x, act.y);
 	}
 
-	PacketBuilder builder(PACKET_ARENA, PACKET_USE, 1);
-	builder.AddChar(newplayers);
-
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		character->Send(builder);
-	}
+	server::ArenaUseServerPacket packet;
+	packet.players_count = newplayers;
+	this->map->SendToMap(packet);
 }
 
 void Arena::Attack(Character *from, Direction direction)
@@ -163,40 +156,26 @@ void Arena::Attack(Character *from, Direction direction)
 			++from->arena_kills;
 			actions.push_back({character, this->map->id, this->map->relog_x, this->map->relog_y});
 
-			// TODO: The numbers here seem to be variable-sized
-
-			PacketBuilder builder(PACKET_ARENA, PACKET_SPEC, 12 + from->SourceName().length() + character->SourceName().length());
-			builder.AddShort(0); // ?
-			builder.AddByte(255);
-			builder.AddChar(0); // ?
-			builder.AddByte(255);
-			builder.AddInt(from->arena_kills);
-			builder.AddByte(255);
-			builder.AddBreakString(from->SourceName());
-			builder.AddBreakString(character->SourceName());
-
 			if (from->arena->occupants == 2)
 			{
 				actions.push_back({from, this->map->id, this->map->relog_x, this->map->relog_y});
 
-				PacketBuilder builder(PACKET_ARENA, PACKET_ACCEPT, 8 + from->SourceName().length() * 2 + character->SourceName().length());
-				builder.AddBreakString(from->SourceName());
-				builder.AddInt(from->arena_kills);
-				builder.AddByte(255);
-				builder.AddBreakString(from->SourceName());
-				builder.AddBreakString(character->SourceName());
-
-				UTIL_FOREACH(this->map->characters, character)
-				{
-					character->Send(builder);
-				}
+				server::ArenaAcceptServerPacket packet;
+				packet.winner_name = from->SourceName();
+				packet.kills_count = from->arena_kills;
+				packet.killer_name = from->SourceName();
+				packet.victim_name = character->SourceName();
+				this->map->SendToMap(packet);
 			}
 			else
 			{
-				UTIL_FOREACH(this->map->characters, character)
-				{
-					character->Send(builder);
-				}
+				server::ArenaSpecServerPacket packet;
+				packet.player_id = from->PlayerID();
+				packet.direction = from->direction;
+				packet.kills_count = from->arena_kills;
+				packet.killer_name = from->SourceName();
+				packet.victim_name = character->SourceName();
+				this->map->SendToMap(packet);
 			}
 
 			break;

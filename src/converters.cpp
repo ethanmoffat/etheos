@@ -147,6 +147,68 @@ server::AvatarChange EquipmentChangeFrom(Character* character)
 	return change;
 }
 
+server::CharacterBaseStats CharacterBaseStatsFrom(const Character* character)
+{
+	server::CharacterBaseStats stats;
+	stats.str = character->display_str;
+	stats.intl = character->display_intl;
+	stats.wis = character->display_wis;
+	stats.agi = character->display_agi;
+	stats.con = character->display_con;
+	stats.cha = character->display_cha;
+	return stats;
+}
+
+server::CharacterSecondaryStats CharacterSecondaryStatsFrom(const Character* character)
+{
+	server::CharacterSecondaryStats stats;
+	stats.min_damage = character->mindam;
+	stats.max_damage = character->maxdam;
+	stats.accuracy = character->accuracy;
+	stats.evade = character->evade;
+	stats.armor = character->armor;
+	return stats;
+}
+
+server::CharacterStatsUpdate CharacterStatsUpdateFrom(const Character* character)
+{
+	server::CharacterStatsUpdate stats;
+	stats.base_stats = CharacterBaseStatsFrom(character);
+	stats.max_hp = character->maxhp;
+	stats.max_tp = character->maxtp;
+	stats.max_sp = character->maxsp;
+	stats.max_weight = character->maxweight;
+	stats.secondary_stats = CharacterSecondaryStatsFrom(character);
+	return stats;
+}
+
+server::CharacterStatsReset CharacterStatsResetFrom(const Character* character)
+{
+	server::CharacterStatsReset stats;
+	stats.stat_points = character->statpoints;
+	stats.skill_points = character->skillpoints;
+	stats.hp = character->hp;
+	stats.max_hp = character->maxhp;
+	stats.tp = character->tp;
+	stats.max_tp = character->maxtp;
+	stats.max_sp = character->maxsp;
+	stats.base = CharacterBaseStatsFrom(character);
+	stats.secondary = CharacterSecondaryStatsFrom(character);
+	return stats;
+}
+
+server::LevelUpStats LevelUpStatsFrom(const Character* character)
+{
+	server::LevelUpStats stats;
+	stats.level = character->level;
+	stats.stat_points = character->statpoints;
+	stats.skill_points = character->skillpoints;
+	stats.max_hp = character->maxhp;
+	stats.max_tp = character->maxtp;
+	stats.max_sp = character->maxsp;
+	return stats;
+}
+
 // The admin level the client is told the character has. Some lower levels are raised to unlock client features that
 // the character's commands need.
 static AdminLevel ClientAdminLevel(Character* character)
@@ -224,11 +286,7 @@ server::WelcomeReplyServerPacket::WelcomeCodeDataSelectCharacter SelectCharacter
 	data.stats.stat_points = character->statpoints;
 	data.stats.skill_points = character->skillpoints;
 	data.stats.karma = character->karma;
-	data.stats.secondary.min_damage = character->mindam;
-	data.stats.secondary.max_damage = character->maxdam;
-	data.stats.secondary.accuracy = character->accuracy;
-	data.stats.secondary.evade = character->evade;
-	data.stats.secondary.armor = character->armor;
+	data.stats.secondary = CharacterSecondaryStatsFrom(character);
 	data.stats.base.str = character->display_str;
 	data.stats.base.wis = character->display_wis;
 	data.stats.base.intl = character->display_intl;
@@ -289,13 +347,7 @@ server::WelcomeReplyServerPacket::WelcomeCodeDataEnterGame EnterGameFrom(Charact
 		net_item.amount = item.amount;
 	}
 
-	data.spells.reserve(character->spells.size());
-	UTIL_FOREACH(character->spells, spell)
-	{
-		eolib::protocol::net::Spell& net_spell = data.spells.emplace_back();
-		net_spell.id = spell.id;
-		net_spell.level = spell.level;
-	}
+	data.spells.assign(character->spells.begin(), character->spells.end());
 
 	data.nearby = std::move(nearby);
 	return data;

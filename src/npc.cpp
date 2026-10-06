@@ -32,6 +32,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -155,13 +156,7 @@ void NPC::Spawn(NPC *parent)
 	server::RangeReplyServerPacket range_reply;
 	range_reply.nearby.npcs.push_back(Converters::NpcMapInfoFrom(this));
 
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		if (character->InRange(this))
-		{
-			character->Send(range_reply);
-		}
-	}
+	this->map->SendToNearby(this, range_reply);
 }
 
 void NPC::Act()
@@ -462,28 +457,39 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 
 	if (this->hp > 0)
 	{
-		PacketBuilder builder(spell_id == -1 ? PACKET_NPC : PACKET_CAST, PACKET_REPLY, 14);
+		const int hp_percentage = util::clamp<int>(static_cast<int>(double(this->hp) / double(this->PubData().hp) * 100.0), 0, 100);
 
-		if (spell_id != -1)
-			builder.AddShort(spell_id);
-
-		builder.AddShort(from->PlayerID());
-		builder.AddChar(static_cast<int>(from->direction));
-		builder.AddShort(this->index);
-		builder.AddThree(amount);
-		builder.AddShort(static_cast<short>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->PubData().hp) * 100.0), 0, 100)));
-
-		if (spell_id != -1)
-			builder.AddShort(from->tp);
-		else
-			builder.AddChar(1); // ?
-
-		UTIL_FOREACH(this->map->characters, character)
+		if (spell_id == -1)
 		{
-			if (character->InRange(this))
-			{
-				character->Send(builder);
-			}
+			server::NpcReplyServerPacket reply;
+			reply.player_id = from->PlayerID();
+			reply.player_direction = from->direction;
+			reply.npc_index = this->index;
+			reply.damage = amount;
+			reply.hp_percentage = hp_percentage;
+
+			server::NpcReplyServerPacket attacker_reply = reply;
+			attacker_reply.kill_steal_protection = server::NpcKillStealProtectionState::Unprotected;
+
+			from->Send(attacker_reply);
+			this->map->SendToNearby(this, reply, from);
+		}
+		else
+		{
+			server::CastReplyServerPacket reply;
+			reply.spell_id = spell_id;
+			reply.caster_id = from->PlayerID();
+			reply.caster_direction = from->direction;
+			reply.npc_index = this->index;
+			reply.damage = amount;
+			reply.hp_percentage = hp_percentage;
+
+			server::CastReplyServerPacket attacker_reply = reply;
+			attacker_reply.caster_tp = from->tp;
+			attacker_reply.kill_steal_protection = server::NpcKillStealProtectionState::Unprotected;
+
+			from->Send(attacker_reply);
+			this->map->SendToNearby(this, reply, from);
 		}
 	}
 	else
@@ -496,38 +502,22 @@ void NPC::Damage(Character *from, int amount, int spell_id)
 
 void NPC::RemoveFromView(Character *target)
 {
-	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 7);
-	builder.AddChar(this->index);
-	if (target->loc.x > 200 && target->loc.y > 200)
-	{
-		builder.AddChar(0); // x
-		builder.AddChar(0); // y
-	}
-	else
-	{
-		builder.AddChar(252); // x
-		builder.AddChar(252); // y
-	}
-	builder.AddChar(0); // direction
-	builder.AddByte(255);
-	builder.AddByte(255);
-	builder.AddByte(255);
+	// Walks the NPC to a far corner of the map before removing it
+	server::NpcUpdatePosition position;
+	position.npc_index = this->index;
+	const int corner = (target->loc.x > 200 && target->loc.y > 200) ? 0 : 252;
+	position.coords.x = corner;
+	position.coords.y = corner;
+	position.direction = Direction::Down;
 
-	PacketBuilder builder2(PACKET_NPC, PACKET_SPEC, 5);
-	builder2.AddShort(0); // killer pid
-	builder2.AddChar(0); // killer direction
-	builder2.AddShort(this->index);
-/*
-	builder2.AddShort(0); // dropped item uid
-	builder2.AddShort(0); // dropped item id
-	builder2.AddChar(this->loc.x);
-	builder2.AddChar(this->loc.y);
-	builder2.AddInt(0); // dropped item amount
-	builder2.AddThree(0); // damage
-*/
+	server::NpcPlayerServerPacket walk;
+	walk.positions.push_back(position);
 
-	target->Send(builder);
-	target->Send(builder2);
+	server::NpcSpecServerPacket remove;
+	remove.npc_killed_data.npc_index = this->index;
+
+	target->Send(walk);
+	target->Send(remove);
 }
 
 void NPC::Killed(Character *from, int amount, int spell_id)
@@ -674,16 +664,31 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 	if (drop_winner)
 		this->map->items.back()->owner = drop_winner->PlayerID();
 
+	const Character* killer = drop_winner ? drop_winner : from;
+
+	server::NpcKilledData killed_data;
+	killed_data.killer_id = killer->PlayerID();
+	killed_data.killer_direction = killer->direction;
+	killed_data.npc_index = this->index;
+	killed_data.drop_index = dropuid;
+	killed_data.drop_id = dropid;
+	killed_data.drop_coords = this->loc;
+	killed_data.drop_amount = dropamount;
+	killed_data.damage = amount;
+
+	// tuple fields: Character, did they attack the NPC, did they level up
+	std::vector<std::tuple<Character*, bool, bool>> recipients;
+
 	UTIL_FOREACH(this->map->characters, character)
 	{
-		std::list<std::unique_ptr<NPC_Opponent>>::iterator findopp = this->damagelist.begin();
-		for (; findopp != this->damagelist.end() && (*findopp)->attacker != character; ++findopp); // no loop body
+		const auto findopp = std::find_if(
+			UTIL_RANGE(this->damagelist),
+			[character](const std::unique_ptr<NPC_Opponent>& opponent) { return opponent->attacker == character; }
+		);
 
 		if (findopp != this->damagelist.end() || character->InRange(this))
 		{
 			bool level_up = false;
-
-			PacketBuilder builder(spell_id == -1 ? PACKET_NPC : PACKET_CAST, PACKET_SPEC, 26);
 
 			if (this->PubData().experience != 0)
 			{
@@ -803,57 +808,126 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 						character->CalculateStats();
 					}
 
-					if (level_up)
-					{
-						builder.SetID(spell_id == -1 ? PACKET_NPC : PACKET_CAST, PACKET_ACCEPT);
-						builder.ReserveMore(33);
-					}
 				}
 			}
 
-			if (spell_id != -1)
-				builder.AddShort(spell_id);
+			recipients.emplace_back(character, findopp != this->damagelist.end(), level_up);
+		}
+	}
 
-			builder.AddShort(drop_winner ? drop_winner->PlayerID() : from->PlayerID());
-			builder.AddChar(static_cast<int>(drop_winner ? drop_winner->direction : from->direction));
-			builder.AddShort(this->index);
-			builder.AddShort(dropuid);
-			builder.AddShort(dropid);
-			builder.AddChar(this->loc.x);
-			builder.AddChar(this->loc.y);
-			builder.AddInt(dropamount);
-			builder.AddThree(amount);
+	const auto killer_recipient = std::find_if(
+		UTIL_RANGE(recipients),
+		[&](const auto& recipient) { return std::get<0>(recipient) == killer; }
+	);
+	const bool killer_level_up = killer_recipient != recipients.end() && std::get<2>(*killer_recipient);
 
-			if (spell_id != -1)
-				builder.AddShort(from->tp);
+	for (const auto& [character, attacker, level_up] : recipients)
+	{
+		// The kill packet can only announce a level up for killer_id
+		if (level_up && character != killer)
+		{
+			server::ItemAcceptServerPacket packet;
+			packet.player_id = character->PlayerID();
+			this->map->SendToNearby(character, packet, false);
+		}
 
-			if ((sharemode == 0 && character == from) || (sharemode != 0 && findopp != this->damagelist.end()))
+		if (character == from)
+		{
+			const bool accept = killer_level_up || level_up;
+
+			if (spell_id == -1 && accept)
 			{
-				builder.AddInt(character->exp);
+				server::NpcAcceptServerPacket packet;
+				packet.npc_killed_data = killed_data;
+				packet.experience = character->exp;
+				if (level_up)
+					packet.level_up = Converters::LevelUpStatsFrom(character);
+				character->Send(packet);
 			}
+			else if (spell_id == -1)
+			{
+				server::NpcSpecServerPacket packet;
+				packet.npc_killed_data = killed_data;
+				packet.experience = character->exp;
+				character->Send(packet);
+			}
+			else if (accept)
+			{
+				server::CastAcceptServerPacket packet;
+				packet.spell_id = spell_id;
+				packet.npc_killed_data = killed_data;
+				packet.caster_tp = character->tp;
+				packet.experience = character->exp;
+				if (level_up)
+					packet.level_up = Converters::LevelUpStatsFrom(character);
+				character->Send(packet);
+			}
+			else
+			{
+				server::CastSpecServerPacket packet;
+				packet.spell_id = spell_id;
+				packet.npc_killed_data = killed_data;
+				packet.caster_tp = character->tp;
+				packet.experience = character->exp;
+				character->Send(packet);
+			}
+
+			continue;
+		}
+
+		if (spell_id == -1 && killer_level_up)
+		{
+			server::NpcAcceptServerPacket packet;
+			packet.npc_killed_data = killed_data;
+			character->Send(packet);
+		}
+		else if (spell_id == -1)
+		{
+			server::NpcSpecServerPacket packet;
+			packet.npc_killed_data = killed_data;
+			character->Send(packet);
+		}
+		else if (killer_level_up)
+		{
+			server::CastAcceptServerPacket packet;
+			packet.spell_id = spell_id;
+			packet.npc_killed_data = killed_data;
+			character->Send(packet);
+		}
+		else
+		{
+			server::CastSpecServerPacket packet;
+			packet.spell_id = spell_id;
+			packet.npc_killed_data = killed_data;
+			character->Send(packet);
+		}
+
+		// Experience shared with other attackers goes in separate packets, as only the killer gets it in the kill packet
+		if (sharemode != 0 && attacker)
+		{
+			if (level_up)
+			{
+				server::RecoverTargetGroupServerPacket stats;
+				stats.stat_points = character->statpoints;
+				stats.skill_points = character->skillpoints;
+				stats.max_hp = character->maxhp;
+				stats.max_tp = character->maxtp;
+				stats.max_sp = character->maxsp;
+				character->Send(stats);
+			}
+
+			server::RecoverReplyServerPacket recover_packet;
+			recover_packet.experience = character->exp;
+			recover_packet.karma = character->karma;
+			recover_packet.level_up = level_up ? character->level : 0;
 
 			if (level_up)
 			{
-				builder.AddChar(character->level);
-				builder.AddShort(character->statpoints);
-				builder.AddShort(character->skillpoints);
-				builder.AddShort(character->maxhp);
-				builder.AddShort(character->maxtp);
-				builder.AddShort(character->maxsp);
-
-				PacketBuilder builder2(PACKET_ITEM, PACKET_ACCEPT);
-				builder2.AddShort(character->PlayerID());
-
-				for (const auto c : this->map->characters)
-				{
-					if (c == character || !c->InRange(character))
-						continue;
-
-					c->Send(builder2);
-				}
+				recover_packet.stat_points = character->statpoints;
+				recover_packet.skill_points = character->skillpoints;
 			}
 
-			character->Send(builder);
+			character->Send(recover_packet);
 		}
 	}
 
@@ -904,13 +978,9 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 
 	if (childid != -1)
 	{
-		PacketBuilder builder(PACKET_NPC, PACKET_JUNK, 2);
-		builder.AddShort(childid);
-
-		UTIL_FOREACH(this->map->characters, character)
-		{
-			character->Send(builder);
-		}
+		server::NpcJunkServerPacket packet;
+		packet.npc_id = childid;
+		this->map->SendToMap(packet);
 	}
 
 	if (this->temporary)
@@ -958,24 +1028,12 @@ void NPC::Die(bool show)
 
 	if (show)
 	{
-		PacketBuilder builder(PACKET_NPC, PACKET_SPEC, 18);
-		builder.AddShort(0); // killer pid
-		builder.AddChar(0); // killer direction
-		builder.AddShort(this->index);
-		builder.AddShort(0); // dropped item uid
-		builder.AddShort(0); // dropped item id
-		builder.AddChar(this->loc.x);
-		builder.AddChar(this->loc.y);
-		builder.AddInt(0); // dropped item amount
-		builder.AddThree(this->hp); // damage
+		server::NpcSpecServerPacket packet;
+		packet.npc_killed_data.npc_index = this->index;
+		packet.npc_killed_data.drop_coords = this->loc;
+		packet.npc_killed_data.damage = this->hp;
 
-		UTIL_FOREACH(this->map->characters, character)
-		{
-			if (character->InRange(this))
-			{
-				character->Send(builder);
-			}
-		}
+		this->map->SendToNearby(this, packet);
 	}
 
 	if (this->temporary)
@@ -1053,36 +1111,28 @@ void NPC::Attack(Character *target)
 		}
 	}
 
-	PacketBuilder builder(PACKET_NPC, PACKET_PLAYER, 18);
-	builder.AddByte(255);
-	builder.AddChar(this->index);
-	builder.AddChar(1 + (target->hp == 0));
-	builder.AddChar(static_cast<int>(this->direction));
-	builder.AddShort(target->PlayerID());
-	builder.AddThree(amount);
-	builder.AddThree(util::clamp<int>(static_cast<int>(double(target->hp) / double(target->maxhp) * 100.0), 0, 100));
-	builder.AddByte(255);
-	builder.AddByte(255);
+	server::NpcUpdateAttack attack;
+	attack.npc_index = this->index;
+	attack.killed = (target->hp == 0) ? server::PlayerKilledState::Killed : server::PlayerKilledState::Alive;
+	attack.direction = this->direction;
+	attack.player_id = target->PlayerID();
+	attack.damage = amount;
+	attack.hp_percentage = util::clamp<int>(static_cast<int>(double(target->hp) / double(target->maxhp) * 100.0), 0, 100);
 
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		if (character == target || !character->InRange(target))
-		{
-			continue;
-		}
+	server::NpcPlayerServerPacket packet;
+	packet.attacks.push_back(attack);
 
-		character->Send(builder);
-	}
+	this->map->SendToNearby(target, packet, false);
 
 	if (target->hp == 0)
 	{
 		target->DeathRespawn();
 	}
 
-	builder.AddShort(target->hp);
-	builder.AddShort(target->tp);
+	packet.hp = target->hp;
+	packet.tp = target->tp;
 
-	target->Send(builder);
+	target->Send(packet);
 }
 
 void NPC::Say(const std::string& message)

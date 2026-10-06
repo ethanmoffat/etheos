@@ -8,6 +8,7 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eoplus.hpp"
 #include "../i18n.hpp"
 #include "../map.hpp"
@@ -19,12 +20,16 @@
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace server = eolib::protocol::net::server;
 
 namespace Commands
 {
@@ -138,10 +143,10 @@ void Learn(const std::vector<std::string>& arguments, Character* from)
 
 	if (from->AddSpell(skill_id))
 	{
-		PacketBuilder builder(PACKET_STATSKILL, PACKET_TAKE, 6);
-		builder.AddShort(skill_id);
-		builder.AddInt(from->HasItem(1));
-		from->Send(builder);
+		server::StatSkillTakeServerPacket packet;
+		packet.spell_id = skill_id;
+		packet.gold_amount = from->HasItem(1);
+		from->Send(packet);
 	}
 	else
 	{
@@ -150,17 +155,16 @@ void Learn(const std::vector<std::string>& arguments, Character* from)
 
 	if (level >= 0)
 	{
-		auto it = std::find_if(UTIL_RANGE(from->spells), [&](Character_Spell spell) { return spell.id == skill_id; });
+		auto it = std::find_if(UTIL_RANGE(from->spells), [&](const eolib::protocol::net::Spell& spell) { return spell.id == skill_id; });
 
 		if (it != from->spells.end())
 		{
-			it->level = static_cast<unsigned char>(level);
+			it->level = level;
 
-			PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
-			builder.AddShort(from->skillpoints);
-			builder.AddShort(skill_id);
-			builder.AddShort(it->level);
-			from->Send(builder);
+			server::StatSkillAcceptServerPacket accept_packet;
+			accept_packet.skill_points = from->skillpoints;
+			accept_packet.spell = *it;
+			from->Send(accept_packet);
 		}
 	}
 }
@@ -189,24 +193,23 @@ void Teach(const std::vector<std::string>& arguments, Character* from)
 
 	if (victim->AddSpell(skill_id))
 	{
-		PacketBuilder builder(PACKET_STATSKILL, PACKET_TAKE, 6);
-		builder.AddShort(skill_id);
-		builder.AddInt(victim->HasItem(1));
-		victim->Send(builder);
+		server::StatSkillTakeServerPacket packet;
+		packet.spell_id = skill_id;
+		packet.gold_amount = victim->HasItem(1);
+		victim->Send(packet);
 
 		if (level >= 0)
 		{
-			auto it = std::find_if(UTIL_RANGE(victim->spells), [&](Character_Spell spell) { return spell.id == skill_id; });
+			auto it = std::find_if(UTIL_RANGE(victim->spells), [&](const eolib::protocol::net::Spell& spell) { return spell.id == skill_id; });
 
 			if (it != victim->spells.end())
 			{
-				it->level = static_cast<unsigned char>(level);
+				it->level = level;
 
-				PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
-				builder.AddShort(victim->skillpoints);
-				builder.AddShort(skill_id);
-				builder.AddShort(it->level);
-				victim->Send(builder);
+				server::StatSkillAcceptServerPacket accept_packet;
+				accept_packet.skill_points = victim->skillpoints;
+				accept_packet.spell = *it;
+				victim->Send(accept_packet);
 			}
 		}
 
@@ -253,9 +256,9 @@ void Forget(const std::vector<std::string>& arguments, Character* from)
 
 	if (victim->DelSpell(skill_id))
 	{
-		PacketBuilder reply(PACKET_STATSKILL, PACKET_REMOVE, 2);
-		reply.AddShort(skill_id);
-		victim->Send(reply);
+		server::StatSkillRemoveServerPacket packet;
+		packet.spell_id = skill_id;
+		victim->Send(packet);
 
 		if (from != victim)
 		{

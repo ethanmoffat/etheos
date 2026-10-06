@@ -42,6 +42,16 @@ namespace Converters
 	 */
 	server::AvatarChange EquipmentChangeFrom(Character* character);
 
+	server::CharacterBaseStats CharacterBaseStatsFrom(const Character* character);
+
+	server::CharacterSecondaryStats CharacterSecondaryStatsFrom(const Character* character);
+
+	server::CharacterStatsUpdate CharacterStatsUpdateFrom(const Character* character);
+
+	server::CharacterStatsReset CharacterStatsResetFrom(const Character* character);
+
+	server::LevelUpStats LevelUpStatsFrom(const Character* character);
+
 	/**
 	 * Creates the reply to a player selecting a character: the character's details and the revisions of the files the
 	 * client needs. login_warning tells the client to show the first login message.

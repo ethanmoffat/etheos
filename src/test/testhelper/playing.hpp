@@ -128,15 +128,19 @@ protected:
         file.warp_rows.push_back(row);
     }
 
-    void GivenMap(const eolib::protocol::map::Emf& file)
+    template <typename TFile> static void WriteFile(const std::string& path, const TFile& file)
     {
         eolib::data::EoWriter writer;
         file.Serialize(writer);
         const std::vector<std::uint8_t> content = std::move(writer).ToByteArray();
 
-        std::ofstream stream(MapFile(), std::ios::binary);
+        std::ofstream stream(path, std::ios::binary);
         stream.write(reinterpret_cast<const char*>(content.data()), content.size());
-        stream.close();
+    }
+
+    void GivenMap(const eolib::protocol::map::Emf& file)
+    {
+        WriteFile(MapFile(), file);
 
         map = server->world->GetMap(map_id);
         ASSERT_TRUE(map->Reload());

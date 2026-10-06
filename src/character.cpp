@@ -154,7 +154,7 @@ std::array<int, 15> DollUnserialize(const std::string& serialized)
 	return list;
 }
 
-std::string SpellSerialize(const std::list<Character_Spell> &list)
+std::string SpellSerialize(const std::list<eolib::protocol::net::Spell> &list)
 {
 	std::string serialized;
 
@@ -169,9 +169,9 @@ std::string SpellSerialize(const std::list<Character_Spell> &list)
 	return serialized;
 }
 
-std::list<Character_Spell> SpellUnserialize(const std::string& serialized)
+std::list<eolib::protocol::net::Spell> SpellUnserialize(const std::string& serialized)
 {
-	std::list<Character_Spell> list;
+	std::list<eolib::protocol::net::Spell> list;
 
 	std::vector<std::string> parts = util::explode(';', serialized);
 
@@ -192,7 +192,7 @@ std::list<Character_Spell> SpellUnserialize(const std::string& serialized)
 			continue;
 		}
 
-		Character_Spell newspell;
+		eolib::protocol::net::Spell newspell;
 		newspell.id = id;
 		newspell.level = level;
 
@@ -645,20 +645,14 @@ void Character::Emote(eolib::protocol::Emote emote, bool echo)
 
 void Character::Effect(int effect, bool echo)
 {
-	PacketBuilder builder(PACKET_EFFECT, PACKET_PLAYER, 5);
+	server::PlayerEffect player_effect;
+	player_effect.player_id = this->PlayerID();
+	player_effect.effect_id = effect;
 
-	builder.AddShort(this->PlayerID());
-	builder.AddThree(effect);
+	server::EffectPlayerServerPacket packet;
+	packet.effects.push_back(player_effect);
 
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		if (!echo && (character == this || !this->InRange(character)))
-		{
-			continue;
-		}
-
-		character->Send(builder);
-	}
+	this->map->SendToNearby(this, packet, echo);
 }
 
 void Character::PlayBard(unsigned char instrument, unsigned char note, bool echo )
@@ -711,12 +705,12 @@ int Character::HasItem(short item, bool include_trade)
 
 bool Character::HasSpell(short spell)
 {
-	return (std::find_if(UTIL_RANGE(this->spells), [&](Character_Spell cs) { return cs.id == spell; }) != this->spells.end());
+	return (std::find_if(UTIL_RANGE(this->spells), [&](const eolib::protocol::net::Spell& cs) { return cs.id == spell; }) != this->spells.end());
 }
 
 short Character::SpellLevel(short spell)
 {
-	auto it = std::find_if(UTIL_RANGE(this->spells), [&](Character_Spell cs) { return cs.id == spell; });
+	auto it = std::find_if(UTIL_RANGE(this->spells), [&](const eolib::protocol::net::Spell& cs) { return cs.id == spell; });
 
 	if (it != this->spells.end())
 		return it->level;
@@ -921,7 +915,9 @@ bool Character::AddSpell(short spell)
 	if (this->HasSpell(spell))
 		return false;
 
-	this->spells.push_back(Character_Spell(spell, 0));
+	eolib::protocol::net::Spell new_spell;
+	new_spell.id = spell;
+	this->spells.push_back(new_spell);
 
 	this->CheckQuestRules();
 
@@ -930,7 +926,7 @@ bool Character::AddSpell(short spell)
 
 bool Character::DelSpell(short spell)
 {
-	auto remove_it = std::remove_if(UTIL_RANGE(this->spells), [&](Character_Spell cs) { return cs.id == spell; });
+	auto remove_it = std::remove_if(UTIL_RANGE(this->spells), [&](const eolib::protocol::net::Spell& cs) { return cs.id == spell; });
 	bool removed = (remove_it != this->spells.end());
 	this->spells.erase(remove_it, this->spells.end());
 
@@ -1522,11 +1518,10 @@ void Character::CalculateStats(bool trigger_quests)
 		this->hp = std::min(this->hp, this->maxhp);
 		this->tp = std::min(this->tp, this->maxtp);
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 6);
-		builder.AddShort(this->hp);
-		builder.AddShort(this->tp);
-		builder.AddShort(0); // ?
-		this->Send(builder);
+		server::RecoverPlayerServerPacket recover_packet;
+		recover_packet.hp = this->hp;
+		recover_packet.tp = this->tp;
+		this->Send(recover_packet);
 	}
 
 	if (this->SourceDutyAccess() >= static_cast<int>(world->admin_config["unlimitedweight"]))
@@ -1775,27 +1770,20 @@ void Character::SpikeDamage(int amount)
 
 	this->hp -= limitamount;
 
-	PacketBuilder builder2(PACKET_EFFECT, PACKET_SPEC, 7);
-	builder2.AddChar(2);
-	builder2.AddShort(amount);
-	builder2.AddShort(this->hp);
-	builder2.AddShort(this->maxhp);
+	server::EffectSpecServerPacket::MapDamageTypeDataSpikes spikes;
+	spikes.hp_damage = amount;
+	spikes.hp = this->hp;
+	spikes.max_hp = this->maxhp;
 
-	PacketBuilder builder3(PACKET_EFFECT, PACKET_ADMIN, 7);
-	builder3.AddShort(this->PlayerID());
-	builder3.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(this->hp) / double(this->maxhp) * 100.0), 0, 100)));
-	builder3.AddChar(this->hp == 0);
-	builder3.AddThree(amount);
+	server::EffectAdminServerPacket watcher_packet;
+	watcher_packet.player_id = this->PlayerID();
+	watcher_packet.hp_percentage = util::clamp<int>(static_cast<int>(double(this->hp) / double(this->maxhp) * 100.0), 0, 100);
+	watcher_packet.died = this->hp == 0;
+	watcher_packet.damage = amount;
 
-	this->Send(builder2);
+	this->Send(server::EffectSpecServerPacket::ForSpikes(spikes));
 
-	for (Character* watcher : this->map->CharactersInRange(this->loc.x, this->loc.y, static_cast<int>(this->world->config["SeeDistance"])))
-	{
-		if (watcher == this)
-			continue;
-
-		watcher->Send(builder3);
-	}
+	this->map->SendToNearby(this, watcher_packet, false);
 }
 
 
@@ -1872,13 +1860,7 @@ void Character::Dress(EquipLocation loc, unsigned short gfx_id)
 	server::AvatarAgreeServerPacket avatar_agree;
 	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
-	UTIL_FOREACH(this->map->characters, updatecharacter)
-	{
-		if (!this->InRange(updatecharacter))
-			continue;
-
-		updatecharacter->Send(avatar_agree);
-	}
+	this->map->SendToNearby(this, avatar_agree, true);
 }
 
 void Character::Undress()
@@ -1889,13 +1871,7 @@ void Character::Undress()
 	server::AvatarAgreeServerPacket avatar_agree;
 	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
-	UTIL_FOREACH(this->map->characters, updatecharacter)
-	{
-		if (!this->InRange(updatecharacter))
-			continue;
-
-		updatecharacter->Send(avatar_agree);
-	}
+	this->map->SendToNearby(this, avatar_agree, true);
 }
 
 void Character::Undress(EquipLocation loc)
@@ -1905,13 +1881,7 @@ void Character::Undress(EquipLocation loc)
 	server::AvatarAgreeServerPacket avatar_agree;
 	avatar_agree.change = Converters::EquipmentChangeFrom(this);
 
-	UTIL_FOREACH(this->map->characters, updatecharacter)
-	{
-		if (!this->InRange(updatecharacter))
-			continue;
-
-		updatecharacter->Send(avatar_agree);
-	}
+	this->map->SendToNearby(this, avatar_agree, true);
 }
 
 Character::PaperdollGraphics Character::GetPaperdollGraphics()

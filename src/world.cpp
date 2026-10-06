@@ -9,6 +9,7 @@
 #include "character.hpp"
 #include "command_source.hpp"
 #include "config.hpp"
+#include "converters.hpp"
 #include "database.hpp"
 #include "eoclient.hpp"
 #include "eodata.hpp"
@@ -140,11 +141,10 @@ void world_recover(void *world_void)
 
 		if (updated)
 		{
-			PacketBuilder builder(PACKET_RECOVER, PACKET_PLAYER, 6);
-			builder.AddShort(character->hp);
-			builder.AddShort(character->tp);
-			builder.AddShort(0); // ?
-			character->Send(builder);
+			server::RecoverPlayerServerPacket recover_packet;
+			recover_packet.hp = character->hp;
+			recover_packet.tp = character->tp;
+			character->Send(recover_packet);
 		}
 	}
 }

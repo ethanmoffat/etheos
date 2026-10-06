@@ -368,3 +368,53 @@ TEST_F(EODataTests, ECF_Get_UnknownId_ReturnsPeasantClass)
     EXPECT_EQ(4, ecf.Get(0).parent_type);
     EXPECT_EQ(4, ecf.Get(0).stat_group);
 }
+
+TEST_F(EODataTests, ECF_ClassMatches_FollowsParentChain)
+{
+    pub::EcfRecord priest;
+    priest.name = "Priest";
+
+    pub::EcfRecord high_priest;
+    high_priest.name = "High Priest";
+    high_priest.parent_type = 1;
+
+    pub::EcfRecord rogue;
+    rogue.name = "Rogue";
+
+    pub::Ecf file;
+    file.rid = {1, 2};
+    file.total_classes_count = 3;
+    file.classes = {priest, high_priest, rogue};
+    GivenFile(file);
+
+    ECF ecf(filename);
+
+    EXPECT_TRUE(ecf.ClassMatches(3, 0));
+    EXPECT_TRUE(ecf.ClassMatches(1, 1));
+    EXPECT_TRUE(ecf.ClassMatches(2, 1));
+    EXPECT_FALSE(ecf.ClassMatches(1, 2));
+    EXPECT_FALSE(ecf.ClassMatches(3, 1));
+    EXPECT_FALSE(ecf.ClassMatches(0, 1));
+    EXPECT_FALSE(ecf.ClassMatches(9, 1));
+}
+
+TEST_F(EODataTests, ECF_ClassMatches_ParentCycle_ReturnsFalse)
+{
+    pub::EcfRecord first;
+    first.name = "First";
+    first.parent_type = 2;
+
+    pub::EcfRecord second;
+    second.name = "Second";
+    second.parent_type = 1;
+
+    pub::Ecf file;
+    file.rid = {1, 2};
+    file.total_classes_count = 2;
+    file.classes = {first, second};
+    GivenFile(file);
+
+    ECF ecf(filename);
+
+    EXPECT_FALSE(ecf.ClassMatches(1, 3));
+}

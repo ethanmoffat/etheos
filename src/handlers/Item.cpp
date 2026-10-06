@@ -137,18 +137,12 @@ void Item_Use(Character *character, PacketReader &reader)
 			reply.AddShort(character->hp);
 			reply.AddShort(character->tp);
 
-			PacketBuilder builder(PACKET_RECOVER, PACKET_AGREE, 7);
-			builder.AddShort(character->PlayerID());
-			builder.AddInt(hpgain);
-			builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
+			server::RecoverAgreeServerPacket recover_packet;
+			recover_packet.player_id = character->PlayerID();
+			recover_packet.heal_hp = hpgain;
+			recover_packet.hp_percentage = util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100);
 
-			UTIL_FOREACH(character->map->characters, updatecharacter)
-			{
-				if (updatecharacter != character && character->InRange(updatecharacter))
-				{
-					updatecharacter->Send(builder);
-				}
-			}
+			character->map->SendToNearby(character, recover_packet, false);
 
 			if (character->party)
 			{
@@ -186,13 +180,7 @@ void Item_Use(Character *character, PacketReader &reader)
 			avatar_agree.change = server::AvatarChange::ForHairColor(hair_color);
 			avatar_agree.change.player_id = character->PlayerID();
 
-			UTIL_FOREACH(character->map->characters, updatecharacter)
-			{
-				if (updatecharacter != character && character->InRange(updatecharacter))
-				{
-					updatecharacter->Send(avatar_agree);
-				}
-			}
+			character->map->SendToNearby(character, avatar_agree, false);
 
 			character->Send(reply);
 
@@ -277,13 +265,7 @@ void Item_Use(Character *character, PacketReader &reader)
 			server::AvatarAgreeServerPacket avatar_agree;
 			avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
-			UTIL_FOREACH(character->map->characters, updatecharacter)
-			{
-				if (updatecharacter != character && character->InRange(updatecharacter))
-				{
-					updatecharacter->Send(avatar_agree);
-				}
-			}
+			character->map->SendToNearby(character, avatar_agree, false);
 
 			character->Send(reply);
 

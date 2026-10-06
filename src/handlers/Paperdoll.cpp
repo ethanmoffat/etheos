@@ -134,13 +134,7 @@ void Paperdoll_Remove(Character *character, PacketReader &reader)
 	server::AvatarAgreeServerPacket avatar_agree;
 	avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
-	UTIL_FOREACH(character->map->characters, updatecharacter)
-	{
-		if (updatecharacter == character || !character->InRange(updatecharacter))
-			continue;
-
-		updatecharacter->Send(avatar_agree);
-	}
+	character->map->SendToNearby(character, avatar_agree, false);
 }
 
 // Equipping an item
@@ -185,13 +179,7 @@ void Paperdoll_Add(Character *character, PacketReader &reader)
 	server::AvatarAgreeServerPacket avatar_agree;
 	avatar_agree.change = Converters::EquipmentChangeFrom(character);
 
-	UTIL_FOREACH(character->map->characters, updatecharacter)
-	{
-		if (updatecharacter == character || !character->InRange(updatecharacter))
-			continue;
-
-		updatecharacter->Send(avatar_agree);
-	}
+	character->map->SendToNearby(character, avatar_agree, false);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_PAPERDOLL)

@@ -153,7 +153,8 @@ TEST_F(WelcomeTests, Request_MapWithGlobalPK_SendsMarkerRid)
     character->mapid = TestMapId;
 
     server::WelcomeReplyServerPacket reply;
-    EXPECT_CALL(*client, Send(An<const net::Packet&>()))
+    EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(AnyNumber());
+    EXPECT_CALL(*client, Send(Matcher<const net::Packet&>(WhenDynamicCastTo<const server::WelcomeReplyServerPacket&>(_))))
         .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::WelcomeReplyServerPacket&>(packet); }));
 
     client::WelcomeRequestClientPacket request;

@@ -87,13 +87,7 @@ void Barber_Buy(Character *character, PacketReader &reader)
 		avatar_agree.change = server::AvatarChange::ForHair(hair);
 		avatar_agree.change.player_id = character->PlayerID();
 
-		UTIL_FOREACH(character->map->characters, updatecharacter)
-		{
-			if (updatecharacter != character && character->InRange(updatecharacter))
-			{
-				updatecharacter->Send(avatar_agree);
-			}
-		}
+		character->map->SendToNearby(character, avatar_agree, false);
 
 		character->Send(reply);
 	}

@@ -8,6 +8,7 @@
 
 #include "character.hpp"
 #include "config.hpp"
+#include "converters.hpp"
 #include "dialog.hpp"
 #include "eoplus.hpp"
 #include "map.hpp"
@@ -17,6 +18,8 @@
 #include "console.hpp"
 #include "util.hpp"
 #include "util/rpn.hpp"
+
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -32,6 +35,8 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+
+namespace server = eolib::protocol::net::server;
 
 static int quest_day()
 {
@@ -263,53 +268,43 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 	{
 		victim->CalculateStats();
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_LIST, 32);
-
 		if (statpoints)
 		{
-			builder.SetID(PACKET_STATSKILL, PACKET_PLAYER);
-			builder.AddShort(victim->statpoints);
+			server::StatSkillPlayerServerPacket stat_skill_packet;
+			stat_skill_packet.stat_points = victim->statpoints;
+			stat_skill_packet.stats = Converters::CharacterStatsUpdateFrom(victim);
+			victim->Send(stat_skill_packet);
 		}
 		else
 		{
-			builder.AddShort(victim->clas);
+			server::RecoverListServerPacket recover_packet;
+			recover_packet.class_id = victim->clas;
+			recover_packet.stats = Converters::CharacterStatsUpdateFrom(victim);
+			victim->Send(recover_packet);
 		}
-
-		builder.AddShort(victim->display_str);
-		builder.AddShort(victim->display_intl);
-		builder.AddShort(victim->display_wis);
-		builder.AddShort(victim->display_agi);
-		builder.AddShort(victim->display_con);
-		builder.AddShort(victim->display_cha);
-		builder.AddShort(victim->maxhp);
-		builder.AddShort(victim->maxtp);
-		builder.AddShort(victim->maxsp);
-		builder.AddShort(victim->maxweight);
-		builder.AddShort(victim->mindam);
-		builder.AddShort(victim->maxdam);
-		builder.AddShort(victim->accuracy);
-		builder.AddShort(victim->evade);
-		builder.AddShort(victim->armor);
-		victim->Send(builder);
 	}
 	else if (skillpoints)
 	{
 		victim->CalculateStats();
 
-		PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
-		builder.AddShort(victim->skillpoints);
-		builder.AddShort(0);
-		builder.AddShort(0);
-
-		victim->Send(builder);
+		server::StatSkillAcceptServerPacket packet;
+		packet.skill_points = victim->skillpoints;
+		victim->Send(packet);
 	}
 	else if (karma || level)
 	{
-		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
-		builder.AddInt(victim->exp);
-		builder.AddShort(victim->karma);
-		builder.AddChar(level ? victim->level : 0);
-		victim->Send(builder);
+		server::RecoverReplyServerPacket recover_packet;
+		recover_packet.experience = victim->exp;
+		recover_packet.karma = victim->karma;
+		recover_packet.level_up = level ? victim->level : 0;
+
+		if (level)
+		{
+			recover_packet.stat_points = victim->statpoints;
+			recover_packet.skill_points = victim->skillpoints;
+		}
+
+		victim->Send(recover_packet);
 	}
 
 	if (!stats && !skillpoints && !appearance)
@@ -544,7 +539,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 		if (action.expr.args.size() >= 1)
 			strength = std::max(1, std::min(8, int(action.expr.args[0])));
 
-		this->character->map->Effect(MAP_EFFECT_QUAKE, strength);
+		this->character->map->Quake(strength);
 	}
 	else if (function_name == "quakeworld")
 	{
@@ -556,7 +551,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 		UTIL_FOREACH(this->character->world->maps, map)
 		{
 			if (map->exists)
-				map->Effect(MAP_EFFECT_QUAKE, strength);
+				map->Quake(strength);
 		}
 	}
 	else if (function_name == "setmap" || function_name == "setcoord")
@@ -585,18 +580,18 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 			this->character->CalculateStats();
 		}
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 11);
-		builder.AddInt(this->character->exp);
-		builder.AddShort(this->character->karma);
-		builder.AddChar(level_up ? this->character->level : 0);
+		server::RecoverReplyServerPacket recover_packet;
+		recover_packet.experience = this->character->exp;
+		recover_packet.karma = this->character->karma;
+		recover_packet.level_up = level_up ? this->character->level : 0;
 
 		if (level_up)
 		{
-			builder.AddShort(this->character->statpoints);
-			builder.AddShort(this->character->skillpoints);
+			recover_packet.stat_points = this->character->statpoints;
+			recover_packet.skill_points = this->character->skillpoints;
 		}
 
-		this->character->Send(builder);
+		this->character->Send(recover_packet);
 
 		if (level_up)
 		{
@@ -658,26 +653,10 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 
 		this->character->CalculateStats();
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_LIST, 32);
-
-		builder.AddShort(this->character->clas);
-		builder.AddShort(this->character->display_str);
-		builder.AddShort(this->character->display_intl);
-		builder.AddShort(this->character->display_wis);
-		builder.AddShort(this->character->display_agi);
-		builder.AddShort(this->character->display_con);
-		builder.AddShort(this->character->display_cha);
-		builder.AddShort(this->character->maxhp);
-		builder.AddShort(this->character->maxtp);
-		builder.AddShort(this->character->maxsp);
-		builder.AddShort(this->character->maxweight);
-		builder.AddShort(this->character->mindam);
-		builder.AddShort(this->character->maxdam);
-		builder.AddShort(this->character->accuracy);
-		builder.AddShort(this->character->evade);
-		builder.AddShort(this->character->armor);
-
-		this->character->Send(builder);
+		server::RecoverListServerPacket recover_packet;
+		recover_packet.class_id = this->character->clas;
+		recover_packet.stats = Converters::CharacterStatsUpdateFrom(this->character);
+		this->character->Send(recover_packet);
 	}
 	else if (function_name == "setrace")
 	{
@@ -691,11 +670,11 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 		if (this->character->karma < 0)
 			this->character->karma = 0;
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
-		builder.AddInt(this->character->exp);
-		builder.AddShort(this->character->karma);
-		builder.AddChar(0);
-		this->character->Send(builder);
+		server::RecoverReplyServerPacket recover_packet;
+		recover_packet.experience = this->character->exp;
+		recover_packet.karma = this->character->karma;
+		recover_packet.level_up = 0;
+		this->character->Send(recover_packet);
 	}
 	else if (function_name == "givekarma")
 	{
@@ -704,11 +683,11 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 		if (this->character->karma > 2000)
 			this->character->karma = 2000;
 
-		PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
-		builder.AddInt(this->character->exp);
-		builder.AddShort(this->character->karma);
-		builder.AddChar(0);
-		this->character->Send(builder);
+		server::RecoverReplyServerPacket recover_packet;
+		recover_packet.experience = this->character->exp;
+		recover_packet.karma = this->character->karma;
+		recover_packet.level_up = 0;
+		this->character->Send(recover_packet);
 	}
 	else if (function_name == "settitle")
 	{

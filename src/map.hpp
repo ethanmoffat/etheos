@@ -16,6 +16,7 @@
 #include "fwd/world.hpp"
 
 #include <eolib/protocol/map/enums.hpp>
+#include <eolib/protocol/net/packet.hpp>
 #include <eolib/protocol/structs.hpp>
 
 #include <array>
@@ -189,22 +190,11 @@ class Map
 			WalkWarped = 2
 		};
 
-		enum EffectType
-		{
-			EffectNone = 0,
-			EffectHPDrain = 1,
-			EffectTPDrain = 2,
-			EffectQuake1 = 3,
-			EffectQuake2 = 4,
-			EffectQuake3 = 5,
-			EffectQuake4 = 6
-		};
-
 		World *world;
 		short id;
 		std::array<int, 2> rid;
 		bool pk;
-		EffectType effect;
+		eolib::protocol::map::MapTimedEffect effect;
 		int filesize;
 		unsigned char width;
 		unsigned char height;
@@ -256,6 +246,18 @@ class Map
 		void Enter(Character *, WarpEffect effect = WarpEffect::None);
 		void Leave(Character *, WarpEffect effect = WarpEffect::None, bool silent = false);
 
+		/**
+		 * Sends packet to every character on the map that can see from. echo includes from itself; except is skipped.
+		 */
+		void SendToNearby(const Character *from, const eolib::protocol::net::Packet& packet, bool echo);
+		void SendToNearby(const NPC *from, const eolib::protocol::net::Packet& packet, const Character *except = nullptr);
+		void SendToNearby(const eolib::protocol::Coords& coords, const eolib::protocol::net::Packet& packet);
+
+		/**
+		 * Sends packet to every character on the map.
+		 */
+		void SendToMap(const eolib::protocol::net::Packet& packet);
+
 		void Msg(Character *from, std::string message, bool echo = true);
 		void Msg(NPC *from, std::string message);
 		WalkResult Walk(Character *from, Direction direction, bool admin = false);
@@ -295,7 +297,7 @@ class Map
 		std::vector<Character *> CharactersInRange(unsigned char x, unsigned char y, unsigned char range);
 		std::vector<NPC *> NPCsInRange(unsigned char x, unsigned char y, unsigned char range);
 
-		void Effect(MapEffect effect, unsigned char param);
+		void Quake(int strength);
 
 		void TileEffect(unsigned char x, unsigned char y, unsigned short effect);
 

@@ -237,3 +237,25 @@ int ECF::Count() const
 {
 	return static_cast<int>(this->file.classes.size());
 }
+
+bool ECF::ClassMatches(int class_id, int required_class) const
+{
+	if (required_class == 0)
+		return true;
+
+	// Bounded by the class count so a parent_type cycle in the file can't loop forever
+	for (int steps = 0; class_id > 0 && steps <= this->Count(); ++steps)
+	{
+		if (class_id == required_class)
+			return true;
+
+		const pub::EcfRecord* class_record;
+
+		if (!this->TryGet(class_id, class_record))
+			return false;
+
+		class_id = class_record->parent_type;
+	}
+
+	return false;
+}

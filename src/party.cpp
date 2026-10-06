@@ -8,14 +8,20 @@
 
 #include "character.hpp"
 #include "config.hpp"
+#include "map.hpp"
 #include "packet.hpp"
 #include "world.hpp"
 
 #include "util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vector>
+
+namespace server = eolib::protocol::net::server;
 
 Party::Party(World *world, Character *leader, Character *other)
 {
@@ -174,6 +180,10 @@ void Party::ShareEXP(int exp, int sharemode, Map *map)
 	if (members == 0 || sumlevel == 0)
 		return;
 
+	server::PartyTargetGroupServerPacket packet;
+	std::vector<Character*> recipients;
+	bool any_level_up = false;
+
 	UTIL_FOREACH(this->members, member)
 	{
 		if (!member->CanInteractCombat())
@@ -194,18 +204,10 @@ void Party::ShareEXP(int exp, int sharemode, Map *map)
 				break;
 		}
 
-		// TODO: Levelling up in this way doesn't work well, find alternative.
+		member->exp = std::min(member->exp + reward, static_cast<int>(this->world->config["MaxExp"]));
 
-		member->exp += reward;
-
-		bool level_up = (member->level < static_cast<int>(this->world->config["MaxLevel"]) && member->exp >= this->world->exp_table[member->level+1]);
-
-		PacketBuilder builder(PACKET_PARTY, PACKET_TARGET_GROUP, 7);
-		builder.AddShort(member->PlayerID());
-		builder.AddInt(reward);
-		builder.AddChar(level_up);
-
-		if (level_up)
+		const int old_level = member->level;
+		while (member->level < static_cast<int>(this->world->config["MaxLevel"]) && member->exp >= this->world->exp_table[member->level + 1])
 		{
 			++member->level;
 			member->statpoints += static_cast<int>(this->world->config["StatPerLevel"]);
@@ -213,7 +215,38 @@ void Party::ShareEXP(int exp, int sharemode, Map *map)
 			member->CalculateStats();
 		}
 
-		member->Send(builder);
+		const bool level_up = member->level != old_level;
+
+		if (level_up)
+		{
+			server::RecoverTargetGroupServerPacket stats;
+			stats.stat_points = member->statpoints;
+			stats.skill_points = member->skillpoints;
+			stats.max_hp = member->maxhp;
+			stats.max_tp = member->maxtp;
+			stats.max_sp = member->maxsp;
+			member->Send(stats);
+			any_level_up = true;
+		}
+
+		server::PartyExpShare gain;
+		gain.player_id = member->PlayerID();
+		gain.experience = reward;
+		gain.level_up = level_up ? member->level : 0;
+		packet.gains.push_back(gain);
+		recipients.push_back(member);
+	}
+
+	// Level ups go to the whole map so nearby players see the level up emote
+	if (any_level_up)
+	{
+		map->SendToMap(packet);
+		return;
+	}
+
+	UTIL_FOREACH(recipients, recipient)
+	{
+		recipient->Send(packet);
 	}
 }
 

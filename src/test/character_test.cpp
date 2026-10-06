@@ -91,3 +91,24 @@ TEST_F(CharacterAvatarTests, Undress_SendsBareEquipmentChange)
     ASSERT_EQ(server::AvatarChangeType::Equipment, avatar_agree->change.change_type);
     EXPECT_EQ(0, avatar_agree->change.AsEquipment()->equipment.hat);
 }
+
+GTEST_TEST(CharacterSpellsTests, SpellUnserialize_SerializedList_RoundTrips)
+{
+    const auto spells = SpellUnserialize("7,3;300,0;");
+
+    ASSERT_EQ(2u, spells.size());
+    EXPECT_EQ(7, spells.front().id);
+    EXPECT_EQ(3, spells.front().level);
+    EXPECT_EQ(300, spells.back().id);
+    EXPECT_EQ(0, spells.back().level);
+    EXPECT_EQ("7,3;300,0;", SpellSerialize(spells));
+}
+
+GTEST_TEST(CharacterSpellsTests, SpellUnserialize_InvalidEntries_AreDiscarded)
+{
+    const auto spells = SpellUnserialize("0,1;70000,1;5,-1;6;8,2;");
+
+    ASSERT_EQ(1u, spells.size());
+    EXPECT_EQ(8, spells.front().id);
+    EXPECT_EQ(2, spells.front().level);
+}

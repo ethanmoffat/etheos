@@ -91,7 +91,7 @@ void Jukebox_Use(Character *character, PacketReader &reader)
 
 	// Check if user has the bard skill
 	auto find_it = find_if(UTIL_RANGE(character->spells),
-		[&](const Character_Spell& spell) { return esf->Get(spell.id).type == pub::SkillType::Bard; });
+		[&](const eolib::protocol::net::Spell& spell) { return esf->Get(spell.id).type == pub::SkillType::Bard; });
 
 	if (find_it == character->spells.end())
 		return;

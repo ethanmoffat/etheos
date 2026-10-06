@@ -45,7 +45,7 @@ void Quake(const std::vector<std::string>& arguments, Character* from)
 	if (arguments.size() >= 1)
 		strength = std::max(1, std::min(8, util::to_int(arguments[0])));
 
-	from->map->Effect(MAP_EFFECT_QUAKE, strength);
+	from->map->Quake(strength);
 }
 
 void HideImpl(const std::vector<std::string>& arguments, Character* from, bool set)

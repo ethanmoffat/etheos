@@ -21,10 +21,4 @@ enum InnUnsubscribeReply : unsigned char
 	UNSUBSCRIBE_UNSUBSCRIBED = 1
 };
 
-enum SkillMasterReply : short
-{
-	SKILLMASTER_REMOVE_ITEMS = 1,
-	SKILLMASTER_WRONG_CLASS = 2
-};
-
 #endif // FWD_NPC_HPP_INCLUDED

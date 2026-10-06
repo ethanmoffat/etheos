@@ -13,6 +13,7 @@
 #include "fwd/eodata.hpp"
 #include "fwd/world.hpp"
 
+#include <eolib/protocol/net/server/structs.hpp>
 #include <eolib/protocol/pub/structs.hpp>
 
 #include <array>
@@ -70,19 +71,6 @@ struct NPC_Citizenship
 	std::array<std::string, 3> answers;
 };
 
-/**
- * Used by the NPC_Data class to store skill master data
- */
-struct NPC_Learn_Skill
-{
-	unsigned short id;
-	int cost;
-	unsigned char levelreq;
-	unsigned char classreq;
-	std::array<short, 4> skillreq;
-	short strreq, intreq, wisreq, agireq, conreq, chareq;
-};
-
 class NPC_Data
 {
 	public:
@@ -93,7 +81,7 @@ class NPC_Data
 		std::string skill_name;
 		std::vector<std::unique_ptr<NPC_Shop_Trade_Item>> shop_trade;
 		std::vector<std::unique_ptr<NPC_Shop_Craft_Item>> shop_craft;
-		std::vector<std::unique_ptr<NPC_Learn_Skill>> skill_learn;
+		std::vector<eolib::protocol::net::server::SkillLearn> skill_learn;
 		std::unique_ptr<NPC_Citizenship> citizenship;
 
 		double talk_speed;

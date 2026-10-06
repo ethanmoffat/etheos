@@ -219,6 +219,12 @@ class ECF
 
 		int Count() const;
 
+		/**
+		 * Checks if class_id is required_class or one of its subclasses (through the parent_type chain). A
+		 * required_class of 0 matches every class.
+		 */
+		bool ClassMatches(int class_id, int required_class) const;
+
 		const std::vector<int>& Rid() const { return this->file.rid; }
 
 		/**

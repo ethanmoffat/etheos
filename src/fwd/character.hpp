@@ -13,7 +13,6 @@
 class Character;
 
 struct Character_Item;
-struct Character_Spell;
 struct Character_QuestState;
 
 enum AdminLevel : unsigned char
@@ -67,12 +66,6 @@ enum PaperdollIcon : unsigned char
 enum TalkReply : short
 {
 	TALK_NOTFOUND = 1
-};
-
-enum TrainType : unsigned char
-{
-    TRAIN_STAT = 1,
-    TRAIN_SKILL = 2
 };
 
 enum BookIcon : short

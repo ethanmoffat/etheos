@@ -9,6 +9,7 @@
 #include "../character.hpp"
 #include "../command_source.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eodata.hpp"
 #include "../i18n.hpp"
 #include "../map.hpp"
@@ -147,53 +148,43 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 			{
 				victim->CalculateStats();
 
-				PacketBuilder builder(PACKET_RECOVER, PACKET_LIST, 32);
-
 				if (statpoints)
 				{
-					builder.SetID(PACKET_STATSKILL, PACKET_PLAYER);
-					builder.AddShort(victim->statpoints);
+					server::StatSkillPlayerServerPacket stat_skill_packet;
+					stat_skill_packet.stat_points = victim->statpoints;
+					stat_skill_packet.stats = Converters::CharacterStatsUpdateFrom(victim);
+					victim->Send(stat_skill_packet);
 				}
 				else
 				{
-					builder.AddShort(victim->clas);
+					server::RecoverListServerPacket recover_packet;
+					recover_packet.class_id = victim->clas;
+					recover_packet.stats = Converters::CharacterStatsUpdateFrom(victim);
+					victim->Send(recover_packet);
 				}
-
-				builder.AddShort(victim->display_str);
-				builder.AddShort(victim->display_intl);
-				builder.AddShort(victim->display_wis);
-				builder.AddShort(victim->display_agi);
-				builder.AddShort(victim->display_con);
-				builder.AddShort(victim->display_cha);
-				builder.AddShort(victim->maxhp);
-				builder.AddShort(victim->maxtp);
-				builder.AddShort(victim->maxsp);
-				builder.AddShort(victim->maxweight);
-				builder.AddShort(victim->mindam);
-				builder.AddShort(victim->maxdam);
-				builder.AddShort(victim->accuracy);
-				builder.AddShort(victim->evade);
-				builder.AddShort(victim->armor);
-				victim->Send(builder);
 			}
 			else if (skillpoints)
 			{
 				victim->CalculateStats();
 
-				PacketBuilder builder(PACKET_STATSKILL, PACKET_ACCEPT, 6);
-				builder.AddShort(victim->skillpoints);
-				builder.AddShort(0);
-				builder.AddShort(0);
-
-				victim->Send(builder);
+				server::StatSkillAcceptServerPacket packet;
+				packet.skill_points = victim->skillpoints;
+				victim->Send(packet);
 			}
 			else if (karma || level)
 			{
-				PacketBuilder builder(PACKET_RECOVER, PACKET_REPLY, 7);
-				builder.AddInt(victim->exp);
-				builder.AddShort(victim->karma);
-				builder.AddChar(level ? victim->level : 0);
-				victim->Send(builder);
+				server::RecoverReplyServerPacket recover_packet;
+				recover_packet.experience = victim->exp;
+				recover_packet.karma = victim->karma;
+				recover_packet.level_up = level ? victim->level : 0;
+
+				if (level)
+				{
+					recover_packet.stat_points = victim->statpoints;
+					recover_packet.skill_points = victim->skillpoints;
+				}
+
+				victim->Send(recover_packet);
 			}
 
 			if (!stats && !skillpoints && !appearance)
@@ -259,13 +250,7 @@ void Strip(const std::vector<std::string>& arguments, Command_Source* from)
 			avatar_agree.change = server::AvatarChange::ForEquipment({});
 			avatar_agree.change.player_id = victim->PlayerID();
 
-			UTIL_FOREACH(victim->map->characters, updatecharacter)
-			{
-				if (updatecharacter == victim || !victim->InRange(updatecharacter))
-					continue;
-
-				updatecharacter->Send(avatar_agree);
-			}
+			victim->map->SendToNearby(victim, avatar_agree, false);
 		}
 		else
 		{

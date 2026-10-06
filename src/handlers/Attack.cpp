@@ -9,17 +9,18 @@
 #include "../character.hpp"
 #include "../config.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../world.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
 
 namespace Handlers
 {
 
 // Player attacking
-void Attack_Use(Character *character, PacketReader &reader)
+void Attack_Use(Character* character, const client::AttackUseClientPacket& packet)
 {
-	Direction direction = static_cast<Direction>(reader.GetChar());
-	Timestamp timestamp = reader.GetThree();
+	Direction direction = packet.direction;
+	Timestamp timestamp = packet.timestamp;
 
 	int ts_diff = timestamp - character->timestamp;
 
@@ -53,7 +54,7 @@ void Attack_Use(Character *character, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ATTACK)
-	Register(PACKET_USE, Attack_Use, Playing, 0.5);
+	Register(Attack_Use, Playing, 0.5);
 PACKET_HANDLER_REGISTER_END(PACKET_ATTACK)
 
 }

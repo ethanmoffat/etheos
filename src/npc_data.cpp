@@ -14,6 +14,7 @@
 #include <vector>
 
 namespace pub = eolib::protocol::pub;
+namespace server = eolib::protocol::net::server;
 
 NPC_Data::NPC_Data(World* world, short id)
 	: id(id)
@@ -206,30 +207,30 @@ void NPC_Data::Load()
 					return;
 				}
 
-				this->skill_learn.resize(parts.size() / 14);
+				this->skill_learn.reserve(parts.size() / 14);
 
 				for (std::size_t i = 0; i < parts.size(); i += 14)
 				{
-					std::unique_ptr<NPC_Learn_Skill> skill(new NPC_Learn_Skill);
+					server::SkillLearn& skill = this->skill_learn.emplace_back();
 
-					skill->id = util::to_int(parts[i]);
-					skill->cost = util::to_int(parts[i+1]);
-					skill->levelreq = util::to_int(parts[i+2]);
-					skill->classreq = util::to_int(parts[i+3]);
+					skill.id = util::to_int(parts[i]);
+					skill.cost = util::to_int(parts[i+1]);
+					skill.level_requirement = util::to_int(parts[i+2]);
+					skill.class_requirement = util::to_int(parts[i+3]);
 
-					skill->skillreq[0] = util::to_int(parts[i+4]);
-					skill->skillreq[1] = util::to_int(parts[i+5]);
-					skill->skillreq[2] = util::to_int(parts[i+6]);
-					skill->skillreq[3] = util::to_int(parts[i+7]);
+					skill.skill_requirements = {
+						util::to_int(parts[i+4]),
+						util::to_int(parts[i+5]),
+						util::to_int(parts[i+6]),
+						util::to_int(parts[i+7])
+					};
 
-					skill->strreq = util::to_int(parts[i+8]);
-					skill->intreq = util::to_int(parts[i+9]);
-					skill->wisreq = util::to_int(parts[i+10]);
-					skill->agireq = util::to_int(parts[i+11]);
-					skill->conreq = util::to_int(parts[i+12]);
-					skill->chareq = util::to_int(parts[i+13]);
-
-					this->skill_learn[i/14] = std::move(skill);
+					skill.stat_requirements.str = util::to_int(parts[i+8]);
+					skill.stat_requirements.intl = util::to_int(parts[i+9]);
+					skill.stat_requirements.wis = util::to_int(parts[i+10]);
+					skill.stat_requirements.agi = util::to_int(parts[i+11]);
+					skill.stat_requirements.con = util::to_int(parts[i+12]);
+					skill.stat_requirements.cha = util::to_int(parts[i+13]);
 				}
 			}
 		}

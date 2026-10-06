@@ -10,25 +10,25 @@
 #include "../config.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
-#include <functional>
 
 namespace Handlers
 {
 
 // Begin spell chant
-void Spell_Request(Character *character, PacketReader &reader)
+void Spell_Request(Character* character, const client::SpellRequestClientPacket& packet)
 {
-	unsigned short spell_id = reader.GetShort();
-	int timestamp = reader.GetThree();
+	const int spell_id = packet.spell_id;
 
-	character->timestamp = timestamp;
+	character->timestamp = packet.timestamp;
 
 	character->CancelSpell();
 
@@ -43,26 +43,18 @@ void Spell_Request(Character *character, PacketReader &reader)
 		character->spell_event = new TimeEvent(character_cast_spell, character, 0.47 * spell->cast_time + character->SpellCooldownTime(), 1);
 		character->world->timer.Register(character->spell_event);
 
-		PacketBuilder builder(PACKET_SPELL, PACKET_REQUEST, 4);
-		builder.AddShort(character->PlayerID());
-		builder.AddShort(spell_id);
+		server::SpellRequestServerPacket chant;
+		chant.player_id = character->PlayerID();
+		chant.spell_id = spell_id;
 
-		UTIL_FOREACH(character->map->characters, updatecharacter)
-		{
-			if (updatecharacter != character && character->InRange(updatecharacter))
-			{
-				updatecharacter->Send(builder);
-			}
-		}
+		character->map->SendToNearby(character, chant, false);
 	}
 }
 
 // Self-targeting spell cast
-void Spell_Target_Self(Character *character, PacketReader &reader)
+void Spell_Target_Self(Character* character, const client::SpellTargetSelfClientPacket& packet)
 {
-	/*unsigned char target_type = */reader.GetChar();
-	/*unsigned short spell_id = */reader.GetShort();
-	Timestamp timestamp = reader.GetThree();
+	Timestamp timestamp = packet.timestamp;
 
 	if (!character->spell_event && !character->spell_ready)
 		return;
@@ -89,28 +81,23 @@ void Spell_Target_Self(Character *character, PacketReader &reader)
 }
 
 // Targeted spell cast
-void Spell_Target_Other(Character *character, PacketReader &reader)
+void Spell_Target_Other(Character* character, const client::SpellTargetOtherClientPacket& packet)
 {
-	unsigned char target_type = reader.GetChar();
-	reader.GetChar();
-	reader.GetShort();
-	/*unsigned short spell_id = */reader.GetShort();
-	unsigned short victim_id = reader.GetShort();
-	Timestamp timestamp = reader.GetThree();
+	Timestamp timestamp = packet.timestamp;
 
 	if (!character->spell_event && !character->spell_ready)
 		return;
 
-	switch (target_type)
+	switch (packet.target_type)
 	{
-		case 1:
+		case client::SpellTargetType::Player:
 			character->spell_target = Character::TargetPlayer;
-			character->spell_target_id = victim_id;
+			character->spell_target_id = packet.victim_id;
 			break;
 
-		case 2:
+		case client::SpellTargetType::Npc:
 			character->spell_target = Character::TargetNPC;
-			character->spell_target_id = victim_id;
+			character->spell_target_id = packet.victim_id;
 			break;
 
 		default:
@@ -137,10 +124,9 @@ void Spell_Target_Other(Character *character, PacketReader &reader)
 }
 
 // Group spell cast
-void Spell_Target_Group(Character *character, PacketReader &reader)
+void Spell_Target_Group(Character* character, const client::SpellTargetGroupClientPacket& packet)
 {
-	/*unsigned short spell_id = */reader.GetShort();
-	Timestamp timestamp = reader.GetThree();
+	Timestamp timestamp = packet.timestamp;
 
 	if (!character->spell_event && !character->spell_ready)
 		return;
@@ -167,10 +153,10 @@ void Spell_Target_Group(Character *character, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_SPELL)
-	Register(PACKET_REQUEST, Spell_Request, Playing);
-	Register(PACKET_TARGET_SELF, Spell_Target_Self, Playing);
-	Register(PACKET_TARGET_OTHER, Spell_Target_Other, Playing);
-	Register(PACKET_TARGET_GROUP, Spell_Target_Group, Playing);
+	Register(Spell_Request, Playing);
+	Register(Spell_Target_Self, Playing);
+	Register(Spell_Target_Other, Playing);
+	Register(Spell_Target_Group, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_SPELL)
 
 }

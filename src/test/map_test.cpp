@@ -202,7 +202,7 @@ TEST_F(MapLoadTests, Load_ValidFile_LoadsMap)
     ASSERT_TRUE(map->exists);
     EXPECT_EQ((std::array<int, 2>{12345, 678}), map->rid);
     EXPECT_TRUE(map->pk);
-    EXPECT_EQ(Map::EffectHPDrain, map->effect);
+    EXPECT_EQ(emf::MapTimedEffect::HpDrain, map->effect);
     EXPECT_EQ(10, map->width);
     EXPECT_EQ(10, map->height);
     EXPECT_TRUE(map->scroll);
@@ -343,7 +343,7 @@ TEST_F(MapLoadTests, Construct_MissingFile_HasEmptyHeaderFields)
     ASSERT_FALSE(map->exists);
 
     EXPECT_FALSE(map->pk);
-    EXPECT_EQ(Map::EffectNone, map->effect);
+    EXPECT_EQ(emf::MapTimedEffect::None, map->effect);
     EXPECT_EQ(0, map->filesize);
     EXPECT_EQ(0, map->width);
     EXPECT_EQ(0, map->height);

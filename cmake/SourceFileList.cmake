@@ -287,13 +287,18 @@ set(TestFiles
 	src/test/database_test.cpp
 	src/test/eoclient_test.cpp
 	src/test/eodata_test.cpp
+	src/test/map_effect_test.cpp
 	src/test/map_pk_test.cpp
+	src/test/map_send_test.cpp
 	src/test/map_test.cpp
+	src/test/npc_test.cpp
 	src/test/packet_dispatch_test.cpp
+	src/test/party_test.cpp
 	src/test/socket_test.cpp
 	src/test/worlddump_test.cpp
 	src/test/commands/debug_test.cpp
 	src/test/handlers/Account_test.cpp
+	src/test/handlers/Attack_test.cpp
 	src/test/handlers/Chair_test.cpp
 	src/test/handlers/Character_test.cpp
 	src/test/handlers/Connection_test.cpp
@@ -304,6 +309,8 @@ set(TestFiles
 	src/test/handlers/Login_test.cpp
 	src/test/handlers/Refresh_test.cpp
 	src/test/handlers/Sit_test.cpp
+	src/test/handlers/Spell_test.cpp
+	src/test/handlers/StatSkill_test.cpp
 	src/test/handlers/Walk_test.cpp
 	src/test/handlers/Warp_test.cpp
 	src/test/handlers/Welcome_test.cpp
