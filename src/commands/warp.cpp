@@ -40,8 +40,7 @@ void WarpMeTo(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		if (victim->SourceAccess() < int(from->world->admin_config["cmdprotect"])
-		 || victim->SourceAccess() <= from->SourceAccess())
+		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
 			bool bubbles = from->world->config["WarpBubbles"] && !from->IsHideWarp() && !victim->IsHideWarp();
 			from->Warp(victim->mapid, victim->loc.x, victim->loc.y, bubbles ? WarpEffect::Admin : WarpEffect::None);
@@ -63,8 +62,7 @@ void WarpToMe(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		if (victim->SourceAccess() < int(from->world->admin_config["cmdprotect"])
-		 || victim->SourceAccess() <= from->SourceAccess())
+		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
 			bool bubbles = from->world->config["WarpBubbles"] && !from->IsHideWarp() && !victim->IsHideWarp();
 			victim->Warp(from->mapid, from->loc.x, from->loc.y, bubbles ? WarpEffect::Admin : WarpEffect::None);

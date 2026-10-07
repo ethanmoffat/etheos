@@ -8,156 +8,140 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../eoclient.hpp"
 #include "../eoserver.hpp"
-#include "../packet.hpp"
+#include "../i18n.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace Handlers
 {
 
 // User checking if a player is near (#find)
-void Players_Accept(Character *character, PacketReader &reader)
+void Players_Accept(Character* character, const client::PlayersAcceptClientPacket& packet)
 {
-	std::string name = reader.GetEndString();
-	Character *victim = character->world->GetCharacter(name);
+	Character* victim = character->world->GetCharacter(packet.name);
 
-	PacketBuilder reply(PACKET_PLAYERS, PACKET_PING, name.length());
-
-	if (victim && !victim->IsHideInvisible())
+	if (!victim || victim->IsHideInvisible())
 	{
-		if (victim->mapid == character->mapid && !victim->nowhere)
-		{
-			reply.SetID(PACKET_PLAYERS, PACKET_PONG);
-		}
-		else
-		{
-			reply.SetID(PACKET_PLAYERS, PACKET_NET3);
-		}
-	}
-
-	reply.AddString(name);
-	character->Send(reply);
-}
-
-// Requested a list of online players
-void Players_List(EOClient *client, PacketReader &reader)
-{
-	Player* from_player = client->player;
-	Character* from_character = from_player ? from_player->character : nullptr;
-	int seehide = client->server()->world->admin_config["seehide"];
-	int cmdprotect = client->server()->world->admin_config["cmdprotect"];
-
-	auto really_hidden = [&](const Character* character)
-	{
-		return !(from_character && (
-		       from_character == character
-		    || (from_character->admin >= seehide && character->admin < cmdprotect)
-		    || (from_character->admin >= seehide && character->admin >= cmdprotect && from_character->admin > character->admin)
-		));
-	};
-
-	if (!client->server()->world->config["SLN"] && !client->server()->world->config["AllowStats"] && !from_character)
-	{
+		server::PlayersPingServerPacket reply;
+		reply.name = packet.name;
+		character->Send(reply);
 		return;
 	}
 
-	int online = client->server()->world->characters.size();
-
-	UTIL_FOREACH(client->server()->world->characters, character)
+	if (victim->mapid == character->mapid && !victim->nowhere)
 	{
-		bool hide_online = character->IsHideOnline();
-
-		if (hide_online && really_hidden(character))
-			--online;
+		server::PlayersPongServerPacket reply;
+		reply.name = packet.name;
+		character->Send(reply);
+		return;
 	}
 
-	bool is_friends_list = (reader.Action() == PACKET_LIST);
-	std::string hidden_admin_suffix = client->server()->world->i18n.Format("hidden_admin_suffix");
+	server::PlayersNet242ServerPacket reply;
+	reply.name = packet.name;
+	character->Send(reply);
+}
 
-	PacketBuilder reply(PACKET_F_INIT, PACKET_A_INIT, 4 + online * (is_friends_list ? 13 : (36 + hidden_admin_suffix.length())));
-	reply.AddChar(is_friends_list ? INIT_FRIEND_LIST_PLAYERS : INIT_PLAYERS);
-	reply.AddShort(online);
-	reply.AddByte(255);
+// Online characters that client may see. Admins with seehide also see characters hidden with HideOnline, unless
+// they're protected by cmdprotect at an equal or higher level.
+static std::vector<Character*> VisibleOnlineCharacters(EOClient* client)
+{
+	const Character* from_character = client->player ? client->player->character : nullptr;
+	const protocol::AdminLevel seehide = client->server()->world->AdminLevelSetting("seehide");
+	const protocol::AdminLevel cmdprotect = client->server()->world->AdminLevelSetting("cmdprotect");
+
+	auto really_hidden = [&](const Character* character)
+	{
+		const bool has_character = from_character != nullptr;
+		const bool is_match = has_character && from_character == character;
+		const bool sees_through = has_character && from_character->admin >= seehide && (character->admin < cmdprotect || from_character->admin > character->admin);
+		return !is_match && !sees_through;
+	};
+
+	std::vector<Character*> characters;
+	characters.reserve(client->server()->world->characters.size());
+
 	UTIL_FOREACH(client->server()->world->characters, character)
 	{
-		bool hide_online = character->IsHideOnline();
-		bool hide_admin = character->IsHideAdmin();
-
-		std::string name_suffix;
-
-		if (hide_online && really_hidden(character))
+		if (character->IsHideOnline() && really_hidden(character))
 			continue;
 
-		if (hide_online)
-			name_suffix = " " + hidden_admin_suffix;
-
-		reply.AddBreakString(character->SourceName() + name_suffix);
-
-		// Full information is not sent for friends list requests
-		if (!is_friends_list)
-		{
-			reply.AddBreakString(character->title);
-			reply.AddChar(0); // ?
-			if (character->bot && !from_character)
-			{
-				reply.AddChar(ICON_SLN_BOT);
-			}
-			else if (character->admin >= ADMIN_HGM && !hide_admin)
-			{
-				if (character->party)
-				{
-					reply.AddChar(ICON_HGM_PARTY);
-				}
-				else
-				{
-					reply.AddChar(ICON_HGM);
-				}
-			}
-			else if (character->admin >= ADMIN_GUIDE && !hide_admin)
-			{
-				if (character->party)
-				{
-					reply.AddChar(ICON_GM_PARTY);
-				}
-				else
-				{
-					reply.AddChar(ICON_GM);
-				}
-			}
-			else
-			{
-				if (character->party)
-				{
-					reply.AddChar(ICON_PARTY);
-				}
-				else
-				{
-					reply.AddChar(ICON_NORMAL);
-				}
-			}
-			reply.AddChar(character->clas);
-			reply.AddString(character->PaddedGuildTag());
-			reply.AddByte(255);
-		}
-		else
-		{
-			reply.AddBreakString(character->SourceName());
-		}
+		characters.push_back(character);
 	}
 
-	client->Send(reply);
+	return characters;
+}
+
+static bool CanListPlayers(EOClient* client)
+{
+	const bool logged_in = client->player && client->player->character;
+	return logged_in || client->server()->world->config["SLN"] || client->server()->world->config["AllowStats"];
+}
+
+// Requested the full online list
+void Players_Request(EOClient* client, const client::PlayersRequestClientPacket&)
+{
+	if (!CanListPlayers(client))
+		return;
+
+	// Not a protocol icon: the SLN shows it for bot characters
+	constexpr server::CharacterIcon SlnBotIcon = static_cast<server::CharacterIcon>(20);
+
+	World* world = client->server()->world;
+	const bool from_character = client->player && client->player->character;
+	const std::string hidden_admin_suffix = " " + world->i18n.Format("hidden_admin_suffix");
+
+	server::InitInitServerPacket::ReplyCodeDataPlayersList data;
+
+	for (Character* character : VisibleOnlineCharacters(client))
+	{
+		server::OnlinePlayer& player = data.players_list.players.emplace_back();
+		player.name = character->SourceName();
+		player.title = character->title;
+		player.level = character->level;
+		player.icon = (character->bot && !from_character) ? SlnBotIcon : Converters::CharacterIconFrom(character);
+		player.class_id = character->clas;
+		player.guild_tag = character->PaddedGuildTag();
+
+		if (character->IsHideOnline())
+			player.name += hidden_admin_suffix;
+	}
+
+	client->Send(server::InitInitServerPacket::ForPlayersList(std::move(data)));
+}
+
+// Requested the online names for the friends and ignore lists
+void Players_List(EOClient* client, const client::PlayersListClientPacket&)
+{
+	if (!CanListPlayers(client))
+		return;
+
+	server::InitInitServerPacket::ReplyCodeDataPlayersListFriends data;
+
+	// Names are matched against the client's friends list, so hidden admins are listed without a suffix
+	for (Character* character : VisibleOnlineCharacters(client))
+	{
+		data.players_list.players.push_back(character->SourceName());
+	}
+
+	client->Send(server::InitInitServerPacket::ForPlayersListFriends(std::move(data)));
 }
 
 PACKET_HANDLER_REGISTER(PACKET_PLAYERS)
-	Register(PACKET_ACCEPT, Players_Accept, Playing);
-	Register(PACKET_LIST, Players_List, Any);
-	Register(PACKET_REQUEST, Players_List, Any);
+	Register(Players_Accept, Playing);
+	Register(Players_List, Any);
+	Register(Players_Request, Any);
 PACKET_HANDLER_REGISTER_END(PACKET_PLAYERS)
 
 }

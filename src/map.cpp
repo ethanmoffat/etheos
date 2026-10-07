@@ -48,6 +48,7 @@
 #include <utility>
 #include <vector>
 
+namespace protocol = eolib::protocol;
 namespace emf = eolib::protocol::map;
 namespace server = eolib::protocol::net::server;
 namespace pub = eolib::protocol::pub;
@@ -178,7 +179,7 @@ void map_evacuate(void *map_evacuate_void)
 
 		UTIL_FOREACH(evac->map->characters, character)
 		{
-			if (character->SourceAccess() < ADMIN_GUIDE)
+			if (character->SourceAccess() < protocol::AdminLevel::Spy)
 			{
 				evac_chars.push_back(character);
 			}
@@ -854,9 +855,9 @@ void Map::Msg(Character *from, std::string message, bool echo)
 {
 	message = util::text_cap(message, static_cast<int>(this->world->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from->SourceName()) + "  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_PLAYER, 2 + message.length());
-	builder.AddShort(from->PlayerID());
-	builder.AddString(message);
+	server::TalkPlayerServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.message = message;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -868,7 +869,7 @@ void Map::Msg(Character *from, std::string message, bool echo)
 		if (!echo && character == from)
 			continue;
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -955,7 +956,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 		if (from->level >= warp.levelreq && (warp.spec == Map_Warp::NoDoor || warp.open))
 		{
 			Map* map = this->world->GetMap(warp.map);
-			if (from->SourceAccess() < ADMIN_GUIDE && map->evacuate_lock && map->id != from->map->id)
+			if (from->SourceAccess() < protocol::AdminLevel::Spy && map->evacuate_lock && map->id != from->map->id)
 			{
 				from->StatusMsg(this->world->i18n.Format("map_evacuate_block"));
 				from->Refresh();
@@ -1426,7 +1427,7 @@ void Map::Attack(Character *from, Direction direction)
 
 		UTIL_FOREACH(this->npcs, npc)
 		{
-			if ((npc->PubData().type == pub::NpcType::Passive || npc->PubData().type == pub::NpcType::Aggressive || from->SourceDutyAccess() >= static_cast<int>(this->world->admin_config["killnpc"]))
+			if ((npc->PubData().type == pub::NpcType::Passive || npc->PubData().type == pub::NpcType::Aggressive || from->SourceDutyAccess() >= this->world->AdminLevelSetting("killnpc"))
 			 && npc->alive && npc->loc.x == target_x && npc->loc.y == target_y)
 			{
 				int amount = util::rand(from->mindam, from->maxdam);
@@ -2032,7 +2033,7 @@ std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, unsigned char x, un
 {
 	std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(0, id, amount, x, y, 0, 0));
 
-	if (from || (from && from->SourceAccess() <= ADMIN_GM))
+	if (from || (from && from->SourceAccess() <= protocol::AdminLevel::Guardian))
 	{
 		int ontile = 0;
 		int onmap = 0;

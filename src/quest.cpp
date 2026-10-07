@@ -35,6 +35,7 @@
 #include <unordered_map>
 #include <utility>
 
+namespace protocol = eolib::protocol;
 namespace server = eolib::protocol::net::server;
 
 static int quest_day()
@@ -241,19 +242,19 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 	else if (name == "skillpoints") (skillpoints = true, victim->skillpoints) = util::clamp<int>(f(victim->skillpoints), 0, int(victim->world->config["MaxLevel"]) * int(victim->world->config["SkillPerLevel"]));
 	else if (name == "admin")
 	{
-		AdminLevel level = util::clamp<AdminLevel>(AdminLevel(f(victim->admin)), ADMIN_PLAYER, ADMIN_HGM);
+		protocol::AdminLevel level = util::clamp<protocol::AdminLevel>(static_cast<protocol::AdminLevel>(f(static_cast<int>(victim->admin))), protocol::AdminLevel::Player, protocol::AdminLevel::GameMaster);
 
-		if (level == ADMIN_PLAYER && victim->admin != ADMIN_PLAYER)
+		if (level == protocol::AdminLevel::Player && victim->admin != protocol::AdminLevel::Player)
 			victim->world->DecAdminCount();
-		else if (level != ADMIN_PLAYER && victim->admin == ADMIN_PLAYER)
+		else if (level != protocol::AdminLevel::Player && victim->admin == protocol::AdminLevel::Player)
 			victim->world->IncAdminCount();
 
 		victim->admin = level;
 	}
-	else if (name == "gender")    (appearance = true, victim->gender)    = util::clamp<Gender>(Gender(f(victim->gender)), Gender(0), Gender(1));
+	else if (name == "gender")    (appearance = true, victim->gender)    = static_cast<protocol::Gender>(util::clamp<int>(f(static_cast<int>(victim->gender)), 0, 1));
 	else if (name == "hairstyle") (appearance = true, victim->hairstyle) = util::clamp<int>(f(victim->hairstyle),         0, victim->world->config["MaxHairStyle"]);
 	else if (name == "haircolor") (appearance = true, victim->haircolor) = util::clamp<int>(f(victim->haircolor),         0, victim->world->config["MaxHairColor"]);
-	else if (name == "race")      (appearance = true, victim->race)      = util::clamp<Skin>(Skin(f(victim->race)),       Skin(0), Skin(int(victim->world->config["MaxSkin"])));
+	else if (name == "race")      (appearance = true, victim->race)      = util::clamp<int>(f(victim->race), 0, int(victim->world->config["MaxSkin"]));
 	else if (name == "guildrank") victim->guild_rank = util::clamp<int>(f(victim->guild_rank), 0, 9);
 	else if (name == "karma") (karma = true, victim->karma) = util::clamp<int>(f(victim->karma), 0, 2000);
 	else if (name == "class") (stats = true, victim->clas)  = util::clamp<int>(f(victim->clas),  0, victim->world->ecf->Count());
@@ -651,7 +652,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	}
 	else if (function_name == "setrace")
 	{
-		this->character->race = Skin(int(action.expr.args[0]));
+		this->character->race = int(action.expr.args[0]);
 		this->character->Warp(this->character->map->id, this->character->loc.x, this->character->loc.y);
 	}
 	else if (function_name == "removekarma")
@@ -809,7 +810,7 @@ bool Quest_Context::CheckRule(const EOPlus::Expression& expr)
 	}
 	else if (function_name == "isgender")
 	{
-		return this->character->gender == Gender(int(expr.args[0]));
+		return static_cast<int>(this->character->gender) == int(expr.args[0]);
 	}
 	else if (function_name == "isclass")
 	{

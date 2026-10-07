@@ -10,6 +10,7 @@
 #include "eodata.hpp"
 #include "map.hpp"
 #include "npc.hpp"
+#include "quest.hpp"
 #include "world.hpp"
 
 #include "util.hpp"
@@ -19,6 +20,11 @@
 
 namespace Converters
 {
+
+static bool ShouldHaveAdminIcon(const Character* character, protocol::AdminLevel minLevel)
+{
+	return character->SourceDutyAccess() >= minLevel && !character->IsHideAdmin();
+}
 
 server::BigCoords BigCoordsFrom(const eolib::protocol::Coords& coords)
 {
@@ -36,11 +42,11 @@ server::CharacterSelectionListEntry CharacterSelectionListEntryFrom(Character* c
 	entry.name = character->SourceName();
 	entry.id = character->id;
 	entry.level = character->level;
-	entry.gender = static_cast<eolib::protocol::Gender>(character->gender);
+	entry.gender = character->gender;
 	entry.hair_style = character->hairstyle;
 	entry.hair_color = character->haircolor;
 	entry.skin = character->race;
-	entry.admin = static_cast<eolib::protocol::AdminLevel>(character->admin);
+	entry.admin = character->admin;
 	entry.equipment.boots = graphics.boots;
 	entry.equipment.armor = graphics.armor;
 	entry.equipment.hat = graphics.hat;
@@ -62,7 +68,7 @@ server::CharacterMapInfo CharacterMapInfoFrom(Character* character)
 	info.class_id = character->clas;
 	info.guild_tag = character->PaddedGuildTag();
 	info.level = character->level;
-	info.gender = static_cast<eolib::protocol::Gender>(character->gender);
+	info.gender = character->gender;
 	info.hair_style = character->hairstyle;
 	info.hair_color = character->haircolor;
 	info.skin = character->race;
@@ -207,6 +213,22 @@ server::CharacterStatsEquipmentChange CharacterStatsEquipmentChangeFrom(const Ch
 	return stats;
 }
 
+server::CharacterStatsInfoLookup CharacterStatsInfoLookupFrom(const Character* character)
+{
+	server::CharacterStatsInfoLookup stats;
+	stats.hp = character->hp;
+	stats.max_hp = character->maxhp;
+	stats.tp = character->tp;
+	stats.max_tp = character->maxtp;
+	stats.base_stats = CharacterBaseStatsFrom(character);
+	stats.secondary_stats.min_damage = character->mindam;
+	stats.secondary_stats.max_damage = character->maxdam;
+	stats.secondary_stats.accuracy = character->accuracy;
+	stats.secondary_stats.evade = character->evade;
+	stats.secondary_stats.armor = character->armor;
+	return stats;
+}
+
 server::ItemReplyServerPacket::ItemTypeDataExpReward ItemExpRewardFrom(const Character* character, bool level_up)
 {
 	server::ItemReplyServerPacket::ItemTypeDataExpReward exp_reward;
@@ -220,11 +242,6 @@ server::ItemReplyServerPacket::ItemTypeDataExpReward ItemExpRewardFrom(const Cha
 	return exp_reward;
 }
 
-static bool ShowsAdmin(const Character* character, AdminLevel level)
-{
-	return character->SourceDutyAccess() >= level && !character->IsHideAdmin();
-}
-
 server::CharacterDetails CharacterDetailsFrom(Character* character)
 {
 	server::CharacterDetails details;
@@ -236,10 +253,8 @@ server::CharacterDetails CharacterDetailsFrom(Character* character)
 	details.guild_rank = character->GuildRankString();
 	details.player_id = character->PlayerID();
 	details.class_id = character->clas;
-	details.gender = static_cast<eolib::protocol::Gender>(character->gender);
-	details.admin = ShowsAdmin(character, ADMIN_GUIDE)
-		? static_cast<eolib::protocol::AdminLevel>(character->SourceDutyAccess())
-		: eolib::protocol::AdminLevel::Player;
+	details.gender = character->gender;
+	details.admin = ShouldHaveAdminIcon(character, protocol::AdminLevel::Spy) ? character->SourceDutyAccess() : protocol::AdminLevel::Player;
 	return details;
 }
 
@@ -267,13 +282,26 @@ server::CharacterIcon CharacterIconFrom(const Character* character)
 {
 	const bool party = character->party != nullptr;
 
-	if (ShowsAdmin(character, ADMIN_HGM))
+	if (ShouldHaveAdminIcon(character, protocol::AdminLevel::GameMaster))
 		return party ? server::CharacterIcon::HgmParty : server::CharacterIcon::Hgm;
 
-	if (ShowsAdmin(character, ADMIN_GUIDE))
+	if (ShouldHaveAdminIcon(character, protocol::AdminLevel::Spy))
 		return party ? server::CharacterIcon::GmParty : server::CharacterIcon::Gm;
 
 	return party ? server::CharacterIcon::Party : server::CharacterIcon::Player;
+}
+
+std::vector<std::string> FinishedQuestNamesFrom(const Character* character)
+{
+	std::vector<std::string> names;
+
+	for (const auto& quest : character->quests)
+	{
+		if (quest.second && quest.second->Finished() && !quest.second->IsHidden())
+			names.push_back(quest.second->GetQuest()->Name());
+	}
+
+	return names;
 }
 
 server::LevelUpStats LevelUpStatsFrom(const Character* character)
@@ -319,7 +347,7 @@ std::vector<eolib::protocol::net::ThreeItem> LockerItemsFrom(const Character* ch
 	std::vector<eolib::protocol::net::ThreeItem> items;
 	items.reserve(character->bank.size());
 
-	for (const Character_Item& item : character->bank)
+	for (const protocol::net::Item& item : character->bank)
 	{
 		eolib::protocol::net::ThreeItem& net_item = items.emplace_back();
 		net_item.id = item.id;
@@ -331,11 +359,11 @@ std::vector<eolib::protocol::net::ThreeItem> LockerItemsFrom(const Character* ch
 
 // The admin level the client is told the character has. Some lower levels are raised to unlock client features that
 // the character's commands need.
-static AdminLevel ClientAdminLevel(Character* character)
+static protocol::AdminLevel ClientAdminLevel(Character* character)
 {
 	World* world = character->world;
 
-	AdminLevel lowest_command = ADMIN_HGM;
+	protocol::AdminLevel lowest_command = protocol::AdminLevel::GameMaster;
 
 	UTIL_FOREACH(world->admin_config, ac)
 	{
@@ -344,24 +372,24 @@ static AdminLevel ClientAdminLevel(Character* character)
 			continue;
 		}
 
-		lowest_command = std::min<AdminLevel>(lowest_command, static_cast<AdminLevel>(util::to_int(ac.second)));
+		lowest_command = std::min<protocol::AdminLevel>(lowest_command, static_cast<protocol::AdminLevel>(util::to_int(ac.second)));
 	}
 
-	if (character->SourceAccess() >= static_cast<int>(world->admin_config["seehide"])
-	 && character->SourceAccess() < ADMIN_HGM)
+	if (character->SourceAccess() >= world->AdminLevelSetting("seehide")
+	 && character->SourceAccess() < protocol::AdminLevel::GameMaster)
 	{
-		return ADMIN_HGM;
+		return protocol::AdminLevel::GameMaster;
 	}
 
-	if (character->SourceDutyAccess() >= static_cast<int>(world->admin_config["nowall"])
-	 && character->SourceDutyAccess() < ADMIN_GM)
+	if (character->SourceDutyAccess() >= world->AdminLevelSetting("nowall")
+	 && character->SourceDutyAccess() < protocol::AdminLevel::Guardian)
 	{
-		return ADMIN_GM;
+		return protocol::AdminLevel::Guardian;
 	}
 
-	if (character->SourceAccess() >= lowest_command && character->SourceAccess() < ADMIN_GUIDE)
+	if (character->SourceAccess() >= lowest_command && character->SourceAccess() < protocol::AdminLevel::Spy)
 	{
-		return ADMIN_GUIDE;
+		return protocol::AdminLevel::Spy;
 	}
 
 	return character->SourceAccess();
@@ -393,7 +421,7 @@ server::WelcomeReplyServerPacket::WelcomeCodeDataSelectCharacter SelectCharacter
 	data.guild_rank_name = character->GuildRankString();
 	data.class_id = character->clas;
 	data.guild_tag = character->PaddedGuildTag();
-	data.admin = static_cast<eolib::protocol::AdminLevel>(ClientAdminLevel(character));
+	data.admin = ClientAdminLevel(character);
 	data.level = character->level;
 	data.experience = character->exp;
 	data.usage = character->usage;
@@ -458,13 +486,7 @@ server::WelcomeReplyServerPacket::WelcomeCodeDataEnterGame EnterGameFrom(Charact
 	data.news.resize(NewsLineCount);
 	data.weight = WeightFrom(character);
 
-	data.items.reserve(character->inventory.size());
-	UTIL_FOREACH(character->inventory, item)
-	{
-		eolib::protocol::net::Item& net_item = data.items.emplace_back();
-		net_item.id = item.id;
-		net_item.amount = item.amount;
-	}
+	data.items.assign(character->inventory.begin(), character->inventory.end());
 
 	data.spells.assign(character->spells.begin(), character->spells.end());
 

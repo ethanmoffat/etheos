@@ -9,6 +9,7 @@
 
 #include "fwd/eodata.hpp"
 
+#include <eolib/protocol/enums.hpp>
 #include <eolib/protocol/pub/enums.hpp>
 #include <eolib/protocol/pub/structs.hpp>
 
@@ -24,12 +25,12 @@ struct ItemEquipmentSpec
 {
 	int doll_graphic;
 	// Armor only
-	int gender;
+	eolib::protocol::Gender gender;
 };
 
 inline ItemEquipmentSpec AsEquipment(const eolib::protocol::pub::EifRecord& item)
 {
-	return ItemEquipmentSpec{item.spec1, item.spec2};
+	return ItemEquipmentSpec{item.spec1, static_cast<eolib::protocol::Gender>(item.spec2)};
 }
 
 // Two-handed weapon (ItemSubtypeTwoHanded). A non-zero graphic is shown in the shield slot and blocks every shield,

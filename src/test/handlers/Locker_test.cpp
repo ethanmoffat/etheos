@@ -95,7 +95,7 @@ protected:
 
     static void GivenBankItem(Character* character, int id, int amount)
     {
-        Character_Item item;
+        eolib::protocol::net::Item item;
         item.id = id;
         item.amount = amount;
         character->bank.push_back(item);

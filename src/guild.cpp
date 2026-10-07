@@ -17,6 +17,8 @@
 #include "util.hpp"
 #include "util/variant.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <array>
 #include <ctime>
@@ -26,6 +28,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace server = eolib::protocol::net::server;
 
 std::string RankSerialize(std::array<std::string, 9> list)
 {
@@ -540,9 +544,9 @@ void Guild::Msg(Character *from, std::string message, bool echo)
 
 	std::string from_name = from ? from->SourceName() : "Server";
 
-	PacketBuilder builder(PACKET_TALK, PACKET_REQUEST, 2 + from_name.length() + message.length());
-	builder.AddBreakString(from_name);
-	builder.AddBreakString(message);
+	server::TalkRequestServerPacket packet;
+	packet.player_name = from_name;
+	packet.message = message;
 
 	UTIL_FOREACH(this->manager->world->characters, character)
 	{
@@ -555,7 +559,7 @@ void Guild::Msg(Character *from, std::string message, bool echo)
 				continue;
 			}
 
-			character->Send(builder);
+			character->Send(packet);
 		}
 	}
 }

@@ -82,7 +82,7 @@ static void walk_common(Character* character, const client::WalkAction& walk, Ma
 // Player walking (admin)
 void Walk_Admin(Character* character, const client::WalkAdminClientPacket& packet)
 {
-	if (character->SourceDutyAccess() < int(character->world->admin_config["nowall"]))
+	if (character->SourceDutyAccess() < character->world->AdminLevelSetting("nowall"))
 		return;
 
 	walk_common(character, packet.walk_action, &Character::AdminWalk);

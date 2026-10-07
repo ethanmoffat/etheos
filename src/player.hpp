@@ -41,11 +41,11 @@ class Player
 		Character *character;
 
 		static bool ValidName(std::string username);
-		bool AddCharacter(std::string name, Gender gender, int hairstyle, int haircolor, Skin race);
+		bool AddCharacter(std::string name, eolib::protocol::Gender gender, int hairstyle, int haircolor, int race);
 
 		void NewCharacterOp();
 
-		AdminLevel Admin() const;
+		eolib::protocol::AdminLevel Admin() const;
 
 		void Send(const PacketBuilder &);
 		void Send(const eolib::protocol::net::Packet& packet);

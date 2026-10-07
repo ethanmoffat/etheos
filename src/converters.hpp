@@ -18,6 +18,7 @@
 
 namespace Converters
 {
+	namespace protocol = eolib::protocol;
 	namespace server = eolib::protocol::net::server;
 
 	constexpr std::size_t NewsLineCount = 9;
@@ -53,6 +54,11 @@ namespace Converters
 	server::CharacterStatsEquipmentChange CharacterStatsEquipmentChangeFrom(const Character* character);
 
 	/**
+	 * Creates the stats shown by the $info lookup. Elemental stats aren't implemented and are always 0.
+	 */
+	server::CharacterStatsInfoLookup CharacterStatsInfoLookupFrom(const Character* character);
+
+	/**
 	 * Creates the experience reward data of character after using an ExpReward item. level_up is true if the reward
 	 * raised the character's level.
 	 */
@@ -70,6 +76,11 @@ namespace Converters
 	 * player icons.
 	 */
 	server::CharacterIcon CharacterIconFrom(const Character* character);
+
+	/**
+	 * Gets the names of the quests character has finished, excluding hidden quests, as listed in the quest book.
+	 */
+	std::vector<std::string> FinishedQuestNamesFrom(const Character* character);
 
 	server::LevelUpStats LevelUpStatsFrom(const Character* character);
 

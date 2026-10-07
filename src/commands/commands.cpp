@@ -19,6 +19,8 @@
 #include <utility>
 #include <vector>
 
+namespace protocol = eolib::protocol;
+
 namespace Commands
 {
 
@@ -64,13 +66,13 @@ bool command_handler_register::Handle(std::string command, const std::vector<std
 
 	if (command_result != handlers.end() && command_result->second.info.arguments.size() <= arguments.size())
 	{
-		AdminLevel admin_req = ADMIN_HGM;
+		protocol::AdminLevel admin_req = protocol::AdminLevel::GameMaster;
 		auto admin_result = from->SourceWorld()->admin_config.find(command);
 
 		if (admin_result != from->SourceWorld()->admin_config.end())
-			admin_req = AdminLevel(int(admin_result->second));
+			admin_req = static_cast<protocol::AdminLevel>(static_cast<int>(admin_result->second));
 
-		int access = command_result->second.info.duty_restrict ? from->SourceDutyAccess() : from->SourceAccess();
+		protocol::AdminLevel access = command_result->second.info.duty_restrict ? from->SourceDutyAccess() : from->SourceAccess();
 
 		if (access < admin_req || (command_result->second.info.require_character && !from->SourceCharacter()))
 		{
@@ -102,13 +104,13 @@ bool command_handler_register::Handle(std::string command, const std::vector<std
 
 			if (command.substr(0, prefix.length()) == prefix)
 			{
-				AdminLevel admin_req = ADMIN_HGM;
+				protocol::AdminLevel admin_req = protocol::AdminLevel::GameMaster;
 				auto admin_result = from->SourceWorld()->admin_config.find(handler->second.info.name);
 
 				if (admin_result != from->SourceWorld()->admin_config.end())
-					admin_req = AdminLevel(int(admin_result->second));
+					admin_req = static_cast<protocol::AdminLevel>(admin_result->second.GetInt());
 
-				int access = handler->second.info.duty_restrict ? from->SourceDutyAccess() : from->SourceAccess();
+				protocol::AdminLevel access = handler->second.info.duty_restrict ? from->SourceDutyAccess() : from->SourceAccess();
 
 				if (access < admin_req || (handler->second.info.require_character && !from->SourceCharacter()))
 					continue;

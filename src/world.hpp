@@ -41,7 +41,7 @@ struct Board_Post
 {
 	short id;
 	std::string author;
-	int author_admin;
+	eolib::protocol::AdminLevel author_admin;
 	std::string subject;
 	std::string body;
 	double time;
@@ -157,7 +157,7 @@ class World
 		void Logout(Character *);
 
 		void Msg(Command_Source *from, std::string message, bool echo = true);
-		void AdminMsg(Command_Source *from, std::string message, int minlevel = ADMIN_GUARDIAN, bool echo = true);
+		void AdminMsg(Command_Source *from, std::string message, eolib::protocol::AdminLevel minlevel = eolib::protocol::AdminLevel::LightGuide, bool echo = true);
 		void AnnounceMsg(Command_Source *from, std::string message, bool echo = true);
 		void ServerMsg(std::string message);
 		void AdminReport(Character *from, std::string reportee, std::string message);
@@ -189,7 +189,7 @@ class World
 		std::shared_ptr<Home> GetHome(std::string);
 
 		bool CharacterExists(std::string name);
-		Character *CreateCharacter(Player *, std::string name, Gender, int hairstyle, int haircolor, Skin);
+		Character *CreateCharacter(Player *, std::string name, eolib::protocol::Gender, int hairstyle, int haircolor, int race);
 		void DeleteCharacter(std::string name);
 
 		Player *PlayerFactory(std::string username);
@@ -209,6 +209,9 @@ class World
 		bool CheckSession(int expected, int received);
 
 		bool IsInstrument(int graphic_id);
+
+		eolib::protocol::AdminLevel AdminLevelSetting(const std::string& key);
+		bool CommandProtected(eolib::protocol::AdminLevel target, eolib::protocol::AdminLevel from);
 
 		void LoadCommandAudit();
 		void SaveCommandAudit();

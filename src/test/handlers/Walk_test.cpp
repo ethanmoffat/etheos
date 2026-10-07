@@ -6,6 +6,7 @@
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
 
+namespace protocol = eolib::protocol;
 namespace client = eolib::protocol::net::client;
 namespace server = eolib::protocol::net::server;
 
@@ -266,7 +267,7 @@ TEST_F(WalkTests, Admin_WithNowallAccess_WalksThroughWall)
     AddTileSpec(file, 3, 2, eolib::protocol::map::MapTileSpec::Wall);
     GivenMap(file);
     PlayingCharacter& walker = GivenCharacter(2, 2);
-    walker.character->admin = ADMIN_HGM;
+    walker.character->admin = protocol::AdminLevel::GameMaster;
 
     client::WalkAdminClientPacket packet;
     packet.walk_action = WalkAction(eolib::protocol::Direction::Right, 3, 2);

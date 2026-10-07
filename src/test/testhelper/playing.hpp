@@ -79,6 +79,8 @@ protected:
         for (const auto& entry : playing)
         {
             map->characters.remove(entry->character);
+            auto& online = server->world->characters;
+            online.erase(std::remove(online.begin(), online.end(), entry->character), online.end());
         }
 
         playing.clear();
@@ -186,6 +188,14 @@ protected:
 
         playing.push_back(std::move(entry));
         return *playing.back();
+    }
+
+    // Adds a character to the world's online list, for world-wide lookups and messages
+    PlayingCharacter& GivenOnlineCharacter(int x, int y)
+    {
+        PlayingCharacter& entry = GivenCharacter(x, y);
+        server->world->characters.push_back(entry.character);
+        return entry;
     }
 
     static bool SentLegacy(const PlayingCharacter& entry, PacketFamily family, PacketAction action)

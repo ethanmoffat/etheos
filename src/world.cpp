@@ -31,6 +31,8 @@
 #include "console.hpp"
 #include "util.hpp"
 
+#include <eolib/protocol/net/server/packets.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -47,6 +49,7 @@
 
 #include "json.hpp"
 
+namespace protocol = eolib::protocol;
 namespace server = eolib::protocol::net::server;
 namespace client = eolib::protocol::net::client;
 namespace pub = eolib::protocol::pub;
@@ -221,7 +224,7 @@ void world_warp_suck(void *world_void)
 
 	UTIL_FOREACH(actions, act)
 	{
-		if (act.character->SourceAccess() < ADMIN_GUIDE && world->GetMap(act.map)->evacuate_lock)
+		if (act.character->SourceAccess() < protocol::AdminLevel::Spy && world->GetMap(act.map)->evacuate_lock)
 		{
 			act.character->StatusMsg(world->i18n.Format("map_evacuate_block"));
 			act.character->Refresh();
@@ -1187,9 +1190,9 @@ void World::Msg(Command_Source *from, std::string message, bool echo)
 
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from_str) + "  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_MSG, 2 + from_str.length() + message.length());
-	builder.AddBreakString(from_str);
-	builder.AddBreakString(message);
+	server::TalkMsgServerPacket packet;
+	packet.player_name = from_str;
+	packet.message = message;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1200,19 +1203,19 @@ void World::Msg(Command_Source *from, std::string message, bool echo)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
-void World::AdminMsg(Command_Source *from, std::string message, int minlevel, bool echo)
+void World::AdminMsg(Command_Source *from, std::string message, protocol::AdminLevel minlevel, bool echo)
 {
 	std::string from_str = from ? from->SourceName() : "server";
 
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from_str) + "  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_ADMIN, 2 + from_str.length() + message.length());
-	builder.AddBreakString(from_str);
-	builder.AddBreakString(message);
+	server::TalkAdminServerPacket packet;
+	packet.player_name = from_str;
+	packet.message = message;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1223,7 +1226,7 @@ void World::AdminMsg(Command_Source *from, std::string message, int minlevel, bo
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -1233,9 +1236,9 @@ void World::AnnounceMsg(Command_Source *from, std::string message, bool echo)
 
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from_str) + "  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_ANNOUNCE, 2 + from_str.length() + message.length());
-	builder.AddBreakString(from_str);
-	builder.AddBreakString(message);
+	server::TalkAnnounceServerPacket packet;
+	packet.player_name = from_str;
+	packet.message = message;
 
 	UTIL_FOREACH(this->characters, character)
 	{
@@ -1246,7 +1249,7 @@ void World::AnnounceMsg(Command_Source *from, std::string message, bool echo)
 			continue;
 		}
 
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -1254,12 +1257,12 @@ void World::ServerMsg(std::string message)
 {
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width("Server  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_SERVER, message.length());
-	builder.AddString(message);
+	server::TalkServerServerPacket packet;
+	packet.message = message;
 
 	UTIL_FOREACH(this->characters, character)
 	{
-		character->Send(builder);
+		character->Send(packet);
 	}
 }
 
@@ -1267,18 +1270,17 @@ void World::AdminReport(Character *from, std::string reportee, std::string messa
 {
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from->SourceName()) + "  reports: " + reportee + ", "));
 
-	PacketBuilder builder(PACKET_ADMININTERACT, PACKET_REPLY, 5 + from->SourceName().length() + message.length() + reportee.length());
-	builder.AddChar(2); // message type
-	builder.AddByte(255);
-	builder.AddBreakString(from->SourceName());
-	builder.AddBreakString(message);
-	builder.AddBreakString(reportee);
+	server::AdminInteractReplyServerPacket::MessageTypeDataReport report;
+	report.player_name = from->SourceName();
+	report.message = message;
+	report.reportee_name = reportee;
+	const auto packet = server::AdminInteractReplyServerPacket::ForReport(std::move(report));
 
 	UTIL_FOREACH(this->characters, character)
 	{
-		if (character->SourceAccess() >= static_cast<int>(this->admin_config["reports"]))
+		if (character->SourceAccess() >= this->AdminLevelSetting("reports"))
 		{
-			character->Send(builder);
+			character->Send(packet);
 		}
 	}
 
@@ -1336,17 +1338,16 @@ void World::AdminRequest(Character *from, std::string message)
 {
 	message = util::text_cap(message, static_cast<int>(this->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from->SourceName()) + "  needs help: "));
 
-	PacketBuilder builder(PACKET_ADMININTERACT, PACKET_REPLY, 4 + from->SourceName().length() + message.length());
-	builder.AddChar(1); // message type
-	builder.AddByte(255);
-	builder.AddBreakString(from->SourceName());
-	builder.AddBreakString(message);
+	server::AdminInteractReplyServerPacket::MessageTypeDataMessage request;
+	request.player_name = from->SourceName();
+	request.message = message;
+	const auto packet = server::AdminInteractReplyServerPacket::ForMessage(std::move(request));
 
 	UTIL_FOREACH(this->characters, character)
 	{
-		if (character->SourceAccess() >= static_cast<int>(this->admin_config["reports"]))
+		if (character->SourceAccess() >= this->AdminLevelSetting("reports"))
 		{
-			character->Send(builder);
+			character->Send(packet);
 		}
 	}
 
@@ -1700,7 +1701,7 @@ bool World::CharacterExists(std::string name)
 	return !res.empty();
 }
 
-Character *World::CreateCharacter(Player *player, std::string name, Gender gender, int hairstyle, int haircolor, Skin race)
+Character *World::CreateCharacter(Player *player, std::string name, protocol::Gender gender, int hairstyle, int haircolor, int race)
 {
 	char buffer[1024];
 	std::string startmapinfo;
@@ -1730,8 +1731,8 @@ Character *World::CreateCharacter(Player *player, std::string name, Gender gende
 	}
 
 	this->db->Query("INSERT INTO `characters` (`name`, `account`, `gender`, `hairstyle`, `haircolor`, `race`, `inventory`, `bank`, `paperdoll`, `spells`, `quest`, `vars`@) VALUES ('$','$',#,#,#,#,'$','','$','$','',''@)",
-		startmapinfo.c_str(), name.c_str(), player->username.c_str(), gender, hairstyle, haircolor, race,
-		static_cast<std::string>(this->config["StartItems"]).c_str(), static_cast<std::string>(gender?this->config["StartEquipMale"]:this->config["StartEquipFemale"]).c_str(),
+		startmapinfo.c_str(), name.c_str(), player->username.c_str(), static_cast<int>(gender), hairstyle, haircolor, race,
+		static_cast<std::string>(this->config["StartItems"]).c_str(), static_cast<std::string>(gender == protocol::Gender::Male ? this->config["StartEquipMale"] : this->config["StartEquipFemale"]).c_str(),
 		static_cast<std::string>(this->config["StartSpells"]).c_str(), startmapval.c_str());
 
 	return new Character(name, this);
@@ -2007,6 +2008,16 @@ bool World::PKExcept(int mapid)
 bool World::IsInstrument(int graphic_id)
 {
 	return std::find(UTIL_RANGE(this->instrument_ids), graphic_id) != this->instrument_ids.end();
+}
+
+protocol::AdminLevel World::AdminLevelSetting(const std::string& key)
+{
+	return static_cast<protocol::AdminLevel>(this->admin_config[key].GetInt());
+}
+
+bool World::CommandProtected(protocol::AdminLevel target, protocol::AdminLevel from)
+{
+	return target >= this->AdminLevelSetting("cmdprotect") && target > from;
 }
 
 World::~World()

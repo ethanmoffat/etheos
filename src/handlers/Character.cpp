@@ -46,13 +46,13 @@ void Character_Create(Player* player, const net::client::CharacterCreateClientPa
 		return;
 	}
 
-	Gender gender = static_cast<Gender>(packet.gender);
+	protocol::Gender gender = packet.gender;
 	int hairstyle = packet.hair_style;
 	int haircolor = packet.hair_color;
-	Skin race = static_cast<Skin>(packet.skin);
+	int race = packet.skin;
 	std::string name = util::lowercase(packet.name);
 
-	if ((gender != GENDER_MALE && gender != GENDER_FEMALE)
+	if ((gender != protocol::Gender::Male && gender != protocol::Gender::Female)
 		|| hairstyle < static_cast<int>(player->world->config["CreateMinHairStyle"])
 		|| hairstyle > static_cast<int>(player->world->config["CreateMaxHairStyle"])
 		|| haircolor < static_cast<int>(player->world->config["CreateMinHairColor"])
@@ -127,7 +127,7 @@ void Character_Remove(Player* player, const net::client::CharacterRemoveClientPa
 	player->world->DeleteCharacter((*it)->real_name);
 	Console::Out("Deleted character: %s (%s)", (*it)->real_name.c_str(), player->username.c_str());
 
-	if ((*it)->admin > 0)
+	if ((*it)->admin != protocol::AdminLevel::Player)
 		player->world->DecAdminCount();
 
 	player->characters.erase(it);

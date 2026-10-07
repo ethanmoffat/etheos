@@ -22,6 +22,8 @@
 
 #include "version.h"
 
+namespace protocol = eolib::protocol;
+
 struct SLN_Request
 {
 	SLN* sln;
@@ -270,10 +272,10 @@ void SLN::TimedCleanup(void* void_request)
 						}
 
 						Console::Wrn("%s", errmsg.c_str());
-						request->sln->server->world->AdminMsg(0, errmsg, ADMIN_HGM);
+						request->sln->server->world->AdminMsg(0, errmsg, protocol::AdminLevel::GameMaster);
 						if (resolved)
 						{
-							request->sln->server->world->AdminMsg(0, "EOSERV has automatically resolved this message and the next check-in should succeed.", ADMIN_HGM);
+							request->sln->server->world->AdminMsg(0, "etheos has automatically resolved this message and the next check-in should succeed.", protocol::AdminLevel::GameMaster);
 						}
 						break;
 
@@ -313,10 +315,10 @@ void SLN::TimedCleanup(void* void_request)
 						}
 
 						Console::Wrn("%s", errmsg.c_str());
-						request->sln->server->world->AdminMsg(0, errmsg, ADMIN_HGM);
+						request->sln->server->world->AdminMsg(0, errmsg, protocol::AdminLevel::GameMaster);
 						if (resolved)
 						{
-							request->sln->server->world->AdminMsg(0, "EOSERV has automatically resolved this message and the next check-in should succeed.", ADMIN_HGM);
+							request->sln->server->world->AdminMsg(0, "etheos has automatically resolved this message and the next check-in should succeed.", protocol::AdminLevel::GameMaster);
 						}
 						break;
 
@@ -336,7 +338,7 @@ void SLN::TimedCleanup(void* void_request)
 						}
 
 						Console::Wrn("%s", errmsg.c_str());
-						request->sln->server->world->AdminMsg(0, errmsg, ADMIN_HGM);
+						request->sln->server->world->AdminMsg(0, errmsg, protocol::AdminLevel::GameMaster);
 						break;
 				}
 			}

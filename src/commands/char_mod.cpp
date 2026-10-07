@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+namespace protocol = eolib::protocol;
 namespace pub = eolib::protocol::pub;
 namespace server = eolib::protocol::net::server;
 
@@ -87,11 +88,11 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 		else if (set == "skillpoints") (skillpoints = true, victim->skillpoints) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxLevel"]) * int(from->SourceWorld()->config["SkillPerLevel"]));
 		else if (set == "admin")
 		{
-			int no_interact_default_admin = victim->world->config["NoInteractDefaultAdmin"];
+			const protocol::AdminLevel no_interact_default_admin = static_cast<protocol::AdminLevel>(victim->world->config["NoInteractDefaultAdmin"].GetInt());
 			int no_interact_default = victim->world->config["NoInteractDefault"];
-			int hide_level = victim->world->admin_config["hide"];
+			protocol::AdminLevel hide_level = victim->world->AdminLevelSetting("hide");
 
-			AdminLevel level = std::min(std::max(AdminLevel(util::to_int(arguments[1])), ADMIN_PLAYER), ADMIN_HGM);
+			protocol::AdminLevel level = std::min(std::max(static_cast<protocol::AdminLevel>(util::to_int(arguments[1])), protocol::AdminLevel::Player), protocol::AdminLevel::GameMaster);
 
 			// Avoid granting a player more privilege by lowering their admin level
 			bool would_privilege = (no_interact_default != 0) && (victim->admin >= no_interact_default_admin)
@@ -108,9 +109,9 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 				if (victim->admin >= hide_level && level < hide_level)
 					victim->Unhide(Character::HideAll);
 
-				if (level == ADMIN_PLAYER && victim->admin != ADMIN_PLAYER)
+				if (level == protocol::AdminLevel::Player && victim->admin != protocol::AdminLevel::Player)
 					victim->world->DecAdminCount();
-				else if (level != ADMIN_PLAYER && victim->admin == ADMIN_PLAYER)
+				else if (level != protocol::AdminLevel::Player && victim->admin == protocol::AdminLevel::Player)
 					victim->world->IncAdminCount();
 
 				victim->admin = level;
@@ -124,10 +125,10 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 		else if (set == "fiance") victim->fiance = limit_string;
 		else if (set == "partner") victim->partner = limit_string;
 		else if (set == "home") victim->home = limit_string;
-		else if (set == "gender") (appearance = true, victim->gender) = Gender(std::min(std::max(util::to_int(arguments[1]), 0), 1));
+		else if (set == "gender") (appearance = true, victim->gender) = static_cast<protocol::Gender>(std::min(std::max(util::to_int(arguments[1]), 0), 1));
 		else if (set == "hairstyle") (appearance = true, victim->hairstyle) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxHairStyle"]));
 		else if (set == "haircolor") (appearance = true, victim->haircolor) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxHairColor"]));
-		else if (set == "race") (appearance = true, victim->race) = Skin(std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxSkin"])));
+		else if (set == "race") (appearance = true, victim->race) = std::min(std::max(util::to_int(arguments[1]), 0), int(from->SourceWorld()->config["MaxSkin"]));
 		else if (set == "guildrank") victim->guild_rank = std::min(std::max(util::to_int(arguments[1]), 0), 9);
 		else if (set == "karma") (karma = true, victim->karma) = std::min(std::max(util::to_int(arguments[1]), 0), 2000);
 		else if (set == "class") (stats = true, victim->clas) = std::min(std::max(util::to_int(arguments[1]), 0), from->SourceWorld()->ecf->Count());
@@ -259,8 +260,7 @@ void Dress(const std::vector<std::string>& arguments, Command_Source* from)
 		return;
 	}
 
-	if (victim->SourceAccess() >= int(from->SourceWorld()->admin_config["cmdprotect"])
-	 && victim->SourceAccess() > from->SourceAccess())
+	if (from->SourceWorld()->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 	{
 		from->ServerMsg(from->SourceWorld()->i18n.Format("command_access_denied"));
 		return;
@@ -300,8 +300,7 @@ void Dress2(const std::vector<std::string>& arguments, Command_Source* from)
 		return;
 	}
 
-	if (victim->SourceAccess() >= int(from->SourceWorld()->admin_config["cmdprotect"])
-	 && victim->SourceAccess() > from->SourceAccess())
+	if (from->SourceWorld()->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 	{
 		from->ServerMsg(from->SourceWorld()->i18n.Format("command_access_denied"));
 		return;
@@ -334,8 +333,7 @@ void Undress(const std::vector<std::string>& arguments, Command_Source* from)
 		return;
 	}
 
-	if (victim->SourceAccess() >= int(from->SourceWorld()->admin_config["cmdprotect"])
-	 && victim->SourceAccess() > from->SourceAccess())
+	if (from->SourceWorld()->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 	{
 		from->ServerMsg(from->SourceWorld()->i18n.Format("command_access_denied"));
 		return;

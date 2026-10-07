@@ -29,9 +29,10 @@
 #include <utility>
 #include <vector>
 
+namespace protocol = eolib::protocol;
 namespace server = eolib::protocol::net::server;
 
-static bool get_admin_level(World* world, const std::string& name, AdminLevel& level)
+static bool get_admin_level(World* world, const std::string& name, protocol::AdminLevel& level)
 {
 	Character* victim = world->GetCharacter(name);
 	if (victim)
@@ -44,7 +45,7 @@ static bool get_admin_level(World* world, const std::string& name, AdminLevel& l
 		Database_Result query_res = world->db->Query("SELECT `admin` FROM `characters` WHERE `name` = '$'", name.c_str());
 		if (query_res.size() > 0)
 		{
-			level = static_cast<AdminLevel>(query_res[0]["admin"].GetInt());
+			level = static_cast<protocol::AdminLevel>(query_res[0]["admin"].GetInt());
 			return true;
 		}
 	}
@@ -73,7 +74,7 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 	for (Character* c : from->player->characters)
 	{
 		if ((dutyoff && c->real_name == player->dutylast)
-		 || (!dutyoff && c != from && c->admin))
+		 || (!dutyoff && c != from && c->admin != protocol::AdminLevel::Player))
 		{
 			if (player->dutylast.empty())
 				player->dutylast = from->real_name;
@@ -125,11 +126,11 @@ void Audit(const std::vector<std::string>& arguments, Character* from)
 	bool has_target = !arguments.empty();
 	std::string target_name = has_target ? util::lowercase(arguments[0]) : "";
 
-	std::unordered_map<std::string, AdminLevel> admin_levels_cache;
+	std::unordered_map<std::string, protocol::AdminLevel> admin_levels_cache;
 
 	if (has_target)
 	{
-		AdminLevel victim_level;
+		protocol::AdminLevel victim_level;
 		if (get_admin_level(world, target_name, victim_level))
 		{
 			admin_levels_cache[target_name] = victim_level;
@@ -140,7 +141,7 @@ void Audit(const std::vector<std::string>& arguments, Character* from)
 			return;
 		}
 
-		if (admin_levels_cache[target_name] >= int(world->admin_config["cmdprotect"]) && admin_levels_cache[target_name] > from->SourceAccess())
+		if (world->CommandProtected(admin_levels_cache[target_name], from->SourceAccess()))
 		{
 			from->ServerMsg(world->i18n.Format("command_access_denied"));
 			return;
@@ -174,7 +175,7 @@ void Audit(const std::vector<std::string>& arguments, Character* from)
 
 		if (!has_target)
 		{
-			AdminLevel target_admin_level = ADMIN_PLAYER;
+			protocol::AdminLevel target_admin_level = protocol::AdminLevel::Player;
 			if (admin_levels_cache.find(source_lower) != admin_levels_cache.end())
 			{
 				target_admin_level = admin_levels_cache[source_lower];
@@ -188,7 +189,7 @@ void Audit(const std::vector<std::string>& arguments, Character* from)
 				admin_levels_cache[source_lower] = target_admin_level;
 			}
 
-			if (target_admin_level >= int(world->admin_config["cmdprotect"]) && target_admin_level > from->SourceAccess())
+			if (world->CommandProtected(target_admin_level, from->SourceAccess()))
 			{
 				continue;
 			}

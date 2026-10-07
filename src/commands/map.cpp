@@ -114,7 +114,7 @@ void Board(const std::vector<std::string>& arguments, Character* from)
 	short boardid = ((arguments.size() >= 1) ? util::to_int(arguments[0]) : int(from->world->config["AdminBoard"])) - 1;
 
 	if (boardid != int(from->world->config["AdminBoard"]) - 1
-	 || from->SourceAccess() >= int(from->world->admin_config["reports"]))
+	 || from->SourceAccess() >= from->world->AdminLevelSetting("reports"))
 	{
 		if (std::size_t(boardid) < from->world->boards.size())
 		{

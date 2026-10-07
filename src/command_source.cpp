@@ -10,18 +10,20 @@
 
 #include <string>
 
+namespace protocol = eolib::protocol;
+
 System_Command_Source::System_Command_Source(World* world)
 	: world(world)
 { }
 
-AdminLevel System_Command_Source::SourceAccess() const
+protocol::AdminLevel System_Command_Source::SourceAccess() const
 {
-	return ADMIN_HGM;
+	return protocol::AdminLevel::GameMaster;
 }
 
-AdminLevel System_Command_Source::SourceDutyAccess() const
+protocol::AdminLevel System_Command_Source::SourceDutyAccess() const
 {
-	return ADMIN_HGM;
+	return protocol::AdminLevel::GameMaster;
 }
 
 std::string System_Command_Source::SourceName() const

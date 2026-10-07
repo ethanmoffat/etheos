@@ -9,7 +9,6 @@
 #include "character.hpp"
 #include "config.hpp"
 #include "map.hpp"
-#include "packet.hpp"
 #include "world.hpp"
 
 #include "util.hpp"
@@ -22,6 +21,22 @@
 #include <vector>
 
 namespace server = eolib::protocol::net::server;
+
+static int HpPercentage(const Character* character)
+{
+	return util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100);
+}
+
+static server::PartyMember PartyMemberFrom(const Character* member, bool leader)
+{
+	server::PartyMember party_member;
+	party_member.player_id = member->PlayerID();
+	party_member.leader = leader;
+	party_member.level = member->level;
+	party_member.hp_percentage = HpPercentage(member);
+	party_member.name = member->SourceName();
+	return party_member;
+}
 
 Party::Party(World *world, Character *leader, Character *other)
 {
@@ -46,10 +61,9 @@ void Party::Msg(Character *from, std::string message, bool echo)
 {
 	message = util::text_cap(message, static_cast<int>(this->world->config["ChatMaxWidth"]) - util::text_width(util::ucfirst(from->SourceName()) + "  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_OPEN, 2 + message.length());
-
-	builder.AddShort(from->PlayerID());
-	builder.AddString(message);
+	server::TalkOpenServerPacket packet;
+	packet.player_id = from->PlayerID();
+	packet.message = message;
 
 	UTIL_FOREACH(this->members, member)
 	{
@@ -58,7 +72,7 @@ void Party::Msg(Character *from, std::string message, bool echo)
 		if (!echo && member == from)
 			continue;
 
-		member->Send(builder);
+		member->Send(packet);
 	}
 }
 
@@ -68,18 +82,14 @@ void Party::Join(Character *character)
 
 	this->members.push_back(character);
 
-	PacketBuilder builder(PACKET_PARTY, PACKET_ADD, 5 + character->SourceName().length());
-	builder.AddShort(character->PlayerID());
-	builder.AddChar(character == this->leader);
-	builder.AddChar(character->level);
-	builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
-	builder.AddString(character->SourceName());
+	server::PartyAddServerPacket add;
+	add.member = PartyMemberFrom(character, character == this->leader);
 
 	UTIL_FOREACH(this->members, checkcharacter)
 	{
 		if (checkcharacter != character)
 		{
-			checkcharacter->Send(builder);
+			checkcharacter->Send(add);
 		}
 	}
 
@@ -101,22 +111,17 @@ void Party::Leave(Character *character)
 
 		character->party = 0;
 
-		PacketBuilder builder(PACKET_PARTY, PACKET_REMOVE, 2);
-		builder.AddShort(character->PlayerID());
+		server::PartyRemoveServerPacket remove;
+		remove.player_id = character->PlayerID();
 		UTIL_FOREACH(this->members, checkcharacter)
 		{
 			if (character != checkcharacter)
 			{
-				checkcharacter->Send(builder);
+				checkcharacter->Send(remove);
 			}
 		}
 
-		builder.Reset(2);
-		builder.SetID(PACKET_PARTY, PACKET_CLOSE);
-
-		builder.AddShort(255);
-
-		character->Send(builder);
+		character->Send(server::PartyCloseServerPacket());
 	}
 	else
 	{
@@ -126,29 +131,37 @@ void Party::Leave(Character *character)
 
 void Party::RefreshMembers(Character *character, bool create)
 {
-	PacketBuilder builder(PACKET_PARTY, create ? PACKET_CREATE : PACKET_LIST, this->members.size() * 18);
+	std::vector<server::PartyMember> members;
+	members.reserve(this->members.size());
 
 	UTIL_FOREACH(this->members, member)
 	{
-		builder.AddShort(member->PlayerID());
-		builder.AddChar(member == this->leader);
-		builder.AddChar(member->level);
-		builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(member->hp) / double(member->maxhp) * 100.0), 0, 100)));
-		builder.AddBreakString(member->SourceName());
+		members.push_back(PartyMemberFrom(member, member == this->leader));
 	}
 
-	character->Send(builder);
+	if (create)
+	{
+		server::PartyCreateServerPacket packet;
+		packet.members = std::move(members);
+		character->Send(packet);
+	}
+	else
+	{
+		server::PartyListServerPacket packet;
+		packet.members = std::move(members);
+		character->Send(packet);
+	}
 }
 
 void Party::UpdateHP(Character *character)
 {
-	PacketBuilder builder(PACKET_PARTY, PACKET_AGREE, 3);
-	builder.AddShort(character->PlayerID());
-	builder.AddChar(static_cast<unsigned char>(util::clamp<int>(static_cast<int>(double(character->hp) / double(character->maxhp) * 100.0), 0, 100)));
+	server::PartyAgreeServerPacket packet;
+	packet.player_id = character->PlayerID();
+	packet.hp_percentage = HpPercentage(character);
 
 	UTIL_FOREACH(this->members, member)
 	{
-		member->Send(builder);
+		member->Send(packet);
 	}
 }
 
@@ -260,12 +273,11 @@ Party::~Party()
 		);
 	}
 
-	PacketBuilder builder(PACKET_PARTY, PACKET_CLOSE, 1);
-	builder.AddByte(255); // ?
+	const server::PartyCloseServerPacket close;
 
 	UTIL_FOREACH(this->members, member)
 	{
 		member->party = 0;
-		member->Send(builder);
+		member->Send(close);
 	}
 }

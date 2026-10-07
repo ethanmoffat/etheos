@@ -243,7 +243,7 @@ TEST(ItemHelperTests, AsEquipmentAndTwoHanded_ReadSpec1To3)
     item.spec3 = 7;
 
     EXPECT_EQ(42, AsEquipment(item).doll_graphic);
-    EXPECT_EQ(1, AsEquipment(item).gender);
+    EXPECT_EQ(eolib::protocol::Gender::Male, AsEquipment(item).gender);
     EXPECT_EQ(7, AsTwoHanded(item).dual_wield_doll_graphic);
 }
 

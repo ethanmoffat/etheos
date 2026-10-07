@@ -9,24 +9,38 @@
 #include "../character.hpp"
 #include "../config.hpp"
 #include "../converters.hpp"
-#include "../eoplus.hpp"
 #include "../i18n.hpp"
-#include "../packet.hpp"
-#include "../quest.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
 #include <eolib/protocol/net/server/packets.hpp>
 
-#include <cstddef>
 #include <string>
 #include <vector>
 
+namespace protocol = eolib::protocol;
 namespace server = eolib::protocol::net::server;
 
 namespace Commands
 {
+
+static std::string TitledName(Character* victim)
+{
+	const std::string name = util::ucfirst(victim->SourceName());
+	std::string titled_name;
+
+	switch (victim->admin)
+	{
+		case protocol::AdminLevel::GameMaster: titled_name = victim->world->i18n.Format("high_game_master_title", name); break;
+		case protocol::AdminLevel::Guardian:   titled_name = victim->world->i18n.Format("game_master_title", name); break;
+		case protocol::AdminLevel::LightGuide: titled_name = victim->world->i18n.Format("guardian_title", name); break;
+		case protocol::AdminLevel::Spy:        titled_name = victim->world->i18n.Format("light_guide_title", name); break;
+		default:                               titled_name = name; break;
+	}
+
+	return titled_name + " " + util::trim(victim->PaddedGuildTag());
+}
 
 void Inventory(const std::vector<std::string>& arguments, Character* from)
 {
@@ -38,42 +52,14 @@ void Inventory(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		if (victim->SourceAccess() < int(from->world->admin_config["cmdprotect"])
-		 || victim->SourceAccess() <= from->SourceAccess())
+		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
-			std::string name = util::ucfirst(victim->SourceName());
-
-			PacketBuilder reply(PACKET_ADMININTERACT, PACKET_LIST, 32 + name.length() + victim->inventory.size() * 6 + victim->bank.size() * 7);
-
-			switch (victim->admin)
-			{
-				case ADMIN_HGM:      reply.AddString(from->world->i18n.Format("high_game_master_title", name)); break;
-				case ADMIN_GM:       reply.AddString(from->world->i18n.Format("game_master_title", name)); break;
-				case ADMIN_GUARDIAN: reply.AddString(from->world->i18n.Format("guardian_title", name)); break;
-				case ADMIN_GUIDE:    reply.AddString(from->world->i18n.Format("light_guide_title", name)); break;
-				default:             reply.AddString(name); break;
-			}
-
-			reply.AddString(" ");
-			reply.AddBreakString(util::trim(victim->PaddedGuildTag()));
-			reply.AddInt(victim->Usage());
-			reply.AddByte(255);
-			reply.AddInt(victim->goldbank);
-			reply.AddByte(255);
-
-			UTIL_FOREACH(victim->inventory, item)
-			{
-				reply.AddShort(item.id);
-				reply.AddInt(item.amount);
-			}
-			reply.AddByte(255);
-
-			UTIL_FOREACH(victim->bank, item)
-			{
-				reply.AddShort(item.id);
-				reply.AddThree(item.amount);
-			}
-
+			server::AdminInteractListServerPacket reply;
+			reply.name = TitledName(victim);
+			reply.usage = victim->Usage();
+			reply.gold_bank = victim->goldbank;
+			reply.inventory.assign(victim->inventory.begin(), victim->inventory.end());
+			reply.bank = Converters::LockerItemsFrom(victim);
 			from->Send(reply);
 		}
 		else
@@ -111,77 +97,10 @@ void Book(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		std::string home_str = victim->HomeString();
-		std::string guild_str = victim->GuildNameString();
-		std::string rank_str = victim->GuildRankString();
-
-		PacketBuilder reply(PACKET_BOOK, PACKET_REPLY,
-			13 + victim->SourceName().length() + home_str.length() + victim->partner.length() + victim->title.length()
-			+ guild_str.length() + rank_str.length());
-
-		reply.AddBreakString(victim->SourceName());
-		reply.AddBreakString(home_str);
-		reply.AddBreakString(victim->partner);
-		reply.AddBreakString(victim->title);
-		reply.AddBreakString(guild_str);
-		reply.AddBreakString(rank_str);
-		reply.AddShort(victim->PlayerID());
-		reply.AddChar(victim->clas);
-		reply.AddChar(victim->gender);
-		reply.AddChar(0);
-
-		if (victim->SourceDutyAccess() >= ADMIN_HGM)
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_HGM_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_HGM);
-			}
-		}
-		else if (victim->SourceDutyAccess() >= ADMIN_GUIDE)
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_GM_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_GM);
-			}
-		}
-		else
-		{
-			if (victim->party)
-			{
-				reply.AddChar(ICON_PARTY);
-			}
-			else
-			{
-				reply.AddChar(ICON_NORMAL);
-			}
-		}
-
-		reply.AddByte(255);
-
-		std::size_t reserve = 0;
-
-		UTIL_FOREACH(victim->quests, quest)
-		{
-			if (quest.second && quest.second->Finished() && !quest.second->IsHidden())
-				reserve += quest.second->GetQuest()->Name().length() + 1;
-		}
-
-		reply.ReserveMore(reserve);
-
-		UTIL_FOREACH(victim->quests, quest)
-		{
-			if (quest.second && quest.second->Finished() && !quest.second->IsHidden())
-				reply.AddBreakString(quest.second->GetQuest()->Name());
-		}
-
+		server::BookReplyServerPacket reply;
+		reply.details = Converters::CharacterDetailsFrom(victim);
+		reply.icon = Converters::CharacterIconFrom(victim);
+		reply.quest_names = Converters::FinishedQuestNamesFrom(victim);
 		from->Send(reply);
 	}
 }
@@ -196,56 +115,18 @@ void Info(const std::vector<std::string>& arguments, Character* from)
 	}
 	else
 	{
-		if (victim->SourceAccess() < int(from->world->admin_config["cmdprotect"])
-		 || victim->SourceAccess() <= from->SourceAccess())
+		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
-			std::string name = util::ucfirst(victim->SourceName());
-
-			PacketBuilder reply(PACKET_ADMININTERACT, PACKET_TELL, 85 + name.length());
-
-			switch (victim->admin)
-			{
-				case ADMIN_HGM:      reply.AddString(from->world->i18n.Format("high_game_master_title", name)); break;
-				case ADMIN_GM:       reply.AddString(from->world->i18n.Format("game_master_title", name)); break;
-				case ADMIN_GUARDIAN: reply.AddString(from->world->i18n.Format("guardian_title", name)); break;
-				case ADMIN_GUIDE:    reply.AddString(from->world->i18n.Format("light_guide_title", name)); break;
-				default:             reply.AddString(name);
-			}
-
-			reply.AddString(" ");
-			reply.AddBreakString(util::trim(victim->PaddedGuildTag()));
-			reply.AddInt(victim->Usage());
-			reply.AddByte(255);
-			reply.AddByte(255);
-			reply.AddInt(victim->exp);
-			reply.AddChar(victim->level);
-			reply.AddShort(victim->mapid);
-			reply.AddShort(victim->loc.x);
-			reply.AddShort(victim->loc.y);
-			reply.AddShort(victim->hp);
-			reply.AddShort(victim->maxhp);
-			reply.AddShort(victim->tp);
-			reply.AddShort(victim->maxtp);
-			reply.AddShort(victim->display_str);
-			reply.AddShort(victim->display_intl);
-			reply.AddShort(victim->display_wis);
-			reply.AddShort(victim->display_agi);
-			reply.AddShort(victim->display_con);
-			reply.AddShort(victim->display_cha);
-			reply.AddShort(victim->maxdam);
-			reply.AddShort(victim->mindam);
-			reply.AddShort(victim->accuracy);
-			reply.AddShort(victim->evade);
-			reply.AddShort(victim->armor);
-			reply.AddShort(0); // light
-			reply.AddShort(0); // dark
-			reply.AddShort(0); // fire
-			reply.AddShort(0); // water
-			reply.AddShort(0); // earth
-			reply.AddShort(0); // wind
-			reply.AddChar(static_cast<unsigned char>(victim->weight));
-			reply.AddChar(static_cast<unsigned char>(victim->maxweight));
-
+			server::AdminInteractTellServerPacket reply;
+			reply.name = TitledName(victim);
+			reply.usage = victim->Usage();
+			reply.gold_bank = victim->goldbank;
+			reply.exp = victim->exp;
+			reply.level = victim->level;
+			reply.map_id = victim->mapid;
+			reply.map_coords = Converters::BigCoordsFrom(victim->loc);
+			reply.stats = Converters::CharacterStatsInfoLookupFrom(victim);
+			reply.weight = Converters::WeightFrom(victim);
 			from->Send(reply);
 		}
 		else

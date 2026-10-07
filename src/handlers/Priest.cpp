@@ -96,7 +96,7 @@ void Priest_Open(Character *character, PacketReader &reader)
 static bool is_dressed(Character* character)
 {
 	std::string config_value = character->world->config[
-		(character->gender == GENDER_MALE) ? "WeddingOutfitMale" : "WeddingOutfitFemale"
+		(character->gender == protocol::Gender::Male) ? "WeddingOutfitMale" : "WeddingOutfitFemale"
 	];
 
 	if (config_value == "0")

@@ -10,11 +10,13 @@
 #include "../config.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
 
@@ -22,10 +24,10 @@ namespace Handlers
 {
 
 // Opened the jukebox listing
-void Jukebox_Open(Character *character, PacketReader &reader)
+void Jukebox_Open(Character* character, const client::JukeboxOpenClientPacket& packet)
 {
-	unsigned char x = reader.GetChar();
-	unsigned char y = reader.GetChar();
+	const unsigned char x = packet.coords.x;
+	const unsigned char y = packet.coords.y;
 
 	if (!character->InRange(x, y)
 	 || character->map->GetSpec(x, y) != emf::MapTileSpec::Jukebox)
@@ -33,12 +35,12 @@ void Jukebox_Open(Character *character, PacketReader &reader)
 		return;
 	}
 
-	PacketBuilder reply(PACKET_JUKEBOX, PACKET_OPEN, 14);
-	reply.AddShort(character->mapid);
+	server::JukeboxOpenServerPacket reply;
+	reply.map_id = character->mapid;
 
 	if (character->map->jukebox_protect > Timer::GetTime())
 	{
-		reply.AddString(character->map->jukebox_player);
+		reply.jukebox_player = character->map->jukebox_player;
 	}
 
 	character->jukebox_open = true;
@@ -47,22 +49,18 @@ void Jukebox_Open(Character *character, PacketReader &reader)
 }
 
 // Requested a song
-void Jukebox_Msg(Character *character, PacketReader &reader)
+void Jukebox_Msg(Character* character, const client::JukeboxMsgClientPacket& packet)
 {
 	if (character->trading) return;
 
-	reader.GetChar();
-	reader.GetChar();
-	short track = reader.GetShort();
+	const int track = packet.track_id;
 
 	if (!character->jukebox_open
 	 || character->map->jukebox_protect > Timer::GetTime()
 	 || (track < 0 || track > static_cast<int>(character->world->config["JukeboxSongs"]))
 	 || character->HasItem(1) < static_cast<int>(character->world->config["JukeboxPrice"]))
 	{
-        PacketBuilder reply(PACKET_JUKEBOX, PACKET_REPLY, 2);
-        reply.AddShort(1);
-        character->Send(reply);
+		character->Send(server::JukeboxReplyServerPacket());
 		return;
 	}
 
@@ -71,21 +69,18 @@ void Jukebox_Msg(Character *character, PacketReader &reader)
 	character->map->jukebox_player = character->SourceName();
 	character->map->jukebox_protect = Timer::GetTime() + static_cast<int>(character->world->config["JukeboxTimer"]);
 
-	PacketBuilder reply(PACKET_JUKEBOX, PACKET_AGREE, 4);
-	reply.AddInt(character->HasItem(1));
+	server::JukeboxAgreeServerPacket reply;
+	reply.gold_amount = character->HasItem(1);
 	character->Send(reply);
 
-	PacketBuilder builder(PACKET_JUKEBOX, PACKET_USE, 2);
-	builder.AddShort(track + 1);
-	std::for_each(UTIL_CRANGE(character->map->characters), [&](Character* c) { c->Send(builder); });
+	server::JukeboxUseServerPacket use;
+	use.track_id = track + 1;
+	character->map->SendToMap(use);
 }
 
 // Bard skill music
-void Jukebox_Use(Character *character, PacketReader &reader)
+void Jukebox_Use(Character* character, const client::JukeboxUseClientPacket& packet)
 {
-	/*unsigned char instrument = */reader.GetChar();
-	unsigned char note = reader.GetChar();
-
 	const auto& eif = character->world->eif;
 	const auto& esf = character->world->esf;
 
@@ -102,13 +97,13 @@ void Jukebox_Use(Character *character, PacketReader &reader)
 	if (!character->world->IsInstrument(instrument))
 		return;
 
-	character->PlayBard(instrument, note, false);
+	character->PlayBard(instrument, packet.note_id, false);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_JUKEBOX)
-	Register(PACKET_OPEN, Jukebox_Open, Playing);
-	Register(PACKET_MSG, Jukebox_Msg, Playing);
-	Register(PACKET_USE, Jukebox_Use, Playing);
+	Register(Jukebox_Open, Playing);
+	Register(Jukebox_Msg, Playing);
+	Register(Jukebox_Use, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_JUKEBOX)
 
 }

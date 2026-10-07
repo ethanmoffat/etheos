@@ -23,6 +23,8 @@
 #include <unordered_map>
 #include <utility>
 
+namespace protocol = eolib::protocol;
+
 Player::Player(const std::string& username)
 	: username(username)
 {
@@ -79,7 +81,7 @@ bool Player::ValidName(std::string username)
 	return true;
 }
 
-bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int haircolor, Skin race)
+bool Player::AddCharacter(std::string name, protocol::Gender gender, int hairstyle, int haircolor, int race)
 {
 	if (static_cast<int>(this->characters.size()) > static_cast<int>(this->world->config["MaxCharacters"]))
 	{
@@ -98,7 +100,7 @@ bool Player::AddCharacter(std::string name, Gender gender, int hairstyle, int ha
 	if (this->world->admin_count == 0 && this->world->config["FirstCharacterAdmin"])
 	{
 		Console::Out("%s has been given HGM admin status!", newchar->real_name.c_str());
-		newchar->admin = ADMIN_HGM;
+		newchar->admin = protocol::AdminLevel::GameMaster;
 		this->world->IncAdminCount();
 	}
 
@@ -112,9 +114,9 @@ void Player::NewCharacterOp()
 	this->char_op_id = this->world->GenerateOperationID([](const EOClient * c) { return c->player ? c->player->char_op_id : 0; });
 }
 
-AdminLevel Player::Admin() const
+protocol::AdminLevel Player::Admin() const
 {
-	AdminLevel admin = ADMIN_PLAYER;
+	protocol::AdminLevel admin = protocol::AdminLevel::Player;
 
 	for (const Character* c : this->characters)
 	{

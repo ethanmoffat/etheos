@@ -148,13 +148,9 @@ void Wedding::Tick()
 			}
 			else if (this->tick == 1)
 			{
-				PacketBuilder builder(PACKET_JUKEBOX, PACKET_PLAYER);
-				builder.AddChar(static_cast<unsigned char>(this->map->world->config["WeddingMusic"].GetInt()));
-
-				for (auto& character : this->map->characters)
-				{
-					character->Send(builder);
-				}
+				server::JukeboxPlayerServerPacket packet;
+				packet.mfx_id = this->map->world->config["WeddingMusic"].GetInt();
+				this->map->SendToMap(packet);
 			}
 			else if (this->tick == 20)
 			{

@@ -9,6 +9,7 @@
 
 #include <cstdio>
 
+namespace protocol = eolib::protocol;
 namespace client = eolib::protocol::net::client;
 namespace pub = eolib::protocol::pub;
 namespace server = eolib::protocol::net::server;
@@ -93,7 +94,7 @@ TEST_F(PaperdollTests, Request_Player_RepliesWithDetailsEquipmentAndIcon)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& requester = GivenCharacter(2, 2);
     PlayingCharacter& target = GivenCharacter(3, 2);
-    target.character->admin = ADMIN_GM;
+    target.character->admin = protocol::AdminLevel::Guardian;
     target.character->paperdoll[Character::Hat] = HatId;
 
     Handlers::Paperdoll_Request(requester.character, Request(target.character->PlayerID()));
@@ -102,7 +103,7 @@ TEST_F(PaperdollTests, Request_Player_RepliesWithDetailsEquipmentAndIcon)
     ASSERT_TRUE(reply);
     EXPECT_EQ(target.character->PlayerID(), static_cast<unsigned int>(reply->details.player_id));
     EXPECT_EQ(target.character->SourceName(), reply->details.name);
-    EXPECT_EQ(static_cast<eolib::protocol::AdminLevel>(ADMIN_GM), reply->details.admin);
+    EXPECT_EQ(protocol::AdminLevel::Guardian, reply->details.admin);
     EXPECT_EQ(HatId, reply->equipment.hat);
     EXPECT_EQ(server::CharacterIcon::Gm, reply->icon);
 }
@@ -112,14 +113,14 @@ TEST_F(PaperdollTests, Request_HiddenAdmin_ShownAsPlayer)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& requester = GivenCharacter(2, 2);
     PlayingCharacter& target = GivenCharacter(3, 2);
-    target.character->admin = ADMIN_HGM;
+    target.character->admin = protocol::AdminLevel::GameMaster;
     target.character->hidden = Character::HideAdmin;
 
     Handlers::Paperdoll_Request(requester.character, Request(target.character->PlayerID()));
 
     const auto reply = LastSent<server::PaperdollReplyServerPacket>(requester);
     ASSERT_TRUE(reply);
-    EXPECT_EQ(eolib::protocol::AdminLevel::Player, reply->details.admin);
+    EXPECT_EQ(protocol::AdminLevel::Player, reply->details.admin);
     EXPECT_EQ(server::CharacterIcon::Player, reply->icon);
 }
 

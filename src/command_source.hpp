@@ -17,8 +17,8 @@
 class Command_Source
 {
 	public:
-		virtual AdminLevel SourceAccess() const = 0;
-		virtual AdminLevel SourceDutyAccess() const = 0;
+		virtual eolib::protocol::AdminLevel SourceAccess() const = 0;
+		virtual eolib::protocol::AdminLevel SourceDutyAccess() const = 0;
 		virtual std::string SourceName() const = 0;
 		virtual Character* SourceCharacter() = 0;
 		virtual World* SourceWorld() = 0;
@@ -37,8 +37,8 @@ class System_Command_Source : public Command_Source
 	public:
 		System_Command_Source(World* world);
 
-		AdminLevel SourceAccess() const;
-		AdminLevel SourceDutyAccess() const;
+		eolib::protocol::AdminLevel SourceAccess() const;
+		eolib::protocol::AdminLevel SourceDutyAccess() const;
 		std::string SourceName() const;
 		Character* SourceCharacter();
 		World* SourceWorld();

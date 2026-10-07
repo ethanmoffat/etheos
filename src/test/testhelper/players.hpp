@@ -5,6 +5,7 @@
 #include "player.hpp"
 #include "world.hpp"
 
+#include <ctime>
 #include <memory>
 #include <string>
 
@@ -49,17 +50,20 @@ public:
         character->nointeract = 0;
         character->hp = character->maxhp = 0;
         character->tp = character->maxtp = 0;
-        character->gender = GENDER_FEMALE;
+        character->gender = eolib::protocol::Gender::Female;
         character->hairstyle = 1;
         character->haircolor = 0;
-        character->race = SKIN_WHITE;
-        character->admin = ADMIN_PLAYER;
+        character->race = 0;
+        character->admin = eolib::protocol::AdminLevel::Player;
         character->party = nullptr;
         character->arena = nullptr;
         character->next_arena = nullptr;
         character->arena_kills = 0;
         character->trading = false;
         character->trade_partner = nullptr;
+        character->party_trust_send = nullptr;
+        character->party_trust_recv = nullptr;
+        character->muted_until = 0;
         character->npc = nullptr;
         character->board = nullptr;
         character->spell_event = nullptr;
@@ -75,6 +79,7 @@ public:
         character->trade_agree = false;
         character->jukebox_open = false;
         character->usage = 0;
+        character->login_time = static_cast<int>(std::time(nullptr));
         character->bankmax = 0;
         character->goldbank = 0;
         character->mindam = character->maxdam = 0;

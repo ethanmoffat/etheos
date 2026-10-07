@@ -297,9 +297,13 @@ set(TestFiles
 	src/test/socket_test.cpp
 	src/test/worlddump_test.cpp
 	src/test/commands/debug_test.cpp
+	src/test/commands/info_test.cpp
 	src/test/handlers/Account_test.cpp
+	src/test/handlers/AdminInteract_test.cpp
 	src/test/handlers/Attack_test.cpp
 	src/test/handlers/Bank_test.cpp
+	src/test/handlers/Board_test.cpp
+	src/test/handlers/Book_test.cpp
 	src/test/handlers/Chair_test.cpp
 	src/test/handlers/Chest_test.cpp
 	src/test/handlers/Character_test.cpp
@@ -307,16 +311,22 @@ set(TestFiles
 	src/test/handlers/Door_test.cpp
 	src/test/handlers/Emote_test.cpp
 	src/test/handlers/Face_test.cpp
+	src/test/handlers/Global_test.cpp
 	src/test/handlers/Init_test.cpp
 	src/test/handlers/Item_test.cpp
+	src/test/handlers/Jukebox_test.cpp
 	src/test/handlers/Locker_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Message_test.cpp
 	src/test/handlers/Paperdoll_test.cpp
+	src/test/handlers/Party_test.cpp
+	src/test/handlers/Players_test.cpp
 	src/test/handlers/Refresh_test.cpp
 	src/test/handlers/Shop_test.cpp
 	src/test/handlers/Sit_test.cpp
 	src/test/handlers/Spell_test.cpp
 	src/test/handlers/StatSkill_test.cpp
+	src/test/handlers/Talk_test.cpp
 	src/test/handlers/Trade_test.cpp
 	src/test/handlers/Walk_test.cpp
 	src/test/handlers/Warp_test.cpp

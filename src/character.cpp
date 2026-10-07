@@ -44,6 +44,7 @@
 #include <utility>
 #include <vector>
 
+namespace protocol = eolib::protocol;
 namespace pub = eolib::protocol::pub;
 namespace server = eolib::protocol::net::server;
 
@@ -65,7 +66,7 @@ void character_cast_spell(void *character_void)
 		character->spell_ready = true;
 }
 
-std::string ItemSerialize(const std::list<Character_Item> &list)
+std::string ItemSerialize(const std::list<protocol::net::Item> &list)
 {
 	std::string serialized;
 
@@ -80,9 +81,9 @@ std::string ItemSerialize(const std::list<Character_Item> &list)
 	return serialized;
 }
 
-std::list<Character_Item> ItemUnserialize(const std::string& serialized)
+std::list<protocol::net::Item> ItemUnserialize(const std::string& serialized)
 {
-	std::list<Character_Item> list;
+	std::list<protocol::net::Item> list;
 
 	std::vector<std::string> parts = util::explode(';', serialized);
 
@@ -104,7 +105,7 @@ std::list<Character_Item> ItemUnserialize(const std::string& serialized)
 			continue;
 		}
 
-		Character_Item newitem;
+		protocol::net::Item newitem;
 		newitem.id = id;
 		newitem.amount = amount;
 
@@ -403,7 +404,7 @@ Character::Character(std::string name, World *world, Database *database)
 	this->nowhere = false;
 	this->id = this->world->GenerateCharacterID();
 
-	this->admin = static_cast<AdminLevel>(GetRow<int>(row, "admin"));
+	this->admin = static_cast<protocol::AdminLevel>(GetRow<int>(row, "admin"));
 	this->real_name = GetRow<std::string>(row, "name");
 	this->title = GetRow<std::string>(row, "title");
 	this->home = GetRow<std::string>(row, "home");
@@ -411,8 +412,8 @@ Character::Character(std::string name, World *world, Database *database)
 	this->partner = GetRow<std::string>(row, "partner");
 
 	this->clas = GetRow<int>(row, "class");
-	this->gender = static_cast<Gender>(GetRow<int>(row, "gender"));
-	this->race = static_cast<Skin>(GetRow<int>(row, "race"));
+	this->gender = static_cast<protocol::Gender>(GetRow<int>(row, "gender"));
+	this->race = GetRow<int>(row, "race");
 	this->hairstyle = GetRow<int>(row, "hairstyle");
 	this->haircolor = GetRow<int>(row, "haircolor");
 
@@ -514,7 +515,7 @@ Character::Character(std::string name, World *world, Database *database)
 
 	this->nointeract = GetRow<int>(row, "nointeract");
 
-	if (this->admin >= static_cast<int>(world->config["NoInteractDefaultAdmin"]) && !(this->nointeract & NoInteractCustom))
+	if (this->admin >= static_cast<protocol::AdminLevel>(world->config["NoInteractDefaultAdmin"].GetInt()) && !(this->nointeract & NoInteractCustom))
 	{
 		this->nointeract = static_cast<int>(world->config["NoInteractDefault"]);
 	}
@@ -589,28 +590,28 @@ void Character::Msg(Character *from, std::string message)
 	from->AddChatLog("!", "to " + this->SourceName(), message);
 	this->AddChatLog("!", "from " + from->SourceName(), message);
 
-	PacketBuilder builder(PACKET_TALK, PACKET_TELL, 2 + from->SourceName().length() + message.length());
-	builder.AddBreakString(from->SourceName());
-	builder.AddBreakString(message);
-	this->Send(builder);
+	server::TalkTellServerPacket packet;
+	packet.player_name = from->SourceName();
+	packet.message = message;
+	this->Send(packet);
 }
 
 void Character::ServerMsg(std::string message)
 {
 	message = util::text_cap(message, static_cast<int>(this->world->config["ChatMaxWidth"]) - util::text_width("Server  "));
 
-	PacketBuilder builder(PACKET_TALK, PACKET_SERVER, message.length());
-	builder.AddString(message);
-	this->Send(builder);
+	server::TalkServerServerPacket packet;
+	packet.message = message;
+	this->Send(packet);
 }
 
 void Character::StatusMsg(std::string message)
 {
 	message = util::text_cap(message, static_cast<int>(this->world->config["ChatMaxWidth"]));
 
-	PacketBuilder builder(PACKET_MESSAGE, PACKET_OPEN, message.length());
-	builder.AddString(message);
-	this->Send(builder);
+	server::MessageOpenServerPacket packet;
+	packet.message = message;
+	this->Send(packet);
 }
 
 Map::WalkResult Character::Walk(Direction direction)
@@ -657,27 +658,18 @@ void Character::Effect(int effect, bool echo)
 
 void Character::PlayBard(unsigned char instrument, unsigned char note, bool echo )
 {
-	PacketBuilder builder(PACKET_JUKEBOX, PACKET_MSG, 5);
+	server::JukeboxMsgServerPacket packet;
+	packet.player_id = this->PlayerID();
+	packet.direction = this->direction;
+	packet.instrument_id = instrument;
+	packet.note_id = note;
 
-	builder.AddShort(this->PlayerID());
-	builder.AddChar(static_cast<int>(this->direction));
-	builder.AddChar(instrument);
-	builder.AddChar(note);
-
-	UTIL_FOREACH(this->map->characters, character)
-	{
-		if (!echo && (character == this || !this->InRange(character)))
-		{
-			continue;
-		}
-
-		character->Send(builder);
-	}
+	this->map->SendToNearby(this, packet, echo);
 }
 
 bool Character::HasKey(int key)
 {
-	return std::any_of(this->inventory.begin(), this->inventory.end(), [&](const Character_Item& item)
+	return std::any_of(this->inventory.begin(), this->inventory.end(), [&](const protocol::net::Item& item)
 	{
 		const pub::EifRecord& item_record = this->world->eif->Get(item.id);
 		return item_record.type == pub::ItemType::Key && AsKey(item_record).key == key && this->HasItem(item.id) > 0;
@@ -763,7 +755,7 @@ bool Character::AddItem(short item, int amount)
 		}
 	}
 
-	Character_Item newitem;
+	protocol::net::Item newitem;
 	newitem.id = item;
 	newitem.amount = amount;
 
@@ -803,7 +795,7 @@ bool Character::DelItem(short item, int amount)
 	return false;
 }
 
-std::list<Character_Item>::iterator Character::DelItem(std::list<Character_Item>::iterator it, int amount)
+std::list<protocol::net::Item>::iterator Character::DelItem(std::list<protocol::net::Item>::iterator it, int amount)
 {
 	if (amount <= 0)
 	{
@@ -829,8 +821,7 @@ int Character::CanHoldItem(short itemid, int max_amount)
 {
 	int amount = max_amount;
 
-	if (int(this->world->config["EnforceWeight"]) >= 2
-	 && SourceDutyAccess() < static_cast<int>(world->admin_config["unlimitedweight"]))
+	if (int(this->world->config["EnforceWeight"]) >= 2 && SourceDutyAccess() < world->AdminLevelSetting("unlimitedweight"))
 	{
 		const pub::EifRecord* item;
 
@@ -896,7 +887,7 @@ bool Character::AddTradeItem(short item, int amount)
 		}
 	}
 
-	Character_Item newitem;
+	protocol::net::Item newitem;
 	newitem.id = item;
 	newitem.amount = amount;
 
@@ -908,7 +899,7 @@ bool Character::AddTradeItem(short item, int amount)
 
 bool Character::DelTradeItem(short item)
 {
-	for (std::list<Character_Item>::iterator it = this->trade_inventory.begin(); it != this->trade_inventory.end(); ++it)
+	for (std::list<protocol::net::Item>::iterator it = this->trade_inventory.begin(); it != this->trade_inventory.end(); ++it)
 	{
 		if (it->id == item)
 		{
@@ -1333,11 +1324,9 @@ void Character::ShowBoard(Board *board)
 		board = this->board;
 	}
 
-	const int date_res = (this->world->config["BoardDatePosts"]) ? 17 : 0;
-
-	PacketBuilder builder(PACKET_BOARD, PACKET_OPEN, 2 + board->posts.size() * (17 + int(this->world->config["BoardMaxSubjectLength"]) + date_res));
-	builder.AddChar(board->id + 1);
-	builder.AddChar(static_cast<unsigned char>(board->posts.size()));
+	server::BoardOpenServerPacket packet;
+	packet.board_id = board->id + 1;
+	packet.posts.reserve(board->posts.size());
 
 	int post_count = 0;
 	int recent_post_count = 0;
@@ -1359,8 +1348,8 @@ void Character::ShowBoard(Board *board)
 
 	UTIL_FOREACH(board->posts, post)
 	{
-		builder.AddShort(post->id);
-		builder.AddByte(255);
+		server::BoardPostListing& listing = packet.posts.emplace_back();
+		listing.post_id = post->id;
 
 		std::string author_extra;
 
@@ -1369,7 +1358,7 @@ void Character::ShowBoard(Board *board)
 			author_extra = " ";
 		}
 
-		builder.AddBreakString(post->author + author_extra);
+		listing.author = post->author + author_extra;
 
 		std::string subject_extra;
 
@@ -1378,10 +1367,10 @@ void Character::ShowBoard(Board *board)
 			subject_extra = " (" + util::timeago(post->time, Timer::GetTime()) + ")";
 		}
 
-		builder.AddBreakString(post->subject + subject_extra);
+		listing.subject = post->subject + subject_extra;
 	}
 
-	this->Send(builder);
+	this->Send(packet);
 }
 
 std::string Character::PaddedGuildTag()
@@ -1538,7 +1527,7 @@ void Character::CalculateStats(bool trigger_quests)
 		this->Send(recover_packet);
 	}
 
-	if (this->SourceDutyAccess() >= static_cast<int>(world->admin_config["unlimitedweight"]))
+	if (this->SourceDutyAccess() >= world->AdminLevelSetting("unlimitedweight"))
 	{
 		this->weight = 0;
 		this->maxweight = 251;
@@ -1589,7 +1578,7 @@ void Character::DropAll(Character *killer)
 {
 	if (!CanInteractItems()) return;
 
-	std::list<Character_Item>::iterator it = this->inventory.begin();
+	std::list<protocol::net::Item>::iterator it = this->inventory.begin();
 
 	while (it != this->inventory.end())
 	{
@@ -1693,13 +1682,9 @@ void Character::Hide(int setflags)
 
 	if (!washidden && (setflags & HideInvisible))
 	{
-		PacketBuilder builder(PACKET_ADMININTERACT, PACKET_REMOVE, 2);
-		builder.AddShort(this->PlayerID());
-
-		UTIL_FOREACH(this->map->characters, character)
-		{
-			character->Send(builder);
-		}
+		server::AdminInteractRemoveServerPacket packet;
+		packet.player_id = this->PlayerID();
+		this->map->SendToMap(packet);
 	}
 }
 
@@ -1710,13 +1695,9 @@ void Character::Unhide(int unsetflags)
 
 	if (washidden && (unsetflags & HideInvisible))
 	{
-		PacketBuilder builder(PACKET_ADMININTERACT, PACKET_AGREE, 2);
-		builder.AddShort(this->PlayerID());
-
-		UTIL_FOREACH(this->map->characters, character)
-		{
-			character->Send(builder);
-		}
+		server::AdminInteractAgreeServerPacket packet;
+		packet.player_id = this->PlayerID();
+		this->map->SendToMap(packet);
 	}
 }
 
@@ -1814,16 +1795,16 @@ void Character::DeathRespawn()
 void Character::Mute(const Command_Source *by)
 {
 	this->muted_until = static_cast<int>(time(0)) + int(this->world->config["MuteLength"]);
-	PacketBuilder builder(PACKET_TALK, PACKET_SPEC, by->SourceName().length());
-	builder.AddString(by->SourceName());
-	this->Send(builder);
+	server::TalkSpecServerPacket packet;
+	packet.admin_name = by->SourceName();
+	this->Send(packet);
 }
 
 void Character::PlaySound(unsigned char id)
 {
-	PacketBuilder builder(PACKET_MUSIC, PACKET_PLAYER, 1);
-	builder.AddChar(id);
-	this->Send(builder);
+	server::MusicPlayerServerPacket packet;
+	packet.sound_id = id;
+	this->Send(packet);
 }
 
 #define v(x) vars[prefix + #x] = x;
@@ -1836,8 +1817,8 @@ void Character::FormulaVars(std::unordered_map<std::string, double> &vars, std::
 	vv(adj_str, "str") vv(adj_intl, "int") vv(adj_wis, "wis") vv(adj_agi, "agi") vv(adj_con, "con") vv(adj_cha, "cha")
 	vv(str, "base_str") vv(intl, "base_int") vv(wis, "base_wis") vv(agi, "base_agi") vv(con, "base_con") vv(cha, "base_cha")
 	v(display_str) vv(display_intl, "display_int") v(display_wis) v(display_agi) v(display_con) v(display_cha)
-	v(accuracy) v(evade) v(armor) v(admin) v(bot) v(usage)
-	vv(clas, "class") v(gender) v(race) v(hairstyle) v(haircolor)
+	v(accuracy) v(evade) v(armor) vv(static_cast<int>(admin), "admin") v(bot) v(usage)
+	vv(clas, "class") vv(static_cast<int>(gender), "gender") v(race) v(hairstyle) v(haircolor)
 	v(mapid) vv(loc.x, "x") vv(loc.y, "y") vv(static_cast<int>(direction), "direction") vv(static_cast<int>(sitting), "sitting") v(hidden) v(whispers) v(goldbank)
 	v(statpoints) v(skillpoints)
 }
@@ -2059,10 +2040,10 @@ void Character::ShowInfoBox(const std::string& title, const std::vector<std::str
 
 void Character::ShowInfoBox(const std::string& title, const std::string& content)
 {
-	PacketBuilder builder(PACKET_MESSAGE, PACKET_ACCEPT, 2 + title.length() + content.length());
-	builder.AddBreakString(title);
-	builder.AddString(content);
-	this->Send(builder);
+	// The protocol has exactly 4 strings; etheos only uses the title and content
+	server::MessageAcceptServerPacket packet;
+	packet.messages = {title, content, "", ""};
+	this->Send(packet);
 }
 
 void Character::Logout()
@@ -2154,12 +2135,12 @@ void Character::Save()
 		this->guild_rank, this->guild_rank_string.c_str(), quest_data.c_str(), "", this->real_name.c_str());
 }
 
-AdminLevel Character::SourceAccess() const
+protocol::AdminLevel Character::SourceAccess() const
 {
 	return world->config["UseDutyAdmin"] ? player->Admin() : admin;
 }
 
-AdminLevel Character::SourceDutyAccess() const
+protocol::AdminLevel Character::SourceDutyAccess() const
 {
 	return admin;
 }

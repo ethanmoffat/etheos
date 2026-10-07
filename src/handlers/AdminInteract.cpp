@@ -11,20 +11,22 @@
 #include "../i18n.hpp"
 #include "../world.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+
 #include <string>
 
 namespace Handlers
 {
 
 // "Talk to admin" message
-void AdminInteract_Tell(Character *character, PacketReader &reader)
+void AdminInteract_Tell(Character* character, const client::AdminInteractTellClientPacket& packet)
 {
-	std::string message = reader.GetEndString();
+	std::string message = packet.message;
 
 	if (character->world->config["OldReports"])
 	{
 		message = character->world->i18n.Format("admin_request", message);
-		character->world->AdminMsg(character, message, static_cast<int>(character->world->admin_config["reports"]));
+		character->world->AdminMsg(character, message, character->world->AdminLevelSetting("reports"));
 	}
 	else
 	{
@@ -33,15 +35,15 @@ void AdminInteract_Tell(Character *character, PacketReader &reader)
 }
 
 // User report
-void AdminInteract_Report(Character *character, PacketReader &reader)
+void AdminInteract_Report(Character* character, const client::AdminInteractReportClientPacket& packet)
 {
-	std::string reportee = reader.GetBreakString();
-	std::string message = reader.GetEndString();
+	const std::string& reportee = packet.reportee;
+	std::string message = packet.message;
 
 	if (character->world->config["OldReports"])
 	{
 		message = character->world->i18n.Format("admin_report", reportee, message);
-		character->world->AdminMsg(character, message, static_cast<int>(character->world->admin_config["reports"]));
+		character->world->AdminMsg(character, message, character->world->AdminLevelSetting("reports"));
 	}
 	else
 	{
@@ -50,8 +52,8 @@ void AdminInteract_Report(Character *character, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_ADMININTERACT)
-	Register(PACKET_TELL, AdminInteract_Tell, Playing | OutOfBand);
-	Register(PACKET_REPORT, AdminInteract_Report, Playing | OutOfBand);
+	Register(AdminInteract_Tell, Playing | OutOfBand);
+	Register(AdminInteract_Report, Playing | OutOfBand);
 PACKET_HANDLER_REGISTER_END(PACKET_ADMININTERACT)
 
 }

@@ -56,7 +56,7 @@ void Locker_Add(Character* character, const client::LockerAddClientPacket& packe
 
 	const int max_bank = static_cast<int>(character->world->config["MaxBank"]);
 
-	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const Character_Item& item) { return item.id == item_id; });
+	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const net::Item& item) { return item.id == item_id; });
 
 	if (it != character->bank.end())
 	{
@@ -86,7 +86,7 @@ void Locker_Add(Character* character, const client::LockerAddClientPacket& packe
 
 	amount = std::min(amount, max_bank);
 
-	Character_Item new_item;
+	net::Item new_item;
 	new_item.id = item_id;
 	new_item.amount = amount;
 	character->bank.push_back(new_item);
@@ -105,7 +105,7 @@ void Locker_Take(Character* character, const client::LockerTakeClientPacket& pac
 		return;
 
 	const int item_id = packet.take_item_id;
-	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const Character_Item& item) { return item.id == item_id; });
+	auto it = std::find_if(character->bank.begin(), character->bank.end(), [&](const net::Item& item) { return item.id == item_id; });
 
 	if (it == character->bank.end())
 		return;

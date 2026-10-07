@@ -24,14 +24,7 @@ static server::TradeItemData TradeItemDataFrom(const Character* character)
 {
 	server::TradeItemData data;
 	data.player_id = character->PlayerID();
-	data.items.reserve(character->trade_inventory.size());
-
-	for (const Character_Item& item : character->trade_inventory)
-	{
-		eolib::protocol::net::Item& net_item = data.items.emplace_back();
-		net_item.id = item.id;
-		net_item.amount = item.amount;
-	}
+	data.items.assign(character->trade_inventory.begin(), character->trade_inventory.end());
 
 	return data;
 }
@@ -174,13 +167,13 @@ void Trade_Agree(Character* character, const client::TradeAgreeClientPacket& pac
 	server::TradeUseServerPacket use;
 	use.trade_data = {TradeItemDataFrom(partner), TradeItemDataFrom(character)};
 
-	for (const Character_Item& item : partner->trade_inventory)
+	for (const net::Item& item : partner->trade_inventory)
 	{
 		partner->DelItem(item.id, item.amount);
 		character->AddItem(item.id, item.amount);
 	}
 
-	for (const Character_Item& item : character->trade_inventory)
+	for (const net::Item& item : character->trade_inventory)
 	{
 		character->DelItem(item.id, item.amount);
 		partner->AddItem(item.id, item.amount);
@@ -218,7 +211,7 @@ void Trade_Add(Character* character, const client::TradeAddClientPacket& packet)
 		return;
 
 	const bool offered = std::any_of(character->trade_inventory.begin(), character->trade_inventory.end(),
-		[&](const Character_Item& item) { return item.id == item_id; });
+		[&](const net::Item& item) { return item.id == item_id; });
 
 	if (!offered && character->trade_inventory.size() >= 10)
 		return;

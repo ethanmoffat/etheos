@@ -8,35 +8,35 @@
 
 #include "../character.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../party.hpp"
 #include "../world.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 namespace Handlers
 {
 
 // Invite/Join request
-void Party_Request(Character *character, PacketReader &reader)
+void Party_Request(Character* character, const client::PartyRequestClientPacket& packet)
 {
-	PartyRequestType type = static_cast<PartyRequestType>(reader.GetChar());
-	unsigned short invitee_id = reader.GetShort();
+	const PartyRequestType type = packet.request_type;
 
-	if (type != PARTY_REQUEST_JOIN && type != PARTY_REQUEST_INVITE)
+	if (type != PartyRequestType::Join && type != PartyRequestType::Invite)
 	{
 		return;
 	}
 
-	Character *invitee = character->map->GetCharacterPID(invitee_id);
+	Character *invitee = character->map->GetCharacterPID(packet.player_id);
 
 	if (!invitee || character == invitee || !character->InRange(invitee))
 		return;
 
-	PacketBuilder builder(PACKET_PARTY, PACKET_REQUEST, 3 + character->SourceName().length());
-	builder.AddChar(type);
-	builder.AddShort(character->PlayerID());
-	builder.AddString(character->SourceName());
-
-	invitee->Send(builder);
+	server::PartyRequestServerPacket request;
+	request.request_type = type;
+	request.inviter_player_id = character->PlayerID();
+	request.player_name = character->SourceName();
+	invitee->Send(request);
 
 	character->party_trust_send = invitee;
 	invitee->party_trust_recv = character;
@@ -44,14 +44,9 @@ void Party_Request(Character *character, PacketReader &reader)
 }
 
 // Accept invite/join request
-void Party_Accept(Character *character, PacketReader &reader)
+void Party_Accept(Character* character, const client::PartyAcceptClientPacket& packet)
 {
-	PartyRequestType type = static_cast<PartyRequestType>(reader.GetChar());
-	unsigned short inviter_id = reader.GetShort();
-
-	(void)type;
-
-	Character *inviter = character->map->GetCharacterPID(inviter_id);
+	Character *inviter = character->map->GetCharacterPID(packet.inviter_player_id);
 
 	if (!inviter || !character->InRange(inviter)
 	 || inviter->party_trust_send != character
@@ -60,7 +55,7 @@ void Party_Accept(Character *character, PacketReader &reader)
 		return;
 	}
 
-	if (inviter->party_send_type == PARTY_REQUEST_JOIN)
+	if (inviter->party_send_type == PartyRequestType::Join)
 	{
 		if (inviter->party)
 		{
@@ -76,7 +71,7 @@ void Party_Accept(Character *character, PacketReader &reader)
 			character->party->Join(inviter);
 		}
 	}
-	else if (inviter->party_send_type == PARTY_REQUEST_INVITE)
+	else if (inviter->party_send_type == PartyRequestType::Invite)
 	{
 		if (character->party)
 		{
@@ -98,11 +93,11 @@ void Party_Accept(Character *character, PacketReader &reader)
 }
 
 // Remove a player from a party
-void Packet_Remove(Character *character, PacketReader &reader)
+void Party_Remove(Character* character, const client::PartyRemoveClientPacket& packet)
 {
 	if (!character->party) return;
 
-	unsigned short id = reader.GetShort();
+	const unsigned int id = packet.player_id;
 
 	if (id == character->PlayerID() || character == character->party->leader)
 	{
@@ -120,20 +115,18 @@ void Packet_Remove(Character *character, PacketReader &reader)
 }
 
 // Requested list of party members
-void Party_Take(Character *character, PacketReader &reader)
+void Party_Take(Character* character, const client::PartyTakeClientPacket&)
 {
-	(void)reader;
-
 	if (!character->party) return;
 
 	character->party->RefreshMembers(character);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_PARTY)
-	Register(PACKET_REQUEST, Party_Request, Playing, 0.5);
-	Register(PACKET_ACCEPT, Party_Accept, Playing);
-	Register(PACKET_REMOVE, Packet_Remove, Playing);
-	Register(PACKET_TAKE, Party_Take, Playing);
+	Register(Party_Request, Playing, 0.5);
+	Register(Party_Accept, Playing);
+	Register(Party_Remove, Playing);
+	Register(Party_Take, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_PARTY)
 
 }

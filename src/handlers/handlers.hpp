@@ -39,6 +39,7 @@ namespace { struct PACKET_HANDLER_PASTE_AUX(packet_handler_register_helper_, fam
 namespace Handlers
 {
 
+namespace protocol = eolib::protocol;
 namespace net = eolib::protocol::net;
 namespace client = eolib::protocol::net::client;
 namespace server = eolib::protocol::net::server;
