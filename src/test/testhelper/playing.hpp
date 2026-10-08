@@ -220,4 +220,21 @@ protected:
 
         return std::nullopt;
     }
+
+    // Gets every packet of the given type that was sent to a character, oldest first
+    template <typename TPacket> static std::vector<TPacket> AllSent(const PlayingCharacter& entry)
+    {
+        std::vector<TPacket> packets;
+
+        for (const SentPacket& sent : entry.sent)
+        {
+            if (sent.family != TPacket::FAMILY || sent.action != TPacket::ACTION)
+                continue;
+
+            eolib::data::EoReader reader(sent.payload);
+            packets.emplace_back().Deserialize(reader);
+        }
+
+        return packets;
+    }
 };

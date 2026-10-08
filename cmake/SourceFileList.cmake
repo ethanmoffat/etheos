@@ -314,6 +314,7 @@ set(TestFiles
 	src/test/handlers/Emote_test.cpp
 	src/test/handlers/Face_test.cpp
 	src/test/handlers/Global_test.cpp
+	src/test/handlers/Guild_test.cpp
 	src/test/handlers/Init_test.cpp
 	src/test/handlers/Item_test.cpp
 	src/test/handlers/Jukebox_test.cpp

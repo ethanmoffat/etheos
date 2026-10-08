@@ -10,7 +10,6 @@
 #include "config.hpp"
 #include "eoclient.hpp"
 #include "eoserver.hpp"
-#include "packet.hpp"
 #include "player.hpp"
 #include "world.hpp"
 
@@ -355,14 +354,12 @@ void Guild::AddMember(Character *joined, Character *recruiter, bool alert, int r
 
 	if (recruiter != joined) // Leader of new guild
 	{
-		PacketBuilder builder(PACKET_GUILD, PACKET_AGREE, 9 + this->name.length() + joined->guild_rank_string.length());
-		builder.AddShort(recruiter->PlayerID());
-		builder.AddByte(255);
-		builder.AddBreakString(this->tag);
-		builder.AddBreakString(this->name);
-		builder.AddBreakString(joined->guild_rank_string);
-		builder.AddByte(255);
-		joined->Send(builder);
+		server::GuildAgreeServerPacket packet;
+		packet.recruiter_id = recruiter->PlayerID();
+		packet.guild_tag = this->tag;
+		packet.guild_name = this->name;
+		packet.rank_name = joined->guild_rank_string;
+		joined->Send(packet);
 	}
 
 	if (alert && this->manager->world->config["GuildAnnounce"])
