@@ -1,6 +1,7 @@
 #include "../testhelper/mocks.hpp"
 #include "../testhelper/packets.hpp"
 #include "../testhelper/setup.hpp"
+#include "../testhelper/threads.hpp"
 
 // include the CPP file with the Login functions in it for testing
 #include "../../handlers/Login.cpp"
@@ -8,6 +9,7 @@
 #include "console.hpp"
 #include "extra/seose_compat.hpp"
 #include "util/async.hpp"
+#include "util/affinity.hpp"
 #include "util/dispatcher.hpp"
 
 namespace net = eolib::protocol::net;
@@ -483,5 +485,27 @@ GTEST_TEST(LoginTests, Request_DatabaseThrows_ClosesClientAndClearsPendingLogin)
     WaitForAsyncOperation(client);
 
     EXPECT_FALSE(util::AsyncKeys::IsPending(client.Serial()));
+    EXPECT_FALSE(server.world->GetPendingLogin("testuser"));
+}
+
+GTEST_TEST(LoginTests, PendingLogin_OtherThread_ThrowsThreadAffinityViolation)
+{
+    Console::SuppressOutput(true);
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, false);
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+
+    auto setThrown = RunOffMainThread([&server]() { server.world->SetPendingLogin("testuser", true); });
+    auto getThrown = RunOffMainThread([&server]() { server.world->GetPendingLogin("testuser"); });
+
+    ASSERT_TRUE(setThrown != nullptr);
+    ASSERT_TRUE(getThrown != nullptr);
+    EXPECT_THROW(std::rethrow_exception(setThrown), util::ThreadAffinityViolation);
+    EXPECT_THROW(std::rethrow_exception(getThrown), util::ThreadAffinityViolation);
     EXPECT_FALSE(server.world->GetPendingLogin("testuser"));
 }

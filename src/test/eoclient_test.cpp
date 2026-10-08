@@ -1,12 +1,15 @@
 #include "testhelper/mocks.hpp"
 #include "testhelper/setup.hpp"
+#include "testhelper/threads.hpp"
 
 #include "console.hpp"
 #include "eoclient.hpp"
 #include "packet.hpp"
+#include "util/affinity.hpp"
 #include "world.hpp"
 
 #include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -390,4 +393,15 @@ TEST_F(EOClientRecvTests, Tick_PacketSplitAcrossTicks_QueuesOnceComplete)
     EXPECT_EQ(1u, client->queue.Size());
     EXPECT_TRUE(client->length_bytes.empty());
     EXPECT_TRUE(client->data.empty());
+}
+
+TEST_F(EOClientRecvTests, Send_OtherThread_ThrowsThreadAffinityViolation)
+{
+    Start(38144);
+
+    auto thrown = RunOffMainThread([this]() { client->Send(eolib::protocol::net::server::LoginReplyServerPacket::ForLoggedIn()); });
+
+    ASSERT_TRUE(thrown != nullptr);
+    EXPECT_THROW(std::rethrow_exception(thrown), util::ThreadAffinityViolation);
+    EXPECT_FALSE(peer->Select(0.1));
 }

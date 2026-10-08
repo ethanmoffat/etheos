@@ -1,5 +1,8 @@
 #include "util/async.hpp"
+#include "util/affinity.hpp"
 #include "util/dispatcher.hpp"
+
+#include "../testhelper/threads.hpp"
 
 #include <gtest/gtest.h>
 
@@ -150,7 +153,7 @@ GTEST_TEST(AsyncOperationTests, Execute_CallbackThrows_ReportsOnceAndSkipsRemain
         ->Execute(std::make_shared<int>(0));
 
     WaitForWork(workDone);
-    util::Dispatcher::Invoke([&laterActionRan]() { laterActionRan = true; });
+    std::thread([&laterActionRan]() { util::Dispatcher::Invoke([&laterActionRan]() { laterActionRan = true; }); }).join();
 
     EXPECT_NO_THROW(util::Dispatcher::RunPending());
 
@@ -188,7 +191,7 @@ GTEST_TEST(AsyncOperationTests, Execute_CompleteCallbacksThrow_ReportsEachAndRun
         ->Execute(std::make_shared<int>(0));
 
     WaitForWork(workDone);
-    util::Dispatcher::Invoke([&laterActionRan]() { laterActionRan = true; });
+    std::thread([&laterActionRan]() { util::Dispatcher::Invoke([&laterActionRan]() { laterActionRan = true; }); }).join();
 
     EXPECT_NO_THROW(util::Dispatcher::RunPending());
 
@@ -293,4 +296,24 @@ GTEST_TEST(AsyncOperationTests, FromResult_RunsCallbacksInline)
     EXPECT_EQ(&context, failureContext);
     EXPECT_TRUE(completed);
     EXPECT_FALSE(util::AsyncKeys::IsPending(TestKey));
+}
+
+GTEST_TEST(AsyncOperationTests, Execute_OtherThread_ThrowsThreadAffinityViolation)
+{
+    TestContext context{TestKey, {}};
+    auto operation = TestOperation::Create(&context, [](std::shared_ptr<int>) { return true; }, true);
+
+    auto thrown = RunOffMainThread([&operation]() { operation->Execute(std::make_shared<int>(0)); });
+
+    ASSERT_TRUE(thrown != nullptr);
+    EXPECT_THROW(std::rethrow_exception(thrown), util::ThreadAffinityViolation);
+    EXPECT_FALSE(util::AsyncKeys::IsPending(TestKey));
+}
+
+GTEST_TEST(AsyncKeysTests, IsPending_OtherThread_ThrowsThreadAffinityViolation)
+{
+    auto thrown = RunOffMainThread([]() { util::AsyncKeys::IsPending(TestKey); });
+
+    ASSERT_TRUE(thrown != nullptr);
+    EXPECT_THROW(std::rethrow_exception(thrown), util::ThreadAffinityViolation);
 }

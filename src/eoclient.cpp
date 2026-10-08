@@ -21,6 +21,7 @@
 
 #include "console.hpp"
 #include "socket.hpp"
+#include "util/affinity.hpp"
 
 #include <eolib/data/eo_numeric_limits.hpp>
 #include <eolib/data/eo_writer.hpp>
@@ -412,6 +413,8 @@ void EOClient::Send(const net::Packet& packet)
 
 void EOClient::SendFrame(std::vector<std::uint8_t>& frame)
 {
+	util::MainThreadAffinity::ThrowOnCrossThreadAccess();
+
 	std::uint8_t* body = frame.data() + 2;
 	const std::size_t body_length = frame.size() - 2;
 

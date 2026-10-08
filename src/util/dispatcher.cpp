@@ -5,6 +5,8 @@
 
 #include "dispatcher.hpp"
 
+#include "affinity.hpp"
+
 #include <utility>
 
 namespace util
@@ -14,12 +16,22 @@ namespace util
 
     void Dispatcher::Invoke(std::function<void()> action)
     {
-        std::lock_guard<std::mutex> guard(_pendingLock);
-        _pending.push_back(std::move(action));
+        if (MainThreadAffinity::IsMainThread())
+        {
+            // If already on the main thread, run the action synchronously
+            action();
+        }
+        else
+        {
+            std::lock_guard<std::mutex> guard(_pendingLock);
+            _pending.push_back(std::move(action));
+        }
     }
 
     void Dispatcher::RunPending()
     {
+        MainThreadAffinity::ThrowOnCrossThreadAccess();
+
         std::vector<std::function<void()>> actions;
 
         {

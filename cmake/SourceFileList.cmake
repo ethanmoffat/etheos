@@ -124,6 +124,7 @@ set(eoserv_ALL_SOURCE_FILES
 	src/timer.hpp
 	src/util.cpp
 	src/util.hpp
+	src/util/affinity.hpp
 	src/util/async.hpp
 	src/util/context.hpp
 	src/util/dispatcher.cpp
@@ -344,6 +345,7 @@ set(TestFiles
 	src/test/util/dispatcher_test.cpp
 	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp
+	src/test/util/affinity_test.cpp
 	src/test/util/threadpool_test.cpp
 )
 

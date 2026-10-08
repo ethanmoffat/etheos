@@ -8,6 +8,7 @@
 
 #include "../fwd/socket.hpp" // OSErrorString
 #include "../console.hpp"
+#include "../util/affinity.hpp"
 
 #include <cstdlib>
 #include <string>
@@ -92,6 +93,8 @@ void service_main(int argc, char *argv[])
 
 	service_update_status(SERVICE_RUNNING, NO_ERROR, 0, 0, 0);
 
+	// No other threads are running yet: eoserv_main starts SLN and the thread pool
+	util::MainThreadAffinity::Rebind({});
 	eoserv_main(0, 0);
 }
 

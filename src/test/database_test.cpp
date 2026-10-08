@@ -7,8 +7,8 @@
 static const char* TestDbPath = ":memory:";
 
 // Subclass that enables thread affinity checking for SQLite connections.
-// Production SQLite connections skip setting owner_thread since they are
-// intentionally shared across threads. This wrapper sets it manually so
+// Production SQLite connections leave the affinity unbound since they are
+// intentionally shared across threads. This wrapper binds it manually so
 // that CheckThreadAffinity() can be exercised in tests.
 class ThreadAffinityDatabase : public Database
 {
@@ -18,7 +18,7 @@ public:
                  const std::string& pass, const std::string& db = "") override
     {
         Database::Connect(type, host, port, authtype, user, pass, db);
-        this->owner_thread = std::this_thread::get_id();
+        this->affinity.Bind();
     }
 };
 
@@ -98,7 +98,7 @@ TEST_F(DatabaseThreadAffinityTest, Query_BeforeConnect_NoThrow)
 {
     Database db;
 
-    // owner_thread is unset before Connect(), so no affinity check
+    // The affinity is unbound before Connect(), so no affinity check
     // Query will fail with "Not connected" but should NOT throw Database_ThreadViolation
     std::exception_ptr captured;
     std::thread worker([&db, &captured]()

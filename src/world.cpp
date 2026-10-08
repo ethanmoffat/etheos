@@ -30,6 +30,7 @@
 
 #include "console.hpp"
 #include "util.hpp"
+#include "util/affinity.hpp"
 
 #include <eolib/protocol/net/server/packets.hpp>
 
@@ -1805,11 +1806,15 @@ bool World::PlayerOnline(std::string username)
 
 void World::SetPendingLogin(const std::string& username, bool is_pending)
 {
+	util::MainThreadAffinity::ThrowOnCrossThreadAccess();
+
 	this->pending_logins.insert_or_assign(username, is_pending);
 }
 
 bool World::GetPendingLogin(const std::string& username)
 {
+	util::MainThreadAffinity::ThrowOnCrossThreadAccess();
+
 	auto it = this->pending_logins.find(username);
 	return it != this->pending_logins.end() && it->second;
 }

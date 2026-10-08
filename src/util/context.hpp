@@ -10,6 +10,8 @@
 #include <string>
 #include <unordered_set>
 
+#include "affinity.hpp"
+
 template<typename TContext, typename TState, typename TResult = int>
 class AsyncOperation;
 
@@ -34,7 +36,11 @@ namespace util
     public:
         using Key = AsyncKey;
 
-        static bool IsPending(Key key) { return keys.count(key) != 0; }
+        static bool IsPending(Key key)
+        {
+            MainThreadAffinity::ThrowOnCrossThreadAccess();
+            return keys.count(key) != 0;
+        }
 
     private:
         template<typename, typename, typename> friend class ::AsyncOperation;

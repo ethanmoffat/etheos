@@ -88,6 +88,8 @@ private:
 template<typename TContext, typename TState, typename TResult>
 void AsyncOperation<TContext, TState, TResult>::Execute(const std::shared_ptr<TState>& state)
 {
+    util::MainThreadAffinity::ThrowOnCrossThreadAccess();
+
     this->_key = util::AsyncContext<TContext>::Key(*this->_context);
 
     if (this->_key)

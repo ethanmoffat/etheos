@@ -9,6 +9,7 @@
 
 #include "fwd/config.hpp"
 #include "fwd/database.hpp"
+#include "util/affinity.hpp"
 #include "util/variant.hpp"
 
 #include <algorithm>
@@ -17,7 +18,6 @@
 #include <list>
 #include <memory>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -131,7 +131,7 @@ class Database
 		bool in_transaction;
 		std::list<std::string> transaction_log;
 
-		std::thread::id owner_thread;
+		util::ThreadAffinity affinity;
 		void CheckThreadAffinity() const;
 
 		typedef std::pair<std::string, std::list<std::string>> QueryParameterPair;

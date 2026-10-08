@@ -319,11 +319,8 @@ void Database::GlobalFree()
 
 void Database::CheckThreadAffinity() const
 {
-	// owner_thread is only set after Connect(), skip check if unset (e.g. mock databases)
-	if (this->owner_thread == std::thread::id())
-		return;
-
-	if (std::this_thread::get_id() != this->owner_thread)
+	// The affinity is only bound by Connect(), so unconnected (e.g. mock) databases skip the check
+	if (!this->affinity.IsOwningThread())
 	{
 		throw Database_ThreadViolation("Database connection accessed from a thread other than the one that created it");
 	}
@@ -334,12 +331,14 @@ Database::Database()
 	, connected(false)
 	, engine(Engine(0))
 	, in_transaction(false)
+	, affinity(util::ThreadAffinity::Behavior::LooseEvaluation)
 { }
 
 Database::Database(Database::Engine type, const std::string& host, unsigned short port, const std::string& authtype, const std::string& user, const std::string& pass, const std::string& db, bool connectnow)
 	: impl(new impl_)
 	, connected(false)
 	, in_transaction(false)
+	, affinity(util::ThreadAffinity::Behavior::LooseEvaluation)
 {
 	if (connectnow)
 	{
@@ -602,12 +601,12 @@ void Database::Connect(Database::Engine type, const std::string& host, unsigned 
 			throw Database_OpenFailed("Invalid database engine.");
 	}
 
-	// SQLite uses a singleton in DatabaseFactory, so the owner thread id is left as the default for this engine type
+	// SQLite uses a singleton in DatabaseFactory, so the affinity is left unbound for this engine type
 	//   to simulate shared access across threads. Note that SQLite uses internal serialization and is intentionally
 	//   shared across threads.
 	if (type != SQLite)
 	{
-		this->owner_thread = std::this_thread::get_id();
+		this->affinity.Bind();
 	}
 }
 
