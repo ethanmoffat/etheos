@@ -13,7 +13,6 @@
 #include "fwd/database.hpp"
 #include "fwd/guild.hpp"
 #include "fwd/npc.hpp"
-#include "fwd/packet.hpp"
 #include "fwd/party.hpp"
 #include "fwd/player.hpp"
 #include "fwd/quest.hpp"
@@ -375,7 +374,6 @@ class Character : public Command_Source
 		void AddChatLog(std::string marker, std::string name, std::string msg);
 		std::string GetChatLogDump();
 
-		void Send(const PacketBuilder &);
 		void Send(const eolib::protocol::net::Packet& packet);
 
 		void ShowInfoBox(const std::string& title, const std::vector<std::string>& lines);

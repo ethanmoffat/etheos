@@ -14,7 +14,6 @@
 #include "../i18n.hpp"
 #include "../map.hpp"
 #include "../npc.hpp"
-#include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 

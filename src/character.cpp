@@ -16,7 +16,6 @@
 #include "map.hpp"
 #include "npc.hpp"
 #include "guild.hpp"
-#include "packet.hpp"
 #include "party.hpp"
 #include "player.hpp"
 #include "quest.hpp"
@@ -1918,11 +1917,6 @@ std::string Character::GetChatLogDump()
 	}
 
 	return result;
-}
-
-void Character::Send(const PacketBuilder &builder)
-{
-	this->player->Send(builder);
 }
 
 void Character::Send(const eolib::protocol::net::Packet& packet)

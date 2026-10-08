@@ -8,7 +8,6 @@
 
 #include "config.hpp"
 #include "eoclient.hpp"
-#include "packet.hpp"
 #include "sln.hpp"
 #include "timer.hpp"
 #include "world.hpp"

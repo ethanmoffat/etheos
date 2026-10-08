@@ -12,7 +12,6 @@
 #include "eodata.hpp"
 #include "map.hpp"
 #include "npc_data.hpp"
-#include "packet.hpp"
 #include "party.hpp"
 #include "quest.hpp"
 #include "timer.hpp"

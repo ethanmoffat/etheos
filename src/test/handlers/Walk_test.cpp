@@ -151,7 +151,6 @@ TEST_F(WalkTests, Player_TimestampTooSoon_IsIgnored)
     EXPECT_EQ(2, walker.character->loc.x);
     EXPECT_EQ(0, Timestamp(100) - walker.character->timestamp);
     EXPECT_TRUE(walker.sent.empty());
-    EXPECT_TRUE(walker.legacy_sent.empty());
 }
 
 TEST_F(WalkTests, Player_TimestampTooSoonWithoutEnforceTimestamps_Moves)
@@ -176,7 +175,7 @@ TEST_F(WalkTests, Player_Sitting_IsIgnored)
 
     EXPECT_EQ(2, walker.character->loc.x);
     EXPECT_EQ(0, Timestamp(100) - walker.character->timestamp);
-    EXPECT_TRUE(walker.legacy_sent.empty());
+    EXPECT_TRUE(walker.sent.empty());
 }
 
 TEST_F(WalkTests, Player_InvalidDirection_RefreshesClient)

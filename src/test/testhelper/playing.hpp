@@ -9,7 +9,6 @@
 #include "eoclient.hpp"
 #include "eoserver.hpp"
 #include "map.hpp"
-#include "packet.hpp"
 #include "world.hpp"
 
 #include <eolib/data/eo_reader.hpp>
@@ -44,7 +43,6 @@ protected:
         std::unique_ptr<TestPlayer> test_player;
         Character* character;
         std::vector<SentPacket> sent;
-        std::vector<unsigned short> legacy_sent;
     };
 
     const unsigned short port;
@@ -175,9 +173,6 @@ protected:
         map->characters.push_back(character);
 
         std::vector<SentPacket>& sent = entry->sent;
-        std::vector<unsigned short>& legacy_sent = entry->legacy_sent;
-        ON_CALL(*entry->client, Send(testing::An<const PacketBuilder&>()))
-            .WillByDefault([&legacy_sent](const PacketBuilder& builder) { legacy_sent.push_back(builder.GetID()); });
         ON_CALL(*entry->client, Send(testing::An<const eolib::protocol::net::Packet&>()))
             .WillByDefault([&sent](const eolib::protocol::net::Packet& packet)
             {
@@ -196,12 +191,6 @@ protected:
         PlayingCharacter& entry = GivenCharacter(x, y);
         server->world->characters.push_back(entry.character);
         return entry;
-    }
-
-    static bool SentLegacy(const PlayingCharacter& entry, PacketFamily family, PacketAction action)
-    {
-        const unsigned short id = PacketProcessor::PID(family, action);
-        return std::find(entry.legacy_sent.begin(), entry.legacy_sent.end(), id) != entry.legacy_sent.end();
     }
 
     // Gets the last packet of the given type that was sent to a character

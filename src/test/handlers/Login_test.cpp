@@ -46,7 +46,6 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        EXPECT_CALL(client, Send(An<const PacketBuilder &>())).Times(0);
         EXPECT_CALL(client, Send(An<const eolib::protocol::net::Packet &>())).Times(0);
         EXPECT_CALL(client, Close(_)).Times(0);
 
@@ -58,7 +57,6 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        EXPECT_CALL(client, Send(An<const PacketBuilder &>())).Times(0);
         EXPECT_CALL(client, Send(An<const eolib::protocol::net::Packet &>())).Times(0);
         EXPECT_CALL(client, Close(_)).Times(0);
 

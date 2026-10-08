@@ -12,7 +12,6 @@
 #include "fwd/character.hpp"
 #include "fwd/database.hpp"
 #include "fwd/eoclient.hpp"
-#include "fwd/packet.hpp"
 #include "fwd/world.hpp"
 
 #include <eolib/protocol/net/packet.hpp>
@@ -47,7 +46,6 @@ class Player
 
 		eolib::protocol::AdminLevel Admin() const;
 
-		void Send(const PacketBuilder &);
 		void Send(const eolib::protocol::net::Packet& packet);
 
 		void Logout();

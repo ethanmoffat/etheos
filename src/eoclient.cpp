@@ -376,14 +376,6 @@ bool EOClient::UploadPubFile(client::FileType file_type)
 	return true;
 }
 
-void EOClient::Send(const PacketBuilder &builder)
-{
-	// The builder's data starts with 2 length bytes, which SendFrame fills in
-	const std::string framed = builder.Get();
-	std::vector<std::uint8_t> frame(framed.begin(), framed.end());
-	this->SendFrame(frame);
-}
-
 void EOClient::Send(const net::Packet& packet)
 {
 	eolib::data::EoWriter writer;

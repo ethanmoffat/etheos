@@ -14,7 +14,6 @@
 #include "eodata.hpp"
 #include "npc.hpp"
 #include "npc_data.hpp"
-#include "packet.hpp"
 #include "party.hpp"
 #include "player.hpp"
 #include "quest.hpp"

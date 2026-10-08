@@ -228,7 +228,6 @@ class EOClient : public Client
 		 * Sends a pub file (Eif, Enf, Esf or Ecf). Returns false if the file can't be read or the type isn't a pub file.
 		 */
 		bool UploadPubFile(eolib::protocol::net::client::FileType file_type);
-		virtual void Send(const PacketBuilder &packet);
 
 		/**
 		 * Serializes and sends a packet. Packets that fail to serialize are logged and dropped.
