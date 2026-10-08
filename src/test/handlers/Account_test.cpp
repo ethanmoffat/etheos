@@ -8,6 +8,8 @@
 
 #include "console.hpp"
 #include "hash.hpp"
+#include "util/async.hpp"
+#include "util/dispatcher.hpp"
 
 #include <chrono>
 #include <memory>
@@ -67,8 +69,11 @@ protected:
 
     static void WaitForAsyncOperation(const EOClient& client)
     {
-        for (int i = 0; i < 1000 && client.IsAsyncOpPending(); ++i)
+        for (int i = 0; i < 1000 && util::AsyncKeys::IsPending(client.Serial()); ++i)
+        {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            util::Dispatcher::RunPending();
+        }
     }
 
     static net::client::AccountRequestClientPacket AccountRequest(const std::string& username)

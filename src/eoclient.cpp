@@ -43,6 +43,17 @@ namespace net = eolib::protocol::net;
 namespace client = eolib::protocol::net::client;
 namespace server = eolib::protocol::net::server;
 
+std::optional<util::AsyncKey> util::AsyncContext<EOClient>::Key(const EOClient& client)
+{
+	return client.Serial();
+}
+
+void util::AsyncContext<EOClient>::OnError(EOClient& client, const std::string& error)
+{
+	Console::Err("Async operation failed for %s, closing the client: %s", static_cast<std::string>(client.GetRemoteAddr()).c_str(), error.c_str());
+	client.Close();
+}
+
 void ActionQueue::AddAction(QueuedPacket packet, double time, bool auto_queue)
 {
 	this->queue.emplace(new ActionQueue_Action(std::move(packet), time, auto_queue));
@@ -279,7 +290,6 @@ void EOClient::Execute(std::uint8_t* data, std::size_t length)
 			if (client_seq != server_seq)
 			{
 				Console::Wrn("Closing client connection sending invalid sequence: %s, Got %i, expected %i.", static_cast<std::string>(this->GetRemoteAddr()).c_str(), client_seq, server_seq);
-				this->AsyncOpPending(false);
 				this->Close();
 				return;
 			}

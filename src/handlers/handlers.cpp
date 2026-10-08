@@ -36,7 +36,6 @@ void HandleMalformedPacket(EOClient* client, net::PacketFamily family, net::Pack
 	}
 
 	Console::Wrn("Closing client connection sending malformed packet %s: %s: %s", packet_name.c_str(), address.c_str(), reason.c_str());
-	client->AsyncOpPending(false);
 	client->Close();
 }
 

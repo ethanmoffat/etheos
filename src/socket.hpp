@@ -16,7 +16,6 @@
 #include <exception>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -225,7 +224,7 @@ class Client
 		struct impl_;
 		std::unique_ptr<impl_> impl;
 
-		volatile bool async_op_pending;
+		std::uint64_t serial;
 
 	protected:
 		Server *server;
@@ -238,9 +237,6 @@ class Client
 		// until a send leaves bytes behind, and the memory is freed once everything has been sent, since large
 		// leftovers come from occasional file uploads.
 		std::vector<std::uint8_t> send_buffer;
-
-		// Send can run on a thread pool worker (async operation callbacks) while FlushSend runs on the main thread
-		mutable std::mutex send_buffer_mutex;
 
 		/**
 		 * Writes as much of data as the OS accepts without blocking.
@@ -295,8 +291,10 @@ class Client
 		virtual bool Connected() const;
 		IPAddress GetRemoteAddr() const;
 
-		void AsyncOpPending(bool asyncOpPending) { this->async_op_pending = asyncOpPending; }
-		bool IsAsyncOpPending() const { return this->async_op_pending; }
+		/**
+		 * Gets a number that identifies this client for the life of the server; unlike client ids, it is never reused.
+		 */
+		std::uint64_t Serial() const { return this->serial; }
 
 		virtual void Close(bool force = false);
 

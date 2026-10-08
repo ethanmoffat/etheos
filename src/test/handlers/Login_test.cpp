@@ -7,10 +7,21 @@
 
 #include "console.hpp"
 #include "extra/seose_compat.hpp"
+#include "util/async.hpp"
+#include "util/dispatcher.hpp"
 
 namespace net = eolib::protocol::net;
 
 static constexpr unsigned short TestServerPort = 38078;
+
+static void WaitForAsyncOperation(const EOClient& client)
+{
+    for (int i = 0; i < 1000 && util::AsyncKeys::IsPending(client.Serial()); ++i)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        util::Dispatcher::RunPending();
+    }
+}
 
 static net::client::LoginRequestClientPacket LoginRequest(const std::string& username, const std::string& password)
 {
@@ -183,8 +194,8 @@ GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
         Handlers::Login_Request(client.get(), r);
     }
 
-    // wait for the threads to finish
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    for (const auto& client : clientRefs)
+        WaitForAsyncOperation(*client);
 }
 
 GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
@@ -215,7 +226,7 @@ GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
         auto r = LoginRequest("test_user", "test_pass");
         Handlers::Login_Request(&client, r);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        WaitForAsyncOperation(client);
     }
 }
 
@@ -260,7 +271,7 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
     auto r = LoginRequest(ExpectedUsername, UnhashedPassword);
     Handlers::Login_Request(&client, r);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    WaitForAsyncOperation(client);
 }
 
 GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
@@ -346,7 +357,9 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
 
         auto r = LoginRequest(ExpectedUsername, UnhashedPassword);
         Handlers::Login_Request(client.get(), r);
+        WaitForAsyncOperation(*client);
 
+        // The password version upgrade runs in the background with no completion to wait for
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     }
 }
@@ -398,6 +411,77 @@ GTEST_TEST(LoginTests, LoginWithSeoseCompatAndShortPassword_ChecksSeoseHashedPas
 
     Handlers::Login_Request(client.get(), LoginRequest(ExpectedUsername, UnhashedPassword));
 
-    for (int i = 0; i < 1000 && client->IsAsyncOpPending(); ++i)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    WaitForAsyncOperation(*client);
+}
+
+GTEST_TEST(LoginTests, Request_AccountLoginPending_KeepsPendingLogin)
+{
+    Console::SuppressOutput(true);
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, false);
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+    server.world->SetPendingLogin("testuser", true);
+
+    MockClient client(&server);
+    EXPECT_CALL(client, Send(PacketEq(net::server::LoginReplyServerPacket::ForLoggedIn()))).Times(1);
+
+    Handlers::Login_Request(&client, LoginRequest("testuser", "test_pass"));
+
+    EXPECT_TRUE(server.world->GetPendingLogin("testuser"));
+}
+
+GTEST_TEST(LoginTests, Request_Completed_ClearsPendingLogin)
+{
+    Console::SuppressOutput(true);
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase, true);
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+
+    MockClient client(&server);
+    EXPECT_CALL(client, Send(PacketEq(net::server::LoginReplyServerPacket::ForWrongUser()))).Times(1);
+
+    Handlers::Login_Request(&client, LoginRequest("testuser", "test_pass"));
+    EXPECT_TRUE(server.world->GetPendingLogin("testuser"));
+
+    WaitForAsyncOperation(client);
+
+    EXPECT_FALSE(util::AsyncKeys::IsPending(client.Serial()));
+    EXPECT_FALSE(server.world->GetPendingLogin("testuser"));
+}
+
+GTEST_TEST(LoginTests, Request_DatabaseThrows_ClosesClientAndClearsPendingLogin)
+{
+    Console::SuppressOutput(true);
+
+    Config config, admin_config;
+    CreateConfigWithTestDefaults(config, admin_config);
+
+    auto mockDatabase = CreateMockDatabase();
+    auto mockDatabaseFactory = CreateMockDatabaseFactory(mockDatabase);
+
+    EXPECT_CALL(*dynamic_cast<MockDatabase*>(mockDatabase.get()),
+                RawQuery(StartsWith("SELECT password, password_version FROM accounts"), _, _))
+        .WillOnce(Throw(std::runtime_error("database down")));
+
+    EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
+
+    MockClient client(&server);
+    EXPECT_CALL(client, Send(_)).Times(0);
+    EXPECT_CALL(client, Close(_)).Times(1);
+
+    Handlers::Login_Request(&client, LoginRequest("testuser", "test_pass"));
+    WaitForAsyncOperation(client);
+
+    EXPECT_FALSE(util::AsyncKeys::IsPending(client.Serial()));
+    EXPECT_FALSE(server.world->GetPendingLogin("testuser"));
 }

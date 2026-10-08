@@ -6,7 +6,6 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -33,13 +32,11 @@ public:
 
     std::size_t SendBufferCapacity() const
     {
-        std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
         return this->send_buffer.capacity();
     }
 
     std::string PendingSendData() const
     {
-        std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
         return std::string(this->send_buffer.begin(), this->send_buffer.end());
     }
 };

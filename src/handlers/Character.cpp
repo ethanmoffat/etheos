@@ -10,6 +10,7 @@
 #include "../converters.hpp"
 #include "../config.hpp"
 #include "../eodata.hpp"
+#include "../eoclient.hpp"
 #include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"

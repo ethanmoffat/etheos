@@ -16,6 +16,7 @@
 #include "console.hpp"
 #include "socket.hpp"
 #include "util.hpp"
+#include "util/dispatcher.hpp"
 
 #include <eolib/protocol/net/server/packets.hpp>
 
@@ -39,7 +40,6 @@ void server_ping_all(void *server_void)
 
 		if (client->needpong)
 		{
-			client->AsyncOpPending(false);
 			client->Close();
 		}
 		else
@@ -80,7 +80,6 @@ void server_pump_client_queue(EOClient* client, double now, std::size_t queue_ma
 	if (client->queue.Size() > queue_max)
 	{
 		Console::Wrn("Client was disconnected for filling up the action queue: %s", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-		client->AsyncOpPending(false);
 		client->Close();
 		return;
 	}
@@ -96,41 +95,35 @@ void server_pump_client_queue(EOClient* client, double now, std::size_t queue_ma
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 		Console::Err("%s: %s", e.what(), e.error());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 	catch (Database_Exception& e)
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 		Console::Err("%s: %s", e.what(), e.error());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 	catch (std::runtime_error& e)
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 		Console::Err("Runtime Error: %s", e.what());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 	catch (std::logic_error& e)
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 		Console::Err("Logic Error: %s", e.what());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 	catch (std::exception& e)
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
 		Console::Err("Uncaught Exception: %s", e.what());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 	catch (...)
 	{
 		Console::Err("Client caused an exception and was closed: %s.", static_cast<std::string>(client->GetRemoteAddr()).c_str());
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 #endif // DEBUG_EXCEPTIONS
@@ -289,6 +282,7 @@ void EOServer::Tick()
 		active_clients->clear();
 	}
 
+	util::Dispatcher::RunPending();
 	this->BuryTheDead();
 
 	this->world->timer.Tick();
@@ -313,7 +307,6 @@ EOServer::~EOServer()
 	// All clients must be fully closed before the world ends
 	UTIL_FOREACH(this->clients, client)
 	{
-		client->AsyncOpPending(false);
 		client->Close();
 	}
 
@@ -333,6 +326,7 @@ EOServer::~EOServer()
 			active_clients->clear();
 		}
 
+		util::Dispatcher::RunPending();
 		this->BuryTheDead();
 	}
 

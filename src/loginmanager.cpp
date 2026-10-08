@@ -10,6 +10,7 @@
 
 #include "loginmanager.hpp"
 #include "config.hpp"
+#include "eoclient.hpp"
 #include "player.hpp"
 #include "world.hpp"
 #include "extra/seose_compat.hpp"
@@ -61,7 +62,7 @@ bool LoginManager::LoginBusy() const
     return this->_processCount >= static_cast<int>(this->_config["LoginQueueSize"]);
 }
 
-AsyncOperation<client::AccountCreateClientPacket, bool>* LoginManager::CreateAccountAsync(EOClient* client)
+std::shared_ptr<ClientAsyncOperation<client::AccountCreateClientPacket, bool>> LoginManager::CreateAccountAsync(EOClient* client)
 {
     auto createAccountThreadProc = [this, remoteIp = client->GetRemoteAddr()](std::shared_ptr<client::AccountCreateClientPacket> packet)
     {
@@ -89,10 +90,10 @@ AsyncOperation<client::AccountCreateClientPacket, bool>* LoginManager::CreateAcc
         return !db_res.Error();
     };
 
-    return new AsyncOperation<client::AccountCreateClientPacket, bool>(client, createAccountThreadProc, true);
+    return ClientAsyncOperation<client::AccountCreateClientPacket, bool>::Create(client, createAccountThreadProc, true);
 }
 
-AsyncOperation<client::AccountAgreeClientPacket, bool>* LoginManager::SetPasswordAsync(EOClient* client)
+std::shared_ptr<ClientAsyncOperation<client::AccountAgreeClientPacket, bool>> LoginManager::SetPasswordAsync(EOClient* client)
 {
     auto setPasswordThreadProc = [this](std::shared_ptr<client::AccountAgreeClientPacket> packet)
     {
@@ -108,7 +109,7 @@ AsyncOperation<client::AccountAgreeClientPacket, bool>* LoginManager::SetPasswor
         return false;
     };
 
-    return new AsyncOperation<client::AccountAgreeClientPacket, bool>(client, setPasswordThreadProc, true);
+    return ClientAsyncOperation<client::AccountAgreeClientPacket, bool>::Create(client, setPasswordThreadProc, true);
 }
 
 // This doesn't return AsyncOperation because it doesn't operate within the context of sending a client response
@@ -131,7 +132,7 @@ void LoginManager::UpdatePasswordVersionInBackground(const std::string& username
     util::ThreadPool::Queue(updateThreadProc, nullptr);
 }
 
-AsyncOperation<client::LoginRequestClientPacket, LoginResult>* LoginManager::CheckLoginAsync(EOClient* client)
+std::shared_ptr<ClientAsyncOperation<client::LoginRequestClientPacket, LoginResult>> LoginManager::CheckLoginAsync(EOClient* client)
 {
     auto loginThreadProc = [this](std::shared_ptr<client::LoginRequestClientPacket> packet) -> LoginResult
     {
@@ -178,7 +179,7 @@ AsyncOperation<client::LoginRequestClientPacket, LoginResult>* LoginManager::Che
 
     this->_processCount++;
 
-    auto asyncOp = new AsyncOperation<client::LoginRequestClientPacket, LoginResult>(client, loginThreadProc);
+    auto asyncOp = ClientAsyncOperation<client::LoginRequestClientPacket, LoginResult>::Create(client, loginThreadProc);
     return asyncOp->OnComplete([this]() { this->_processCount--; });
 }
 

@@ -125,6 +125,9 @@ set(eoserv_ALL_SOURCE_FILES
 	src/util.cpp
 	src/util.hpp
 	src/util/async.hpp
+	src/util/context.hpp
+	src/util/dispatcher.cpp
+	src/util/dispatcher.hpp
 	src/util/rpn.cpp
 	src/util/rpn.hpp
 	src/util/secure_string.hpp
@@ -337,6 +340,8 @@ set(TestFiles
 	src/test/handlers/Walk_test.cpp
 	src/test/handlers/Warp_test.cpp
 	src/test/handlers/Welcome_test.cpp
+	src/test/util/async_test.cpp
+	src/test/util/dispatcher_test.cpp
 	src/test/util/secure_string_test.cpp
 	src/test/util/semaphore_test.cpp
 	src/test/util/threadpool_test.cpp

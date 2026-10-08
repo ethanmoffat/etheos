@@ -1749,22 +1749,22 @@ Player *World::PlayerFactory(std::string username)
 	return new Player(username, this, database.get());
 }
 
-AsyncOperation<client::LoginRequestClientPacket, LoginResult>* World::CheckCredential(EOClient* client)
+std::shared_ptr<ClientAsyncOperation<client::LoginRequestClientPacket, LoginResult>> World::CheckCredential(EOClient* client)
 {
 	if (this->loginManager->LoginBusy())
 	{
-		return AsyncOperation<client::LoginRequestClientPacket, LoginResult>::FromResult(server::LoginReplyServerPacket::ForBusy(), client);
+		return ClientAsyncOperation<client::LoginRequestClientPacket, LoginResult>::FromResult(server::LoginReplyServerPacket::ForBusy(), client);
 	}
 
 	return this->loginManager->CheckLoginAsync(client);
 }
 
-AsyncOperation<client::AccountAgreeClientPacket, bool>* World::ChangePassword(EOClient* client)
+std::shared_ptr<ClientAsyncOperation<client::AccountAgreeClientPacket, bool>> World::ChangePassword(EOClient* client)
 {
 	return this->loginManager->SetPasswordAsync(client);
 }
 
-AsyncOperation<client::AccountCreateClientPacket, bool>* World::CreateAccount(EOClient * client)
+std::shared_ptr<ClientAsyncOperation<client::AccountCreateClientPacket, bool>> World::CreateAccount(EOClient * client)
 {
 	return this->loginManager->CreateAccountAsync(client);
 }
@@ -1805,39 +1805,13 @@ bool World::PlayerOnline(std::string username)
 
 void World::SetPendingLogin(const std::string& username, bool is_pending)
 {
-	this->pending_logins_mutex.lock();
-
-	try
-	{
-		this->pending_logins.insert_or_assign(username, is_pending);
-	}
-	catch (...)
-	{
-		this->pending_logins_mutex.unlock();
-		throw;
-	}
-
-	this->pending_logins_mutex.unlock();
+	this->pending_logins.insert_or_assign(username, is_pending);
 }
 
 bool World::GetPendingLogin(const std::string& username)
 {
-	this->pending_logins_mutex.lock();
-
-	bool result = false;
-	try
-	{
-		result = this->pending_logins.find(username) != this->pending_logins.end()
-			  && this->pending_logins[username];
-	}
-	catch (...)
-	{
-		this->pending_logins_mutex.unlock();
-		throw;
-	}
-
-	this->pending_logins_mutex.unlock();
-	return result;
+	auto it = this->pending_logins.find(username);
+	return it != this->pending_logins.end() && it->second;
 }
 
 void World::Kick(Command_Source *from, Character *victim, bool announce)

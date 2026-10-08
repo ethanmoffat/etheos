@@ -11,6 +11,7 @@
 
 #include "socket.hpp"
 #include "util.hpp"
+#include "util/context.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -231,9 +232,11 @@ struct Client::impl_
 	{ }
 };
 
+static std::uint64_t next_client_serial = 1;
+
 Client::Client()
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
-	, async_op_pending(false)
+	, serial(next_client_serial++)
 	, server(0)
 	, connected(false)
 	, closed_time(0)
@@ -242,7 +245,7 @@ Client::Client()
 
 Client::Client(const IPAddress &addr, uint16_t port)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
-	, async_op_pending(false)
+	, serial(next_client_serial++)
 	, server(0)
 	, connected(false)
 	, closed_time(0)
@@ -253,7 +256,7 @@ Client::Client(const IPAddress &addr, uint16_t port)
 
 Client::Client(Server *server)
 	: impl(new impl_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
-	, async_op_pending(false)
+	, serial(next_client_serial++)
 	, server(server)
 	, connected(false)
 	, closed_time(0)
@@ -262,7 +265,7 @@ Client::Client(Server *server)
 
 Client::Client(const Socket &sock, Server *server)
 	: impl(new impl_(sock.sock, sock.sin))
-	, async_op_pending(false)
+	, serial(next_client_serial++)
 	, server(server)
 	, connected(true)
 	, closed_time(0)
@@ -371,8 +374,6 @@ long Client::WriteSome(const std::uint8_t* data, std::size_t length)
 
 void Client::Send(const std::vector<std::uint8_t>& data)
 {
-	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
-
 	if (!this->connected && this->closed_time == 0)
 		return;
 
@@ -415,8 +416,6 @@ void Client::Send(const std::vector<std::uint8_t>& data)
 
 bool Client::FlushSend()
 {
-	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
-
 	if (this->send_buffer.empty())
 		return true;
 
@@ -436,7 +435,6 @@ bool Client::FlushSend()
 
 bool Client::HasPendingSend() const
 {
-	std::lock_guard<std::mutex> lock(this->send_buffer_mutex);
 	return !this->send_buffer.empty();
 }
 
@@ -881,7 +879,7 @@ void Server::BuryTheDead()
 	{
 		Client *client = *it;
 
-		if (!client->Connected() && !client->IsAsyncOpPending() && client->closed_time + 2 < std::time(0))
+		if (!client->Connected() && !util::AsyncKeys::IsPending(client->Serial()) && client->closed_time + 2 < std::time(0))
 		{
 #ifdef WIN32
 			closesocket(client->impl->sock);

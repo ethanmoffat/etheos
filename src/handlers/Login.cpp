@@ -80,7 +80,6 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 	auto successCallback = [username](EOClient* c)
 	{
 		c->player = c->server()->world->PlayerFactory(username);
-		c->server()->world->SetPendingLogin(username, false);
 
 		// The client may disconnect if the password generation takes too long
 		if (!c->Connected())
@@ -108,10 +107,8 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 		}
 	};
 
-	auto failureCallback = [username](EOClient* c, const LoginResult& reply)
+	auto failureCallback = [](EOClient* c, const LoginResult& reply)
 	{
-		c->server()->world->SetPendingLogin(username, false);
-
 		c->Send(*reply);
 
 		int max_login_attempts = int(c->server()->world->config["MaxLoginAttempts"]);
@@ -132,11 +129,13 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 		return;
 	}
 
-	client->server()->world->SetPendingLogin(username, true);
+	World* world = client->server()->world;
+	world->SetPendingLogin(username, true);
 
-	client->server()->world->CheckCredential(client)
+	world->CheckCredential(client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
+		->OnComplete([world, username]() { world->SetPendingLogin(username, false); })
 		->Execute(util::make_secure_shared(packet, &net::client::LoginRequestClientPacket::password));
 }
 

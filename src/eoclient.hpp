@@ -16,6 +16,7 @@
 #include "packet.hpp"
 
 #include "socket.hpp"
+#include "util/context.hpp"
 
 #include <eolib/packet/packet_sequencer.hpp>
 #include <eolib/packet/sequence_start.hpp>
@@ -33,6 +34,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+// Only one operation runs per client at a time, and a closed client stays alive until its operation completes
+// (Server::BuryTheDead). An operation that fails with an exception closes the client.
+template<> struct util::AsyncContext<EOClient>
+{
+	static std::optional<AsyncKey> Key(const EOClient& client);
+	static void OnError(EOClient& client, const std::string& error);
+};
 
 struct QueuedPacket
 {

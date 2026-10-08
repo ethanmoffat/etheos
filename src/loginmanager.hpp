@@ -17,6 +17,7 @@
 #include "hash.hpp"
 #include "fwd/config.hpp"
 #include "fwd/database.hpp"
+#include "fwd/eoclient.hpp"
 #include "fwd/player.hpp"
 #include "fwd/world.hpp"
 #include "util/secure_string.hpp"
@@ -37,9 +38,9 @@ public:
     bool CheckLogin(const std::string& username, util::secure_string&& password);
     void SetPassword(const std::string& username, util::secure_string&& password);
 
-    AsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>* CreateAccountAsync(EOClient* client);
-    AsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>* SetPasswordAsync(EOClient* client);
-    AsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>* CheckLoginAsync(EOClient* client);
+    std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>> CreateAccountAsync(EOClient* client);
+    std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>> SetPasswordAsync(EOClient* client);
+    std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>> CheckLoginAsync(EOClient* client);
 
     void UpdatePasswordVersionInBackground(const std::string& username, util::secure_string&& password, HashFunc hashFunc);
 

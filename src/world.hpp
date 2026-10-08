@@ -85,7 +85,6 @@ class World
 		std::shared_ptr<DatabaseFactory> databaseFactory;
 
 		std::map<std::string, bool> pending_logins;
-		std::mutex pending_logins_mutex;
 	protected:
 		int last_character_id;
 
@@ -193,10 +192,10 @@ class World
 		void DeleteCharacter(std::string name);
 
 		Player *PlayerFactory(std::string username);
-		AsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>* CheckCredential(EOClient* client);
-		AsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>* ChangePassword(EOClient* client);
+		std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::LoginRequestClientPacket, LoginResult>> CheckCredential(EOClient* client);
+		std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::AccountAgreeClientPacket, bool>> ChangePassword(EOClient* client);
 
-		AsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>* CreateAccount(EOClient* client);
+		std::shared_ptr<ClientAsyncOperation<eolib::protocol::net::client::AccountCreateClientPacket, bool>> CreateAccount(EOClient* client);
 
 		bool PlayerExists(std::string username);
 		bool PlayerOnline(std::string username);
