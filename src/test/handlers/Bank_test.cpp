@@ -22,6 +22,7 @@ namespace
 constexpr unsigned short BankTestServerPort = 38121;
 constexpr int BankTestMapId = 26;
 constexpr int BankerNpcId = 1;
+constexpr int BankSessionId = 1234;
 
 class BankTests : public PlayingTest
 {
@@ -80,6 +81,7 @@ protected:
         PlayingCharacter& entry = GivenCharacter(3, 3);
         entry.character->npc = banker;
         entry.character->npc_type = pub::NpcType::Bank;
+        entry.character->npc_session_id = BankSessionId;
         entry.character->AddItem(1, 100);
         entry.character->goldbank = 50;
         return entry;
@@ -117,7 +119,8 @@ TEST_F(BankTests, Open_Banker_SendsBalanceWithNpcSession)
     const auto reply = LastSent<server::BankOpenServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
     EXPECT_EQ(50, reply->gold_bank);
-    EXPECT_EQ(BankerNpcId, reply->session_id);
+    EXPECT_NE(0, reply->session_id);
+    EXPECT_EQ(character->npc_session_id, reply->session_id);
     EXPECT_EQ(banker, character->npc);
     EXPECT_EQ(pub::NpcType::Bank, character->npc_type);
 }
@@ -126,7 +129,7 @@ TEST_F(BankTests, Add_MatchingSession_DepositsGold)
 {
     Character* character = GivenCharacterAtBank().character;
 
-    Handlers::Bank_Add(character, Add(30, BankerNpcId));
+    Handlers::Bank_Add(character, Add(30, BankSessionId));
 
     const auto reply = LastSent<server::BankReplyServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
@@ -134,12 +137,12 @@ TEST_F(BankTests, Add_MatchingSession_DepositsGold)
     EXPECT_EQ(80, reply->gold_bank);
 }
 
-TEST_F(BankTests, Add_WrongSession_ClosesClient)
+TEST_F(BankTests, Add_WrongSession_Ignored)
 {
     PlayingCharacter& entry = GivenCharacterAtBank();
 
-    EXPECT_CALL(*entry.client, Close(false)).Times(1);
-    Handlers::Bank_Add(entry.character, Add(30, BankerNpcId + 1));
+    EXPECT_CALL(*entry.client, Close(testing::_)).Times(0);
+    Handlers::Bank_Add(entry.character, Add(30, BankSessionId + 1));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(50, entry.character->goldbank);
@@ -149,7 +152,7 @@ TEST_F(BankTests, Take_MatchingSession_WithdrawsGold)
 {
     Character* character = GivenCharacterAtBank().character;
 
-    Handlers::Bank_Take(character, Take(20, BankerNpcId));
+    Handlers::Bank_Take(character, Take(20, BankSessionId));
 
     const auto reply = LastSent<server::BankReplyServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
@@ -157,25 +160,25 @@ TEST_F(BankTests, Take_MatchingSession_WithdrawsGold)
     EXPECT_EQ(30, reply->gold_bank);
 }
 
-TEST_F(BankTests, Take_WrongSession_ClosesClient)
+TEST_F(BankTests, Take_WrongSession_Ignored)
 {
     PlayingCharacter& entry = GivenCharacterAtBank();
 
-    EXPECT_CALL(*entry.client, Close(false)).Times(1);
-    Handlers::Bank_Take(entry.character, Take(20, BankerNpcId + 1));
+    EXPECT_CALL(*entry.client, Close(testing::_)).Times(0);
+    Handlers::Bank_Take(entry.character, Take(20, BankSessionId + 1));
 
     EXPECT_EQ(50, entry.character->goldbank);
 }
 
-TEST_F(BankTests, Take_WrongSessionWithEnforceSessionsOff_WithdrawsGold)
+TEST_F(BankTests, Take_WrongSessionWithEnforceSessionsOff_Ignored)
 {
     PlayingCharacter& entry = GivenCharacterAtBank();
     server->world->config["EnforceSessions"] = false;
 
     EXPECT_CALL(*entry.client, Close(testing::_)).Times(0);
-    Handlers::Bank_Take(entry.character, Take(20, BankerNpcId + 1));
+    Handlers::Bank_Take(entry.character, Take(20, BankSessionId + 1));
 
-    EXPECT_EQ(30, entry.character->goldbank);
+    EXPECT_EQ(50, entry.character->goldbank);
 }
 
 TEST_F(BankTests, Take_NotAtBank_Ignored)
@@ -184,7 +187,7 @@ TEST_F(BankTests, Take_NotAtBank_Ignored)
     entry.character->npc_type = pub::NpcType::Friendly;
 
     EXPECT_CALL(*entry.client, Close(testing::_)).Times(0);
-    Handlers::Bank_Take(entry.character, Take(20, BankerNpcId));
+    Handlers::Bank_Take(entry.character, Take(20, BankSessionId));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(50, entry.character->goldbank);
@@ -195,7 +198,7 @@ TEST_F(BankTests, Add_ExceedsMaxBankGold_Ignored)
     PlayingCharacter& entry = GivenCharacterAtBank();
     server->world->config["MaxBankGold"] = 70;
 
-    Handlers::Bank_Add(entry.character, Add(30, BankerNpcId));
+    Handlers::Bank_Add(entry.character, Add(30, BankSessionId));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(50, entry.character->goldbank);
@@ -208,7 +211,7 @@ TEST_F(BankTests, Add_NearIntMax_IgnoredWithoutOverflow)
     server->world->config["MaxBankGold"] = std::numeric_limits<int>::max();
     entry.character->goldbank = std::numeric_limits<int>::max() - 10;
 
-    Handlers::Bank_Add(entry.character, Add(30, BankerNpcId));
+    Handlers::Bank_Add(entry.character, Add(30, BankSessionId));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(std::numeric_limits<int>::max() - 10, entry.character->goldbank);
@@ -218,7 +221,7 @@ TEST_F(BankTests, Take_MoreThanBanked_Ignored)
 {
     PlayingCharacter& entry = GivenCharacterAtBank();
 
-    Handlers::Bank_Take(entry.character, Take(51, BankerNpcId));
+    Handlers::Bank_Take(entry.character, Take(51, BankSessionId));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(50, entry.character->goldbank);
@@ -229,7 +232,7 @@ TEST_F(BankTests, Take_ExceedsMaxItem_IgnoredWithoutLosingGold)
     PlayingCharacter& entry = GivenCharacterAtBank();
     server->world->config["MaxItem"] = 120;
 
-    Handlers::Bank_Take(entry.character, Take(30, BankerNpcId));
+    Handlers::Bank_Take(entry.character, Take(30, BankSessionId));
 
     EXPECT_FALSE(LastSent<server::BankReplyServerPacket>(entry));
     EXPECT_EQ(50, entry.character->goldbank);

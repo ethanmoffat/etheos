@@ -302,11 +302,13 @@ set(TestFiles
 	src/test/handlers/AdminInteract_test.cpp
 	src/test/handlers/Attack_test.cpp
 	src/test/handlers/Bank_test.cpp
+	src/test/handlers/Barber_test.cpp
 	src/test/handlers/Board_test.cpp
 	src/test/handlers/Book_test.cpp
 	src/test/handlers/Chair_test.cpp
 	src/test/handlers/Chest_test.cpp
 	src/test/handlers/Character_test.cpp
+	src/test/handlers/Citizen_test.cpp
 	src/test/handlers/Connection_test.cpp
 	src/test/handlers/Door_test.cpp
 	src/test/handlers/Emote_test.cpp
@@ -317,10 +319,13 @@ set(TestFiles
 	src/test/handlers/Jukebox_test.cpp
 	src/test/handlers/Locker_test.cpp
 	src/test/handlers/Login_test.cpp
+	src/test/handlers/Marriage_test.cpp
 	src/test/handlers/Message_test.cpp
 	src/test/handlers/Paperdoll_test.cpp
 	src/test/handlers/Party_test.cpp
 	src/test/handlers/Players_test.cpp
+	src/test/handlers/Priest_test.cpp
+	src/test/handlers/Quest_test.cpp
 	src/test/handlers/Refresh_test.cpp
 	src/test/handlers/Shop_test.cpp
 	src/test/handlers/Sit_test.cpp

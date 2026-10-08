@@ -8,11 +8,9 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
-#include "../eoclient.hpp"
 #include "../eodata.hpp"
 #include "../map.hpp"
 #include "../npc.hpp"
-#include "../player.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
@@ -27,16 +25,7 @@ namespace Handlers
 
 static bool IsBankSessionValid(Character* character, int session_id)
 {
-	if (character->npc_type != pub::NpcType::Bank)
-		return false;
-
-	if (!character->world->CheckSession(character->npc->id, session_id))
-	{
-		character->player->client->Close();
-		return false;
-	}
-
-	return true;
+	return character->npc_type == pub::NpcType::Bank && character->npc_session_id == session_id;
 }
 
 // Talked to a banker NPC
@@ -55,7 +44,7 @@ void Bank_Open(Character* character, const client::BankOpenClientPacket& packet)
 
 	server::BankOpenServerPacket reply;
 	reply.gold_bank = character->goldbank;
-	reply.session_id = character->npc->id;
+	reply.session_id = character->NewNpcSession();
 	reply.locker_upgrades = character->bankmax;
 	character->Send(reply);
 }

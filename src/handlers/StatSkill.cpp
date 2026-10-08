@@ -26,7 +26,7 @@ namespace Handlers
 static bool IsTrainerSession(Character* character, int session_id)
 {
 	return character->npc_type == pub::NpcType::Trainer
-	    && character->world->CheckSession(character->npc->id, session_id);
+	    && character->npc_session_id == session_id;
 }
 
 static void SendWrongClass(Character* character, int class_id)
@@ -51,7 +51,7 @@ void StatSkill_Open(Character* character, const client::StatSkillOpenClientPacke
 		character->npc_type = pub::NpcType::Trainer;
 
 		server::StatSkillOpenServerPacket reply;
-		reply.session_id = npc->id;
+		reply.session_id = character->NewNpcSession();
 		reply.shop_name = npc->Data().skill_name;
 
 		reply.skills = npc->Data().skill_learn;

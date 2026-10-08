@@ -26,7 +26,7 @@ namespace Handlers
 static bool IsShopSessionValid(Character* character, int session_id)
 {
 	return character->npc_type == pub::NpcType::Shop
-	    && character->world->CheckSession(character->npc->id, session_id);
+	    && character->npc_session_id == session_id;
 }
 
 // Crafting an item
@@ -168,7 +168,7 @@ void Shop_Open(Character* character, const client::ShopOpenClientPacket& packet)
 	character->npc_type = pub::NpcType::Shop;
 
 	server::ShopOpenServerPacket reply;
-	reply.session_id = npc->id;
+	reply.session_id = character->NewNpcSession();
 	reply.shop_name = npc->Data().shop_name;
 	reply.trade_items = npc->Data().shop_trade;
 	reply.craft_items = npc->Data().shop_craft;

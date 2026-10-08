@@ -23,6 +23,7 @@ namespace
 constexpr unsigned short StatSkillTestServerPort = 38116;
 constexpr int StatSkillTestMapId = 21;
 constexpr int TrainerNpcId = 1;
+constexpr int TrainerSessionId = 1234;
 constexpr int TestSpellId = 1;
 constexpr int BaseClassId = 1;
 constexpr int SubclassId = 2;
@@ -107,6 +108,7 @@ protected:
         Character* character = GivenCharacter(3, 3).character;
         character->npc = trainer;
         character->npc_type = pub::NpcType::Trainer;
+        character->npc_session_id = TrainerSessionId;
         return character;
     }
 
@@ -132,7 +134,8 @@ TEST_F(StatSkillTests, Open_Trainer_SendsSkillsWithNpcSession)
 
     const auto reply = LastSent<server::StatSkillOpenServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
-    EXPECT_EQ(TrainerNpcId, reply->session_id);
+    EXPECT_NE(0, reply->session_id);
+    EXPECT_EQ(character->npc_session_id, reply->session_id);
     EXPECT_EQ("Trainer", reply->shop_name);
     ASSERT_EQ(1u, reply->skills.size());
     EXPECT_EQ(TestSpellId, reply->skills[0].id);
@@ -143,7 +146,7 @@ TEST_F(StatSkillTests, Take_MatchingSession_LearnsSpell)
 {
     Character* character = GivenTrainingCharacter();
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId));
 
     EXPECT_TRUE(character->HasSpell(TestSpellId));
     const auto reply = LastSent<server::StatSkillTakeServerPacket>(*playing.back());
@@ -155,20 +158,20 @@ TEST_F(StatSkillTests, Take_WrongSession_Ignored)
 {
     Character* character = GivenTrainingCharacter();
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId + 1));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId + 1));
 
     EXPECT_FALSE(character->HasSpell(TestSpellId));
     EXPECT_TRUE(playing.back()->sent.empty());
 }
 
-TEST_F(StatSkillTests, Take_WrongSessionWithEnforceSessionsOff_LearnsSpell)
+TEST_F(StatSkillTests, Take_WrongSessionWithEnforceSessionsOff_Ignored)
 {
     Character* character = GivenTrainingCharacter();
     server->world->config["EnforceSessions"] = false;
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId + 1));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId + 1));
 
-    EXPECT_TRUE(character->HasSpell(TestSpellId));
+    EXPECT_FALSE(character->HasSpell(TestSpellId));
 }
 
 TEST_F(StatSkillTests, Take_WrongClass_RepliesWithRequiredClass)
@@ -176,7 +179,7 @@ TEST_F(StatSkillTests, Take_WrongClass_RepliesWithRequiredClass)
     Character* character = GivenTrainingCharacter(SubclassId);
     character->clas = BaseClassId;
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId));
 
     EXPECT_FALSE(character->HasSpell(TestSpellId));
     const auto reply = LastSent<server::StatSkillReplyServerPacket>(*playing.back());
@@ -190,7 +193,7 @@ TEST_F(StatSkillTests, Take_Subclass_LearnsBaseClassSpell)
     Character* character = GivenTrainingCharacter(BaseClassId);
     character->clas = SubclassId;
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId));
 
     EXPECT_TRUE(character->HasSpell(TestSpellId));
 }
@@ -201,7 +204,7 @@ TEST_F(StatSkillTests, Take_UnmetRequirement_RepliesWrongClassWithOwnClass)
     character->clas = BaseClassId;
     server->world->npc_data[TrainerNpcId]->skill_learn.back().level_requirement = 5;
 
-    Handlers::StatSkill_Take(character, Take(TrainerNpcId));
+    Handlers::StatSkill_Take(character, Take(TrainerSessionId));
 
     EXPECT_FALSE(character->HasSpell(TestSpellId));
     const auto reply = LastSent<server::StatSkillReplyServerPacket>(*playing.back());
@@ -216,7 +219,7 @@ TEST_F(StatSkillTests, Remove_WrongSession_Ignored)
     character->AddSpell(TestSpellId);
 
     client::StatSkillRemoveClientPacket packet;
-    packet.session_id = TrainerNpcId + 1;
+    packet.session_id = TrainerSessionId + 1;
     packet.spell_id = TestSpellId;
     Handlers::StatSkill_Remove(character, packet);
 
@@ -230,7 +233,7 @@ TEST_F(StatSkillTests, Remove_MatchingSession_ForgetsSpell)
     character->AddSpell(TestSpellId);
 
     client::StatSkillRemoveClientPacket packet;
-    packet.session_id = TrainerNpcId;
+    packet.session_id = TrainerSessionId;
     packet.spell_id = TestSpellId;
     Handlers::StatSkill_Remove(character, packet);
 
@@ -246,7 +249,7 @@ TEST_F(StatSkillTests, Junk_WrongSession_Ignored)
     character->str = 5;
 
     client::StatSkillJunkClientPacket packet;
-    packet.session_id = TrainerNpcId + 1;
+    packet.session_id = TrainerSessionId + 1;
     Handlers::StatSkill_Junk(character, packet);
 
     EXPECT_EQ(5, character->str);
@@ -259,7 +262,7 @@ TEST_F(StatSkillTests, Junk_MatchingSession_ResetsStats)
     character->str = 5;
 
     client::StatSkillJunkClientPacket packet;
-    packet.session_id = TrainerNpcId;
+    packet.session_id = TrainerSessionId;
     Handlers::StatSkill_Junk(character, packet);
 
     EXPECT_EQ(0, character->str);

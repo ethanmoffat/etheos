@@ -12,24 +12,32 @@
 #include "../map.hpp"
 #include "../npc.hpp"
 #include "../npc_data.hpp"
-#include "../packet.hpp"
 #include "../party.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
+#include <algorithm>
 #include <string>
 
 namespace Handlers
 {
 
-// Sleeping at an inn
-void Citizen_Request(Character *character, PacketReader &reader)
+static bool IsInnSessionValid(Character* character, int session_id)
 {
-	/*int session = */reader.GetShort();
-	/*int vendor_id = */reader.GetShort();
+	return character->npc_type == pub::NpcType::Inn && character->npc_session_id == session_id;
+}
 
-	if (character->npc_type == pub::NpcType::Inn && (character->hp < character->maxhp || character->tp < character->maxtp))
+// Sleeping at an inn
+void Citizen_Request(Character* character, const client::CitizenRequestClientPacket& packet)
+{
+	if (!IsInnSessionValid(character, packet.session_id))
+		return;
+
+	if (character->hp < character->maxhp || character->tp < character->maxtp)
 	{
 		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
 		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
@@ -39,20 +47,16 @@ void Citizen_Request(Character *character, PacketReader &reader)
 			missing_hp * static_cast<int>(character->world->config["InnSleepCostPerHP"]) +
 			missing_tp * static_cast<int>(character->world->config["InnSleepCostPerTP"]);
 
-		PacketBuilder reply(PACKET_CITIZEN, PACKET_REQUEST, 4);
-		reply.AddInt(sleep_cost);
-
+		server::CitizenRequestServerPacket reply;
+		reply.cost = sleep_cost;
 		character->Send(reply);
 	}
 }
 
 // Accepting cost to sleep at an inn
-void Citizen_Accept(Character *character, PacketReader &reader)
+void Citizen_Accept(Character* character, const client::CitizenAcceptClientPacket& packet)
 {
-	/*int session = */reader.GetShort();
-	/*int vendor_id = */reader.GetShort();
-
-	if (character->npc_type == pub::NpcType::Inn)
+	if (IsInnSessionValid(character, packet.session_id))
 	{
 		unsigned int missing_hp = static_cast<unsigned int>(character->maxhp - character->hp);
 		unsigned int missing_tp = static_cast<unsigned int>(character->maxtp - character->tp);
@@ -74,9 +78,8 @@ void Citizen_Accept(Character *character, PacketReader &reader)
 				character->party->UpdateHP(character);
 			}
 
-			PacketBuilder reply(PACKET_CITIZEN, PACKET_ACCEPT, 4);
-			reply.AddInt(character->HasItem(1));
-
+			server::CitizenAcceptServerPacket reply;
+			reply.gold_amount = character->HasItem(1);
 			character->Send(reply);
 
 			auto home_name = character->npc->Data().citizenship->home;
@@ -98,25 +101,18 @@ void Citizen_Accept(Character *character, PacketReader &reader)
 }
 
 // Player subscribing to a town
-void Citizen_Reply(Character *character, PacketReader &reader)
+void Citizen_Reply(Character* character, const client::CitizenReplyClientPacket& packet)
 {
-	std::string answers[3];
+	if (!IsInnSessionValid(character, packet.session_id))
+		return;
 
-	/*int session = */reader.GetShort();
-	reader.GetByte();
-	/*short npcid = */reader.GetShort();
-	reader.GetByte();
-	answers[0] = reader.GetBreakString();
-	answers[1] = reader.GetBreakString();
-	answers[2] = reader.GetEndString();
-
-	if (character->npc_type == pub::NpcType::Inn && (character->home.size() == 0 || character->world->config["CitizenSubscribeAnytime"]))
+	if (character->home.size() == 0 || character->world->config["CitizenSubscribeAnytime"])
 	{
 		int questions_wrong = 0;
 
 		for (int i = 0; i < 3; ++i)
 		{
-			if (util::lowercase(answers[i]) != util::lowercase(character->npc->Data().citizenship->answers[i]))
+			if (util::lowercase(packet.answers[i]) != util::lowercase(character->npc->Data().citizenship->answers[i]))
 			{
 				++questions_wrong;
 			}
@@ -127,31 +123,29 @@ void Citizen_Reply(Character *character, PacketReader &reader)
 			character->home = character->npc->Data().citizenship->home;
 		}
 
-		PacketBuilder reply(PACKET_CITIZEN, PACKET_REPLY, 1);
-		reply.AddChar(questions_wrong);
-
+		server::CitizenReplyServerPacket reply;
+		reply.questions_wrong = questions_wrong;
 		character->Send(reply);
 	}
 }
 
 // Player giving up citizenship of a town
-void Citizen_Remove(Character *character, PacketReader &reader)
+void Citizen_Remove(Character* character, const client::CitizenRemoveClientPacket& packet)
 {
-	(void)reader;
-	/*short npcid = reader.GetShort();*/
+	(void)packet;
 
 	if (character->npc_type == pub::NpcType::Inn)
 	{
-		PacketBuilder reply(PACKET_CITIZEN, PACKET_REMOVE, 1);
+		server::CitizenRemoveServerPacket reply;
 
 		if (character->home == character->npc->Data().citizenship->home || character->world->config["CitizenUnsubscribeAnywhere"])
 		{
 			character->home = "";
-			reply.AddChar(UNSUBSCRIBE_UNSUBSCRIBED);
+			reply.reply_code = server::InnUnsubscribeReply::Unsubscribed;
 		}
 		else
 		{
-			reply.AddChar(UNSUBSCRIBE_NOT_CITIZEN);
+			reply.reply_code = server::InnUnsubscribeReply::NotCitizen;
 		}
 
 		character->Send(reply);
@@ -159,52 +153,45 @@ void Citizen_Remove(Character *character, PacketReader &reader)
 }
 
 // Talked to a citizenship NPC
-void Citizen_Open(Character *character, PacketReader &reader)
+void Citizen_Open(Character* character, const client::CitizenOpenClientPacket& packet)
 {
-	short id = reader.GetShort();
+	const auto match = std::find_if(
+		character->map->npcs.begin(),
+		character->map->npcs.end(),
+		[&packet](const NPC* npc) { return npc->index == packet.npc_index && npc->PubData().type == pub::NpcType::Inn && npc->Data().citizenship; });
 
-	UTIL_FOREACH(character->map->npcs, npc)
-	{
-		if (npc->index == id && npc->PubData().type == pub::NpcType::Inn && npc->Data().citizenship)
-		{
-			character->npc = npc;
-			character->npc_type = pub::NpcType::Inn;
+	if (match == character->map->npcs.end())
+		return;
 
-			PacketBuilder reply(PACKET_CITIZEN, PACKET_OPEN,
-				9 + npc->Data().citizenship->questions[0].length() + npc->Data().citizenship->questions[1].length() + npc->Data().citizenship->questions[2].length());
+	NPC* npc = *match;
+	character->npc = npc;
+	character->npc_type = pub::NpcType::Inn;
 
-			auto home = character->world->GetHome(character);
-			int innkeeper_vend = 0;
+	auto home = character->world->GetHome(character);
+	int innkeeper_vend = 0;
 
-			if (home)
-				innkeeper_vend = home->innkeeper_vend;
+	if (home)
+		innkeeper_vend = home->innkeeper_vend;
 
-			reply.AddThree(npc->PubData().behavior_id);
+	server::CitizenOpenServerPacket reply;
+	reply.behavior_id = npc->PubData().behavior_id;
 
-			if (character->world->config["CitizenSubscribeAnytime"] && innkeeper_vend != npc->PubData().behavior_id)
-				reply.AddChar(0);
-			else
-				reply.AddChar(innkeeper_vend);
+	if (character->world->config["CitizenSubscribeAnytime"] && innkeeper_vend != npc->PubData().behavior_id)
+		reply.current_home_id = 0;
+	else
+		reply.current_home_id = innkeeper_vend;
 
-			reply.AddShort(0); // session (should match global warp ID)
-			reply.AddByte(255);
-			reply.AddBreakString(npc->Data().citizenship->questions[0]);
-			reply.AddBreakString(npc->Data().citizenship->questions[1]);
-			reply.AddString(npc->Data().citizenship->questions[2]);
-
-			character->Send(reply);
-
-			break;
-		}
-	}
+	reply.session_id = character->NewNpcSession();
+	reply.questions.assign(npc->Data().citizenship->questions.begin(), npc->Data().citizenship->questions.end());
+	character->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_CITIZEN)
-	Register(PACKET_REQUEST, Citizen_Request, Playing);
-	Register(PACKET_ACCEPT, Citizen_Accept, Playing);
-	Register(PACKET_REPLY, Citizen_Reply, Playing);
-	Register(PACKET_REMOVE, Citizen_Remove, Playing);
-	Register(PACKET_OPEN, Citizen_Open, Playing);
+	Register(Citizen_Request, Playing);
+	Register(Citizen_Accept, Playing);
+	Register(Citizen_Reply, Playing);
+	Register(Citizen_Remove, Playing);
+	Register(Citizen_Open, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_CITIZEN)
 
 }

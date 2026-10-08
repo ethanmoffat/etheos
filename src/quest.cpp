@@ -896,7 +896,7 @@ std::string Quest_Context::Desc() const
 
 Quest_Context::ProgressInfo Quest_Context::Progress() const
 {
-	BookIcon icon = BOOK_ICON_TALK;
+	auto icon = server::QuestRequirementIcon::Talk;
 	std::string goal_progress_key;
 	short goal_progress = 0;
 	short goal_goal = 0;
@@ -907,31 +907,31 @@ Quest_Context::ProgressInfo Quest_Context::Progress() const
 	{
 		if (goal->expr.function == "gotitems" || goal->expr.function == "gotspell")
 		{
-			icon = BOOK_ICON_ITEM;
+			icon = server::QuestRequirementIcon::Item;
 			goal_progress = std::min<int>(goal->expr.args[1], this->character->HasItem(int(goal->expr.args[0])));
 			goal_goal = goal->expr.args.size() >= 2 ? int(goal->expr.args[1]) : 1;
 		}
 		else if (goal->expr.function == "useditem" || goal->expr.function == "usedspell")
 		{
-			icon = BOOK_ICON_ITEM;
+			icon = server::QuestRequirementIcon::Item;
 			goal_progress_key = goal->expr.function + "/" + std::string(goal->expr.args[0]);
 			goal_goal = goal->expr.args.size() >= 2 ? int(goal->expr.args[1]) : 1;
 		}
 		else if (goal->expr.function == "killednpcs")
 		{
-			icon = BOOK_ICON_KILL;
+			icon = server::QuestRequirementIcon::Kill;
 			goal_progress_key = goal->expr.function + "/" + std::string(goal->expr.args[0]);
 			goal_goal = goal->expr.args.size() >= 2 ? int(goal->expr.args[1]) : 1;
 		}
 		else if (goal->expr.function == "killedplayers")
 		{
-			icon = BOOK_ICON_KILL;
+			icon = server::QuestRequirementIcon::Kill;
 			goal_progress_key = goal->expr.function;
 			goal_goal = int(goal->expr.args[0]);
 		}
 		else if (goal->expr.function == "entercoord" || goal->expr.function == "leavecoord" || goal->expr.function == "entermap" || goal->expr.function == "leavemap")
 		{
-			icon = BOOK_ICON_STEP;
+			icon = server::QuestRequirementIcon::Step;
 		}
 	}
 

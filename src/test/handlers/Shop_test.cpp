@@ -22,6 +22,7 @@ namespace
 constexpr unsigned short ShopTestServerPort = 38122;
 constexpr int ShopTestMapId = 27;
 constexpr int ShopNpcId = 1;
+constexpr int ShopSessionId = 1234;
 constexpr int GoldId = 1;
 constexpr int OreId = 2;
 constexpr int BarId = 3;
@@ -105,6 +106,7 @@ protected:
         Character* character = GivenCharacter(3, 3).character;
         character->npc = shopkeeper;
         character->npc_type = pub::NpcType::Shop;
+        character->npc_session_id = ShopSessionId;
         character->AddItem(GoldId, 100);
         character->AddItem(OreId, 3);
         return character;
@@ -151,7 +153,8 @@ TEST_F(ShopTests, Open_Shop_SendsItemsWithNpcSession)
 
     const auto reply = LastSent<server::ShopOpenServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
-    EXPECT_EQ(ShopNpcId, reply->session_id);
+    EXPECT_NE(0, reply->session_id);
+    EXPECT_EQ(character->npc_session_id, reply->session_id);
     EXPECT_EQ("Smith", reply->shop_name);
     EXPECT_EQ(server->world->npc_data[ShopNpcId]->shop_trade, reply->trade_items);
     EXPECT_EQ(server->world->npc_data[ShopNpcId]->shop_craft, reply->craft_items);
@@ -163,7 +166,7 @@ TEST_F(ShopTests, Buy_MatchingSession_BuysItem)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Buy(character, Buy(2, ShopNpcId));
+    Handlers::Shop_Buy(character, Buy(2, ShopSessionId));
 
     const auto reply = LastSent<server::ShopBuyServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
@@ -179,28 +182,28 @@ TEST_F(ShopTests, Buy_WrongSession_Ignored)
     PlayingCharacter& entry = *playing.back();
 
     EXPECT_CALL(*entry.client, Close(testing::_)).Times(0);
-    Handlers::Shop_Buy(entry.character, Buy(2, ShopNpcId + 1));
+    Handlers::Shop_Buy(entry.character, Buy(2, ShopSessionId + 1));
 
     EXPECT_FALSE(LastSent<server::ShopBuyServerPacket>(entry));
     EXPECT_EQ(100, entry.character->HasItem(GoldId));
 }
 
-TEST_F(ShopTests, Buy_WrongSessionWithEnforceSessionsOff_BuysItem)
+TEST_F(ShopTests, Buy_WrongSessionWithEnforceSessionsOff_Ignored)
 {
     Character* character = GivenCharacterAtShop();
     server->world->config["EnforceSessions"] = false;
 
-    Handlers::Shop_Buy(character, Buy(2, ShopNpcId + 1));
+    Handlers::Shop_Buy(character, Buy(2, ShopSessionId + 1));
 
-    EXPECT_TRUE(LastSent<server::ShopBuyServerPacket>(*playing.back()));
-    EXPECT_EQ(80, character->HasItem(GoldId));
+    EXPECT_FALSE(LastSent<server::ShopBuyServerPacket>(*playing.back()));
+    EXPECT_EQ(100, character->HasItem(GoldId));
 }
 
 TEST_F(ShopTests, Buy_OverMaxShopBuy_Ignored)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Buy(character, Buy(static_cast<int>(server->world->config["MaxShopBuy"]) + 1, ShopNpcId));
+    Handlers::Shop_Buy(character, Buy(static_cast<int>(server->world->config["MaxShopBuy"]) + 1, ShopSessionId));
 
     EXPECT_FALSE(LastSent<server::ShopBuyServerPacket>(*playing.back()));
 }
@@ -209,7 +212,7 @@ TEST_F(ShopTests, Sell_MatchingSession_SellsItem)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Sell(character, Sell(2, ShopNpcId));
+    Handlers::Shop_Sell(character, Sell(2, ShopSessionId));
 
     const auto reply = LastSent<server::ShopSellServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
@@ -222,7 +225,7 @@ TEST_F(ShopTests, Sell_WrongSession_Ignored)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Sell(character, Sell(2, ShopNpcId + 1));
+    Handlers::Shop_Sell(character, Sell(2, ShopSessionId + 1));
 
     EXPECT_FALSE(LastSent<server::ShopSellServerPacket>(*playing.back()));
     EXPECT_EQ(3, character->HasItem(OreId));
@@ -232,7 +235,7 @@ TEST_F(ShopTests, Create_HasIngredients_CraftsItem)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Create(character, Create(ShopNpcId));
+    Handlers::Shop_Create(character, Create(ShopSessionId));
 
     const auto reply = LastSent<server::ShopCreateServerPacket>(*playing.back());
     ASSERT_TRUE(reply);
@@ -248,7 +251,7 @@ TEST_F(ShopTests, Create_MissingIngredients_Ignored)
     Character* character = GivenCharacterAtShop();
     character->DelItem(OreId, 2);
 
-    Handlers::Shop_Create(character, Create(ShopNpcId));
+    Handlers::Shop_Create(character, Create(ShopSessionId));
 
     EXPECT_FALSE(LastSent<server::ShopCreateServerPacket>(*playing.back()));
     EXPECT_EQ(0, character->HasItem(BarId));
@@ -258,7 +261,7 @@ TEST_F(ShopTests, Create_WrongSession_Ignored)
 {
     Character* character = GivenCharacterAtShop();
 
-    Handlers::Shop_Create(character, Create(ShopNpcId + 1));
+    Handlers::Shop_Create(character, Create(ShopSessionId + 1));
 
     EXPECT_FALSE(LastSent<server::ShopCreateServerPacket>(*playing.back()));
     EXPECT_EQ(3, character->HasItem(OreId));

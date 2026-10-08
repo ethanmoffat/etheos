@@ -6,6 +6,7 @@
 #pragma once
 
 #include "fwd/character.hpp"
+#include "fwd/dialog.hpp"
 #include "fwd/map.hpp"
 #include "fwd/npc.hpp"
 
@@ -81,6 +82,17 @@ namespace Converters
 	 * Gets the names of the quests character has finished, excluding hidden quests, as listed in the quest book.
 	 */
 	std::vector<std::string> FinishedQuestNamesFrom(const Character* character);
+
+	/**
+	 * Gets the progress of the quests character is doing, excluding finished, disabled and hidden quests, as listed in
+	 * the quest book.
+	 */
+	std::vector<server::QuestProgressEntry> QuestProgressEntriesFrom(const Character* character);
+
+	/**
+	 * Creates the dialog entries of dialog: its pages as text entries, followed by its links.
+	 */
+	std::vector<server::DialogEntry> DialogEntriesFrom(const Dialog& dialog);
 
 	server::LevelUpStats LevelUpStatsFrom(const Character* character);
 

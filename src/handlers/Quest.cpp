@@ -7,15 +7,18 @@
 #include "handlers.hpp"
 
 #include "../character.hpp"
+#include "../converters.hpp"
 #include "../dialog.hpp"
 #include "../eodata.hpp"
 #include "../eoplus.hpp"
 #include "../npc.hpp"
-#include "../packet.hpp"
 #include "../quest.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
+
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
 
 #include <cstddef>
 #include <deque>
@@ -36,6 +39,8 @@ static void open_quest_dialog(Character* character, NPC* npc, int quest_id, int 
 
 	std::deque<dialog_t> dialogs;
 	std::size_t this_dialog = 0;
+
+	character->NewNpcSession();
 
 	UTIL_FOREACH(character->quests, quest)
 	{
@@ -58,44 +63,33 @@ static void open_quest_dialog(Character* character, NPC* npc, int quest_id, int 
 		character->npc = npc;
 		character->npc_type = pub::NpcType::Quest;
 
-		PacketBuilder reply(PACKET_QUEST, PACKET_DIALOG, 10);
-		reply.AddChar(static_cast<unsigned char>(dialogs.size())); // quest count
-		reply.AddShort(vendor_id); // ?
-		reply.AddShort(dialogs[this_dialog].quest_id);
-		reply.AddShort(0); // session
-		reply.AddShort(0); // dialog id
-		reply.AddByte(255);
+		server::QuestDialogServerPacket reply;
+		reply.behavior_id = vendor_id;
+		reply.quest_id = dialogs[this_dialog].quest_id;
+		reply.session_id = character->npc_session_id;
+		reply.dialog_id = 0;
 
-		std::size_t reserve = 0;
-
-		UTIL_FOREACH(dialogs, dialog)
+		for (const dialog_t& dialog : dialogs)
 		{
-			reserve += 3 + dialog.quest->GetQuest()->Name().length();
+			server::DialogQuestEntry& entry = reply.quest_entries.emplace_back();
+			entry.quest_id = dialog.quest_id;
+			entry.quest_name = dialog.quest->GetQuest()->Name();
 		}
 
-		reply.ReserveMore(reserve);
-
-		UTIL_FOREACH(dialogs, dialog)
-		{
-			reply.AddShort(dialog.quest_id);
-			reply.AddBreakString(dialog.quest->GetQuest()->Name());
-		}
-
-		dialogs[this_dialog].dialog->BuildPacket(reply);
+		reply.dialog_entries = Converters::DialogEntriesFrom(*dialogs[this_dialog].dialog);
 
 		character->Send(reply);
 	}
 }
 
 // Talking to a quest NPC
-void Quest_Use(Character *character, PacketReader &reader)
+void Quest_Use(Character* character, const client::QuestUseClientPacket& packet)
 {
-	short npc_index = reader.GetShort();
-	short quest_id = reader.GetShort();
+	int quest_id = packet.quest_id;
 
 	UTIL_FOREACH(character->map->npcs, npc)
 	{
-		if (npc->index == npc_index && npc->PubData().type == pub::NpcType::Quest && character->InRange(npc))
+		if (npc->index == packet.npc_index && npc->PubData().type == pub::NpcType::Quest && character->InRange(npc))
 		{
 			short vendor_id = npc->PubData().behavior_id;
 
@@ -137,21 +131,19 @@ void Quest_Use(Character *character, PacketReader &reader)
 }
 
 // Response to an NPC dialog
-void Quest_Accept(Character *character, PacketReader &reader)
+void Quest_Accept(Character* character, const client::QuestAcceptClientPacket& packet)
 {
-	/*short session = */reader.GetShort();
-	/*short dialog_id = */reader.GetShort();
-	short quest_id = reader.GetShort();
-	/*short npc_index = */reader.GetShort();
-	DialogReply type = DialogReply(reader.GetChar());
-
+	const int quest_id = packet.quest_id;
 	char action = 0;
 
-	if (type == DIALOG_REPLY_LINK)
-		action = reader.GetChar();
+	if (const auto* link = packet.AsLink())
+		action = static_cast<char>(link->action);
 
 	if (character->npc_type == pub::NpcType::Quest)
 	{
+		if (character->npc_session_id != packet.session_id)
+			return;
+
 		short vendor_id = character->npc->PubData().behavior_id;
 		std::shared_ptr<Quest_Context> quest;
 
@@ -162,7 +154,7 @@ void Quest_Accept(Character *character, PacketReader &reader)
 			// WARNING: holds a non-tracked reference to shared_ptr
 			const Dialog* dialog = it->second->GetDialog(vendor_id);
 
-			if (dialog && (type == DIALOG_REPLY_OK || (type == DIALOG_REPLY_LINK && dialog->CheckLink(action))))
+			if (dialog && (packet.reply_type == client::DialogReply::Ok || (packet.reply_type == client::DialogReply::Link && dialog->CheckLink(action))))
 			{
 				quest = it->second;
 			}
@@ -184,69 +176,40 @@ void Quest_Accept(Character *character, PacketReader &reader)
 }
 
 // Quest history/progress request
-void Quest_List(Character *character, PacketReader &reader)
+void Quest_List(Character* character, const client::QuestListClientPacket& packet)
 {
-	QuestPage page = QuestPage(reader.GetChar());
+	server::QuestListServerPacket reply;
 
-	PacketBuilder reply(PACKET_QUEST, PACKET_LIST, 4);
-	reply.AddChar(page);
-	reply.AddShort(static_cast<unsigned short>(character->quests.size()));
-
-	std::size_t reserve = 0;
-
-	switch (page)
+	switch (packet.page)
 	{
-		case QUEST_PAGE_PROGRESS:
-			UTIL_FOREACH(character->quests, q)
-			{
-				if (q.second && !q.second->Finished() && !q.second->GetQuest()->Disabled() && !q.second->IsHidden())
-					reserve += 9 + q.second->GetQuest()->GetQuest()->info.name.length() + q.second->Desc().length();
-			}
-
-			reply.ReserveMore(reserve);
-
-			UTIL_FOREACH(character->quests, q)
-			{
-				if (!q.second || q.second->Finished() || q.second->GetQuest()->Disabled() || q.second->IsHidden())
-					continue;
-
-				Quest_Context::ProgressInfo progress = q.second->Progress();
-
-				reply.AddBreakString(q.second->GetQuest()->GetQuest()->info.name);
-				reply.AddBreakString(q.second->Desc());
-				reply.AddShort(progress.icon);
-				reply.AddShort(progress.progress);
-				reply.AddShort(progress.target);
-				reply.AddByte(255);
-			}
-
+		case net::QuestPage::Progress:
+		{
+			server::QuestListServerPacket::PageDataProgress progress;
+			progress.quest_progress_entries = Converters::QuestProgressEntriesFrom(character);
+			reply = server::QuestListServerPacket::ForProgress(std::move(progress));
 			break;
+		}
 
-		case QUEST_PAGE_HISTORY:
-			UTIL_FOREACH(character->quests, q)
-			{
-				if (q.second && q.second->Finished() && !q.second->IsHidden())
-					reserve += 1 + q.second->GetQuest()->GetQuest()->info.name.length();
-			}
-
-			reply.ReserveMore(reserve);
-
-			UTIL_FOREACH(character->quests, q)
-			{
-				if (q.second && q.second->Finished() && !q.second->IsHidden())
-					reply.AddBreakString(q.second->GetQuest()->GetQuest()->info.name);
-			}
-
+		case net::QuestPage::History:
+		{
+			server::QuestListServerPacket::PageDataHistory history;
+			history.completed_quests = Converters::FinishedQuestNamesFrom(character);
+			reply = server::QuestListServerPacket::ForHistory(std::move(history));
 			break;
+		}
+
+		default:
+			return;
 	}
 
+	reply.quests_count = static_cast<int>(character->quests.size());
 	character->Send(reply);
 }
 
 PACKET_HANDLER_REGISTER(PACKET_QUEST)
-	Register(PACKET_USE, Quest_Use, Playing);
-	Register(PACKET_ACCEPT, Quest_Accept, Playing);
-	Register(PACKET_LIST, Quest_List, Playing);
+	Register(Quest_Use, Playing);
+	Register(Quest_Accept, Playing);
+	Register(Quest_List, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_QUEST)
 
 }

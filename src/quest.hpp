@@ -14,6 +14,8 @@
 #include "fwd/world.hpp"
 #include "eoplus/context.hpp"
 
+#include <eolib/protocol/net/server/enums.hpp>
+
 #include <map>
 #include <memory>
 #include <string>
@@ -44,7 +46,7 @@ class Quest_Context : public EOPlus::Context
 	public:
 		struct ProgressInfo
 		{
-			BookIcon icon;
+			eolib::protocol::net::server::QuestRequirementIcon icon;
 			short progress;
 			short target;
 		};

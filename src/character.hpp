@@ -202,6 +202,7 @@ class Character : public Command_Source
 
 		NPC *npc;
 		eolib::protocol::pub::NpcType npc_type;
+		int npc_session_id; // Session of the NPC dialog last opened; 0 when none was
 		Board *board;
 		bool jukebox_open;
 		std::string guild_join;
@@ -324,6 +325,7 @@ class Character : public Command_Source
 		bool InRange(unsigned char x, unsigned char y) const;
 		bool InRange(const Character *) const;
 		bool InRange(const NPC *) const;
+		int NewNpcSession(); // Starts/replaces NPC dialog session
 		bool InRange(const Map_Item&) const;
 		void Warp(short map, unsigned char x, unsigned char y, WarpEffect effect = WarpEffect::None);
 		void Refresh();

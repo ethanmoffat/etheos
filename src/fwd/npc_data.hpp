@@ -12,10 +12,4 @@ class NPC_Data;
 struct NPC_Drop;
 struct NPC_Citizenship;
 
-enum InnUnsubscribeReply : unsigned char
-{
-	UNSUBSCRIBE_NOT_CITIZEN = 0,
-	UNSUBSCRIBE_UNSUBSCRIBED = 1
-};
-
 #endif // FWD_NPC_HPP_INCLUDED

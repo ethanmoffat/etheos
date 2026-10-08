@@ -7,6 +7,7 @@
 
 #include "character.hpp"
 #include "config.hpp"
+#include "dialog.hpp"
 #include "eodata.hpp"
 #include "map.hpp"
 #include "npc.hpp"
@@ -302,6 +303,51 @@ std::vector<std::string> FinishedQuestNamesFrom(const Character* character)
 	}
 
 	return names;
+}
+
+std::vector<server::QuestProgressEntry> QuestProgressEntriesFrom(const Character* character)
+{
+	std::vector<server::QuestProgressEntry> entries;
+
+	for (const auto& quest : character->quests)
+	{
+		if (!quest.second || quest.second->Finished() || quest.second->GetQuest()->Disabled() || quest.second->IsHidden())
+			continue;
+
+		const Quest_Context::ProgressInfo progress = quest.second->Progress();
+
+		server::QuestProgressEntry& entry = entries.emplace_back();
+		entry.name = quest.second->GetQuest()->Name();
+		entry.description = quest.second->Desc();
+		entry.icon = progress.icon;
+		entry.progress = progress.progress;
+		entry.target = progress.target;
+	}
+
+	return entries;
+}
+
+std::vector<server::DialogEntry> DialogEntriesFrom(const Dialog& dialog)
+{
+	std::vector<server::DialogEntry> entries;
+	entries.reserve(dialog.Pages().size() + dialog.Links().size());
+
+	for (const std::string& page : dialog.Pages())
+	{
+		server::DialogEntry& entry = entries.emplace_back(server::DialogEntry::ForText());
+		entry.line = page;
+	}
+
+	for (const auto& link : dialog.Links())
+	{
+		server::DialogEntry::EntryTypeDataLink link_data;
+		link_data.link_id = link.first;
+
+		server::DialogEntry& entry = entries.emplace_back(server::DialogEntry::ForLink(link_data));
+		entry.line = link.second;
+	}
+
+	return entries;
 }
 
 server::LevelUpStats LevelUpStatsFrom(const Character* character)

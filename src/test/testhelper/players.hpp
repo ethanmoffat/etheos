@@ -86,6 +86,7 @@ public:
         character->accuracy = character->evade = character->armor = 0;
         character->warp_effect = Character::NoPendingWarp;
         character->warp_session_id = 0;
+        character->npc_session_id = 0;
         character->map = nullptr;
         character->paperdoll.fill(0);
         character->cosmetic_paperdoll.fill(0);

@@ -29,6 +29,7 @@
 #include "util/rpn.hpp"
 #include "util/variant.hpp"
 
+#include <eolib/data/eo_numeric_limits.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
 
 #include <algorithm>
@@ -474,6 +475,7 @@ Character::Character(std::string name, World *world, Database *database)
 
 	this->warp_effect = NoPendingWarp;
 	this->warp_session_id = 0;
+	this->npc_session_id = 0;
 
 	this->sitting = static_cast<SitState>(GetRow<int>(row, "sitting"));
 	this->hidden = GetRow<int>(row, "hidden");
@@ -1212,6 +1214,12 @@ bool Character::InRange(const Map_Item &other) const
 	}
 
 	return this->InRange(other.loc.x, other.loc.y);
+}
+
+int Character::NewNpcSession()
+{
+	this->npc_session_id = util::rand(1, static_cast<int>(eolib::data::EoNumericLimits::ShortMax) - 2);
+	return this->npc_session_id;
 }
 
 void Character::Warp(short map, unsigned char x, unsigned char y, WarpEffect effect)

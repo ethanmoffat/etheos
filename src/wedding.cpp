@@ -10,7 +10,6 @@
 #include "converters.hpp"
 #include "map.hpp"
 #include "npc.hpp"
-#include "packet.hpp"
 #include "timer.hpp"
 #include "world.hpp"
 
@@ -199,9 +198,9 @@ void Wedding::Tick()
 			{
 				if (this->Check())
 				{
-					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 2);
-					builder.AddShort(PRIEST_DO_YOU);
-					this->GetPartner1()->Send(builder);
+					server::PriestReplyServerPacket reply;
+					reply.reply_code = server::PriestReply::DoYou;
+					this->GetPartner1()->Send(reply);
 				}
 			}
 			else if (this->tick == 13)
@@ -242,9 +241,9 @@ void Wedding::Tick()
 			{
 				if (this->Check())
 				{
-					PacketBuilder builder(PACKET_PRIEST, PACKET_REPLY, 2);
-					builder.AddShort(PRIEST_DO_YOU);
-					this->GetPartner2()->Send(builder);
+					server::PriestReplyServerPacket reply;
+					reply.reply_code = server::PriestReply::DoYou;
+					this->GetPartner2()->Send(reply);
 				}
 			}
 			else if (this->tick == 13)

@@ -12,63 +12,64 @@
 #include "../map.hpp"
 #include "../npc.hpp"
 #include "../npc_data.hpp"
-#include "../packet.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
+#include <algorithm>
+#include <string>
+
 namespace Handlers
 {
 
-// Talking to a law bob NPC
-void Marriage_Open(Character *character, PacketReader &reader)
+static server::MarriageReplyServerPacket::ReplyCodeDataSuccess NewSuccessData(int characterGold)
 {
-	short id = reader.GetShort();
-
-	UTIL_FOREACH(character->map->npcs, npc)
-	{
-		if (npc->index == id && (npc->PubData().type == pub::NpcType::Lawyer))
-		{
-			character->npc = npc;
-			character->npc_type = pub::NpcType::Lawyer;
-
-			PacketBuilder reply(PACKET_MARRIAGE, PACKET_OPEN, 3);
-			reply.AddThree(npc->id);
-
-			character->Send(reply);
-
-			break;
-		}
-	}
+	server::MarriageReplyServerPacket::ReplyCodeDataSuccess success;
+	success.gold_amount = characterGold;
+	return success;
 }
 
-enum MarriageRequestType : unsigned char
+// Talking to a law bob NPC
+void Marriage_Open(Character* character, const client::MarriageOpenClientPacket& packet)
 {
-	MarriageApproval = 1,
-	Divorce = 2,
-};
+	const auto match = std::find_if(
+		character->map->npcs.begin(),
+		character->map->npcs.end(),
+		[&packet](const NPC* npc) { return npc->index == packet.npc_index && npc->PubData().type == pub::NpcType::Lawyer; });
+
+	if (match == character->map->npcs.end())
+		return;
+
+	character->npc = *match;
+	character->npc_type = pub::NpcType::Lawyer;
+
+	server::MarriageOpenServerPacket reply;
+	reply.session_id = character->NewNpcSession();
+	character->Send(reply);
+}
 
 // Requesting marriage approval
-void Marriage_Request(Character *character, PacketReader &reader)
+void Marriage_Request(Character* character, const client::MarriageRequestClientPacket& packet)
 {
-	MarriageRequestType request_type = static_cast<MarriageRequestType>(reader.GetChar());
-	/*int session_id = */reader.GetInt();
-	reader.GetByte();
-	std::string name = util::lowercase(reader.GetEndString());
-
 	if (character->npc_type != pub::NpcType::Lawyer)
 		return;
 
-	switch (request_type)
+	if (character->npc_session_id != packet.session_id)
+		return;
+
+	const std::string name = util::lowercase(packet.name);
+
+	switch (packet.request_type)
 	{
-		case MarriageApproval:
+		case client::MarriageRequestType::MarriageApproval:
 		{
 			if (!character->partner.empty())
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_ALREADY_HAVE_PARTNER);
-				character->Send(builder);
+				character->Send(server::MarriageReplyServerPacket::ForAlreadyMarried());
 				return;
 			}
 
@@ -76,34 +77,29 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			if (!character->HasItem(1, marriage_price))
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_NOT_ENOUGH_GP);
-				character->Send(builder);
+				character->Send(server::MarriageReplyServerPacket::ForNotEnoughGold());
 				return;
 			}
 
 			if (Character::ValidName(name))
 			{
 				character->DelItem(1, marriage_price);
-
 				character->fiance = name;
-
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
-				builder.AddShort(MARRIAGE_SUCCESS);
-				builder.AddInt(character->HasItem(1));
-				character->Send(builder);
+				character->Send(
+					server::MarriageReplyServerPacket::ForSuccess(
+						NewSuccessData(character->HasItem(1))
+					)
+				);
 			}
 
 			break;
 		}
 
-		case Divorce:
+		case client::MarriageRequestType::Divorce:
 		{
 			if (character->partner.empty())
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_DIVORCE_NOT_MARRIED);
-				character->Send(builder);
+				character->Send(server::MarriageReplyServerPacket::ForNotMarried());
 				return;
 			}
 
@@ -111,17 +107,13 @@ void Marriage_Request(Character *character, PacketReader &reader)
 
 			if (!character->HasItem(1, divorce_price))
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_NOT_ENOUGH_GP);
-				character->Send(builder);
+				character->Send(server::MarriageReplyServerPacket::ForNotEnoughGold());
 				return;
 			}
 
 			if (character->partner != name)
 			{
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_DIVORCE_WRONG_NAME);
-				character->Send(builder);
+				character->Send(server::MarriageReplyServerPacket::ForWrongName());
 				return;
 			}
 
@@ -131,9 +123,7 @@ void Marriage_Request(Character *character, PacketReader &reader)
 			{
 				partner->partner.clear();
 
-				PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 2);
-				builder.AddShort(MARRIAGE_DIVORCE_NOTIFICATION);
-				partner->Send(builder);
+				partner->Send(server::MarriageReplyServerPacket::ForDivorceNotification());
 			}
 			else
 			{
@@ -145,21 +135,20 @@ void Marriage_Request(Character *character, PacketReader &reader)
 			}
 
 			character->partner.clear();
-
 			character->DelItem(1, divorce_price);
-
-			PacketBuilder builder(PACKET_MARRIAGE, PACKET_REPLY, 6);
-			builder.AddShort(MARRIAGE_SUCCESS);
-			builder.AddInt(character->HasItem(1));
-			character->Send(builder);
+			character->Send(
+				server::MarriageReplyServerPacket::ForSuccess(
+					NewSuccessData(character->HasItem(1))
+				)
+			);
 			break;
 		}
 	}
 }
 
 PACKET_HANDLER_REGISTER(PACKET_MARRIAGE)
-	Register(PACKET_OPEN, Marriage_Open, Playing);
-	Register(PACKET_REQUEST, Marriage_Request, Playing);
+	Register(Marriage_Open, Playing);
+	Register(Marriage_Request, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_MARRIAGE)
 
 }

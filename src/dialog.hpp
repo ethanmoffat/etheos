@@ -9,8 +9,6 @@
 
 #include "fwd/dialog.hpp"
 
-#include "fwd/packet.hpp"
-
 #include <deque>
 #include <map>
 #include <string>
@@ -28,8 +26,8 @@ class Dialog
 		void AddLink(int, const std::string&);
 		bool CheckLink(int) const;
 
-		int PacketLength() const;
-		void BuildPacket(PacketBuilder&) const;
+		const std::deque<std::string>& Pages() const;
+		const std::multimap<int, std::string>& Links() const;
 
 		~Dialog();
 };

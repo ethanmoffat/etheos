@@ -12,20 +12,33 @@
 #include "../map.hpp"
 #include "../npc.hpp"
 #include "../npc_data.hpp"
-#include "../packet.hpp"
 #include "../timer.hpp"
 #include "../wedding.hpp"
 #include "../world.hpp"
 
 #include "../util.hpp"
 
+#include <eolib/protocol/net/client/packets.hpp>
+#include <eolib/protocol/net/server/packets.hpp>
+
+#include <algorithm>
+#include <string>
+
 namespace Handlers
 {
 
-// Accepting a marriage request
-void Priest_Accept(Character *character, PacketReader &reader)
+static server::PriestReplyServerPacket PriestReplyFor(server::PriestReply reply_code)
 {
-	(void) reader;
+	server::PriestReplyServerPacket reply;
+	reply.reply_code = reply_code;
+	return reply;
+}
+
+// Accepting a marriage request
+void Priest_Accept(Character* character, const client::PriestAcceptClientPacket& packet)
+{
+	if (character->npc_session_id != packet.session_id)
+		return;
 
 	if (!character->partner.empty())
 		return;
@@ -37,18 +50,15 @@ void Priest_Accept(Character *character, PacketReader &reader)
 
 	if (wedding->Busy())
 	{
-		PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-		reply.AddShort(PRIEST_BUSY);
-		character->Send(reply);
+		character->Send(PriestReplyFor(server::PriestReply::Busy));
+		return;
 	}
 
 	Character* partner = character->world->GetCharacter(character->fiance);
 
 	if (!partner || partner->map != character->map)
 	{
-		PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-		reply.AddShort(PRIEST_PARTNER_NOT_PRESENT);
-		character->Send(reply);
+		character->Send(PriestReplyFor(server::PriestReply::PartnerNotPresent));
 		return;
 	}
 
@@ -59,38 +69,34 @@ void Priest_Accept(Character *character, PacketReader &reader)
 }
 
 // Talking to a priest NPC
-void Priest_Open(Character *character, PacketReader &reader)
+void Priest_Open(Character* character, const client::PriestOpenClientPacket& packet)
 {
-	short id = reader.GetShort();
-
 	if (!character->partner.empty())
 		return;
 
 	if (!character->map->wedding)
 		return;
 
-	UTIL_FOREACH(character->map->npcs, npc)
-	{
-		if (npc->index == id && npc->PubData().type == pub::NpcType::Priest)
-		{
-			if (character->map->wedding->Busy())
-			{
-				PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-				reply.AddShort(PRIEST_BUSY);
-				character->Send(reply);
-			}
-			else
-			{
-				character->npc = npc;
-				character->npc_type = pub::NpcType::Priest;
+	const auto match = std::find_if(
+		character->map->npcs.begin(),
+		character->map->npcs.end(),
+		[&packet](const NPC* npc) { return npc->index == packet.npc_index && npc->PubData().type == pub::NpcType::Priest; });
 
-				PacketBuilder reply(PACKET_PRIEST, PACKET_OPEN, 4);
-				reply.AddInt(npc->id);
-				character->Send(reply);
-			}
-			break;
-		}
+	if (match == character->map->npcs.end())
+		return;
+
+	if (character->map->wedding->Busy())
+	{
+		character->Send(PriestReplyFor(server::PriestReply::Busy));
+		return;
 	}
+
+	character->npc = *match;
+	character->npc_type = pub::NpcType::Priest;
+
+	server::PriestOpenServerPacket reply;
+	reply.session_id = character->NewNpcSession();
+	character->Send(reply);
 }
 
 static bool is_dressed(Character* character)
@@ -116,94 +122,79 @@ static bool is_dressed(Character* character)
 }
 
 // Requesting marriage at a priest
-void Priest_Request(Character *character, PacketReader &reader)
+void Priest_Request(Character* character, const client::PriestRequestClientPacket& packet)
 {
-	/*int session_id = */reader.GetInt();
-	reader.GetByte();
-	std::string name = util::lowercase(reader.GetEndString());
+	if (character->npc_type != pub::NpcType::Priest)
+		return;
 
-	if (character->npc_type == pub::NpcType::Priest)
+	if (character->npc_session_id != packet.session_id)
+		return;
+
+	const std::string name = util::lowercase(packet.name);
+
+	if (character->map->wedding->Busy())
 	{
-		if (character->map->wedding->Busy())
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_BUSY);
-			character->Send(reply);
-		}
-
-		if (name != character->fiance || name == character->SourceName())
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_NO_PERMISSION);
-			character->Send(reply);
-			return;
-		}
-
-		Character* partner = character->world->GetCharacter(character->fiance);
-
-		if (!partner || partner->map != character->map)
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_PARTNER_NOT_PRESENT);
-			character->Send(reply);
-			return;
-		}
-
-		if (partner->fiance != character->SourceName())
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_NO_PERMISSION);
-			character->Send(reply);
-			return;
-		}
-
-		if (!partner->partner.empty())
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_PARTNER_ALREADY_MARRIED);
-			character->Send(reply);
-			return;
-		}
-
-
-		if (!is_dressed(character))
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_NOT_DRESSED);
-			character->Send(reply);
-			return;
-		}
-
-		if (!is_dressed(partner))
-		{
-			PacketBuilder reply(PACKET_PRIEST, PACKET_REPLY, 2);
-			reply.AddShort(PRIEST_PARTNER_NOT_DRESSED);
-			character->Send(reply);
-			return;
-		}
-
-		if (character->level < util::to_int(character->world->config["WeddingMinLevel"]))
-		{
-			PacketBuilder reply;
-			reply.SetID(PACKET_PRIEST, PACKET_REPLY);
-			reply.AddChar(PRIEST_LOW_LEVEL);
-			character->Send(reply);
-			return;
-		}
-
-		character->map->wedding->RequestWedding(character);
-
-		PacketBuilder builder(PACKET_PRIEST, PACKET_REQUEST, 2 + character->SourceName().length());
-		builder.AddShort(1);
-		builder.AddString(character->SourceName());
-		partner->Send(builder);
+		character->Send(PriestReplyFor(server::PriestReply::Busy));
+		return;
 	}
+
+	if (name != character->fiance || name == character->SourceName())
+	{
+		character->Send(PriestReplyFor(server::PriestReply::NoPermission));
+		return;
+	}
+
+	Character* partner = character->world->GetCharacter(character->fiance);
+
+	if (!partner || partner->map != character->map)
+	{
+		character->Send(PriestReplyFor(server::PriestReply::PartnerNotPresent));
+		return;
+	}
+
+	if (partner->fiance != character->SourceName())
+	{
+		character->Send(PriestReplyFor(server::PriestReply::NoPermission));
+		return;
+	}
+
+	if (!partner->partner.empty())
+	{
+		character->Send(PriestReplyFor(server::PriestReply::PartnerAlreadyMarried));
+		return;
+	}
+
+	if (!is_dressed(character))
+	{
+		character->Send(PriestReplyFor(server::PriestReply::NotDressed));
+		return;
+	}
+
+	if (!is_dressed(partner))
+	{
+		character->Send(PriestReplyFor(server::PriestReply::PartnerNotDressed));
+		return;
+	}
+
+	if (character->level < util::to_int(character->world->config["WeddingMinLevel"]))
+	{
+		character->Send(PriestReplyFor(server::PriestReply::LowLevel));
+		return;
+	}
+
+	character->map->wedding->RequestWedding(character);
+
+	server::PriestRequestServerPacket request;
+	request.session_id = partner->NewNpcSession();
+	request.partner_name = character->SourceName();
+	partner->Send(request);
 }
 
 // Saying "I do" at a wedding
-void Priest_Use(Character *character, PacketReader &reader)
+void Priest_Use(Character* character, const client::PriestUseClientPacket& packet)
 {
-	/*int session_id = */reader.GetInt();
+	if (character->npc_session_id != packet.session_id)
+		return;
 
 	if (!character->map->wedding)
 		return;
@@ -212,10 +203,10 @@ void Priest_Use(Character *character, PacketReader &reader)
 }
 
 PACKET_HANDLER_REGISTER(PACKET_PRIEST)
-	Register(PACKET_ACCEPT, Priest_Accept, Playing);
-	Register(PACKET_OPEN, Priest_Open, Playing);
-	Register(PACKET_REQUEST, Priest_Request, Playing);
-	Register(PACKET_USE, Priest_Use, Playing);
+	Register(Priest_Accept, Playing);
+	Register(Priest_Open, Playing);
+	Register(Priest_Request, Playing);
+	Register(Priest_Use, Playing);
 PACKET_HANDLER_REGISTER_END(PACKET_PRIEST)
 
 }
