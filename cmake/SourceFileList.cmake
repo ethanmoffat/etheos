@@ -299,6 +299,7 @@ set(TestFiles
 	src/test/packet_dispatch_test.cpp
 	src/test/party_test.cpp
 	src/test/socket_test.cpp
+	src/test/world_test.cpp
 	src/test/worlddump_test.cpp
 	src/test/commands/debug_test.cpp
 	src/test/commands/info_test.cpp

@@ -1443,7 +1443,9 @@ void World::ReloadPub(bool quiet)
 
 	for (std::size_t i = current_npcs; i < new_npcs; ++i)
 	{
-		npc_data[i]->Load();
+		auto& npc = this->npc_data[i];
+		npc.reset(new NPC_Data(this, static_cast<short>(i)));
+		npc->Load();
 	}
 }
 
