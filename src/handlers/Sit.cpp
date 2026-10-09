@@ -35,8 +35,8 @@ void Sit_Request(Character* character, const client::SitRequestClientPacket& pac
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_SIT)
+PACKET_HANDLER_REGISTER(Sit)
 	Register(Sit_Request, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_SIT)
+PACKET_HANDLER_REGISTER_END(Sit)
 
 }

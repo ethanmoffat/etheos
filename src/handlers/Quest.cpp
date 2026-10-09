@@ -206,10 +206,10 @@ void Quest_List(Character* character, const client::QuestListClientPacket& packe
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_QUEST)
+PACKET_HANDLER_REGISTER(Quest)
 	Register(Quest_Use, Playing);
 	Register(Quest_Accept, Playing);
 	Register(Quest_List, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_QUEST)
+PACKET_HANDLER_REGISTER_END(Quest)
 
 }

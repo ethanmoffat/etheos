@@ -33,8 +33,8 @@ void Book_Request(Character* character, const client::BookRequestClientPacket& p
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_BOOK)
+PACKET_HANDLER_REGISTER(Book)
 	Register(Book_Request, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_BOOK)
+PACKET_HANDLER_REGISTER_END(Book)
 
 }

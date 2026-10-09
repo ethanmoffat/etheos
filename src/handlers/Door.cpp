@@ -20,8 +20,8 @@ void Door_Open(Character* character, const client::DoorOpenClientPacket& packet)
 	character->map->OpenDoor(character, packet.coords);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_DOOR)
+PACKET_HANDLER_REGISTER(Door)
 	Register(Door_Open, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_DOOR)
+PACKET_HANDLER_REGISTER_END(Door)
 
 }

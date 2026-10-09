@@ -179,8 +179,8 @@ void Chair_Request(Character* character, const client::ChairRequestClientPacket&
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_CHAIR)
+PACKET_HANDLER_REGISTER(Chair)
 	Register(Chair_Request, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_CHAIR)
+PACKET_HANDLER_REGISTER_END(Chair)
 
 }

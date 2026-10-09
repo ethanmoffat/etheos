@@ -11,6 +11,8 @@
 #include <memory>
 
 namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 namespace
 {
@@ -48,9 +50,9 @@ protected:
             .WillRepeatedly(Return(result));
     }
 
-    static net::client::InitInitClientPacket InitRequest(int version, int protocol_version = net::client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION)
+    static client::InitInitClientPacket InitRequest(int version, int protocol_version = client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION)
     {
-        net::client::InitInitClientPacket packet;
+        client::InitInitClientPacket packet;
         packet.challenge = 123456;
         packet.version.major = 0;
         packet.version.minor = 0;
@@ -69,9 +71,9 @@ TEST_F(InitTests, Init_SupportedVersion_RepliesOkAndInitializesClient)
     CreateServer();
     MockClient client(server.get());
 
-    net::server::InitInitServerPacket reply;
+    server::InitInitServerPacket reply;
     EXPECT_CALL(client, Send(An<const net::Packet&>()))
-        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const net::server::InitInitServerPacket&>(packet); }));
+        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::InitInitServerPacket&>(packet); }));
     EXPECT_CALL(client, Close(_)).Times(0);
 
     const auto request = InitRequest(DefaultVersion);
@@ -91,10 +93,10 @@ TEST_F(InitTests, Init_UnsupportedVersion_RepliesOutOfDateAndCloses)
     CreateServer();
     MockClient client(server.get());
 
-    net::server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
+    server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
     out_of_date.version.patch = DefaultVersion;
 
-    auto expected = net::server::InitInitServerPacket::ForOutOfDate(out_of_date);
+    auto expected = server::InitInitServerPacket::ForOutOfDate(out_of_date);
 
     EXPECT_CALL(client, Send(PacketEq(expected))).Times(1);
     EXPECT_CALL(client, Close(false)).Times(1);
@@ -109,15 +111,15 @@ TEST_F(InitTests, Init_UnsupportedProtocolVersion_RepliesOutOfDateAndCloses)
     CreateServer();
     MockClient client(server.get());
 
-    net::server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
+    server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
     out_of_date.version.patch = DefaultVersion;
 
-    auto expected = net::server::InitInitServerPacket::ForOutOfDate(out_of_date);
+    auto expected = server::InitInitServerPacket::ForOutOfDate(out_of_date);
 
     EXPECT_CALL(client, Send(PacketEq(expected))).Times(1);
     EXPECT_CALL(client, Close(false)).Times(1);
 
-    Handlers::Init_Init(&client, InitRequest(DefaultVersion, net::client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION + 1));
+    Handlers::Init_Init(&client, InitRequest(DefaultVersion, client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION + 1));
 
     EXPECT_EQ(EOClient::Uninitialized, client.state);
 }
@@ -128,14 +130,14 @@ TEST_F(InitTests, Init_UnsupportedProtocolVersionWithoutCheckVersion_RepliesOk)
     server->world->config["CheckVersion"] = false;
     MockClient client(server.get());
 
-    net::server::InitInitServerPacket reply;
+    server::InitInitServerPacket reply;
     EXPECT_CALL(client, Send(An<const net::Packet&>()))
-        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const net::server::InitInitServerPacket&>(packet); }));
+        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::InitInitServerPacket&>(packet); }));
     EXPECT_CALL(client, Close(_)).Times(0);
 
-    Handlers::Init_Init(&client, InitRequest(DefaultVersion, net::client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION + 1));
+    Handlers::Init_Init(&client, InitRequest(DefaultVersion, client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION + 1));
 
-    EXPECT_EQ(net::server::InitReply::Ok, reply.reply_code);
+    EXPECT_EQ(server::InitReply::Ok, reply.reply_code);
     EXPECT_EQ(EOClient::Initialized, client.state);
 }
 
@@ -145,7 +147,7 @@ TEST_F(InitTests, Init_PermanentBan_RepliesPermanentBanAndCloses)
     CreateServer();
     MockClient client(server.get());
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::InitInitServerPacket::ForBannedPermanent()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::InitInitServerPacket::ForBannedPermanent()))).Times(1);
     EXPECT_CALL(client, Close(false)).Times(1);
 
     Handlers::Init_Init(&client, InitRequest(DefaultVersion));
@@ -158,10 +160,10 @@ TEST_F(InitTests, Init_TemporaryBan_RepliesTemporaryBanWithMinutesRemaining)
     CreateServer();
     MockClient client(server.get());
 
-    net::server::InitInitServerPacket::ReplyCodeDataBanned::BanTypeDataTemporary temporary;
+    server::InitInitServerPacket::ReplyCodeDataBanned::BanTypeDataTemporary temporary;
     temporary.minutes_remaining = 2;
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::InitInitServerPacket::ForBannedTemporary(temporary)))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::InitInitServerPacket::ForBannedTemporary(temporary)))).Times(1);
     EXPECT_CALL(client, Close(false)).Times(1);
 
     Handlers::Init_Init(&client, InitRequest(DefaultVersion));

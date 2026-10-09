@@ -9,5 +9,4 @@
 #include "../src/eodata_file.cpp"
 #include "../src/eoserv_config.cpp"
 #include "../src/eoserver.cpp"
-#include "../src/packet.cpp"
 #include "../src/sln.cpp"

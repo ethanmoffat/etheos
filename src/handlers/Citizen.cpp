@@ -186,12 +186,12 @@ void Citizen_Open(Character* character, const client::CitizenOpenClientPacket& p
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_CITIZEN)
+PACKET_HANDLER_REGISTER(Citizen)
 	Register(Citizen_Request, Playing);
 	Register(Citizen_Accept, Playing);
 	Register(Citizen_Reply, Playing);
 	Register(Citizen_Remove, Playing);
 	Register(Citizen_Open, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_CITIZEN)
+PACKET_HANDLER_REGISTER_END(Citizen)
 
 }

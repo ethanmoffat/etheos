@@ -129,10 +129,10 @@ void Chest_Open(Character* character, const client::ChestOpenClientPacket& packe
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_CHEST)
+PACKET_HANDLER_REGISTER(Chest)
 	Register(Chest_Add, Playing);
 	Register(Chest_Take, Playing);
 	Register(Chest_Open, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_CHEST)
+PACKET_HANDLER_REGISTER_END(Chest)
 
 }

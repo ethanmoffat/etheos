@@ -30,6 +30,8 @@
 #include <utility>
 #include <vector>
 
+namespace server = eolib::protocol::net::server;
+
 void server_ping_all(void *server_void)
 {
 	EOServer *server = static_cast<EOServer *>(server_void);
@@ -46,7 +48,7 @@ void server_ping_all(void *server_void)
 		{
 			auto ping_seq = client->PingNewSequence();
 
-			eolib::protocol::net::server::ConnectionPlayerServerPacket ping;
+			server::ConnectionPlayerServerPacket ping;
 			ping.seq1 = ping_seq.Seq1();
 			ping.seq2 = ping_seq.Seq2();
 

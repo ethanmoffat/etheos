@@ -165,11 +165,11 @@ void Locker_Buy(Character* character, const client::LockerBuyClientPacket&)
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_LOCKER)
+PACKET_HANDLER_REGISTER(Locker)
 	Register(Locker_Add, Playing);
 	Register(Locker_Take, Playing);
 	Register(Locker_Open, Playing);
 	Register(Locker_Buy, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_LOCKER)
+PACKET_HANDLER_REGISTER_END(Locker)
 
 }

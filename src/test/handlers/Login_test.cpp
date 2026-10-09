@@ -12,7 +12,8 @@
 #include "util/affinity.hpp"
 #include "util/dispatcher.hpp"
 
-namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 static constexpr unsigned short TestServerPort = 38078;
 
@@ -25,9 +26,9 @@ static void WaitForAsyncOperation(const EOClient& client)
     }
 }
 
-static net::client::LoginRequestClientPacket LoginRequest(const std::string& username, const std::string& password)
+static client::LoginRequestClientPacket LoginRequest(const std::string& username, const std::string& password)
 {
-    net::client::LoginRequestClientPacket packet;
+    client::LoginRequestClientPacket packet;
     packet.username = username;
     packet.password = password;
     return packet;
@@ -81,7 +82,7 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        auto expectedResponse = net::server::LoginReplyServerPacket::ForWrongUser();
+        auto expectedResponse = server::LoginReplyServerPacket::ForWrongUser();
         EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(0);
 
@@ -93,7 +94,7 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        auto expectedResponse = net::server::LoginReplyServerPacket::ForWrongUserPassword();
+        auto expectedResponse = server::LoginReplyServerPacket::ForWrongUserPassword();
         EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(0);
 
@@ -105,7 +106,7 @@ GTEST_TEST(LoginTests, BasicParameterTests)
     {
         MockClient client(&server);
 
-        auto expectedResponse = net::server::LoginReplyServerPacket::ForBusy();
+        auto expectedResponse = server::LoginReplyServerPacket::ForBusy();
         EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
@@ -140,7 +141,7 @@ GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
         server.world->config["InitLoginBan"] = true;
         MockClient client(&server);
 
-        auto expectedResponse = net::server::InitInitServerPacket::ForBannedPermanent();
+        auto expectedResponse = server::InitInitServerPacket::ForBannedPermanent();
         EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
@@ -153,7 +154,7 @@ GTEST_TEST(LoginTests, LoginWhenBannedReturnsBan)
         server.world->config["InitLoginBan"] = false;
         MockClient client(&server);
 
-        auto expectedResponse = net::server::LoginReplyServerPacket::ForBanned();
+        auto expectedResponse = server::LoginReplyServerPacket::ForBanned();
         EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
         EXPECT_CALL(client, Close(false)).Times(1);
 
@@ -185,8 +186,8 @@ GTEST_TEST(LoginTests, LoginUnderStressReturnsServerBusy)
 
         // Only expect a packet with Busy if we exceed max concurrent logins
         auto expectedResponse = i == MaxConcurrentLogins
-            ? net::server::LoginReplyServerPacket::ForBusy()
-            : net::server::LoginReplyServerPacket::ForWrongUser();
+            ? server::LoginReplyServerPacket::ForBusy()
+            : server::LoginReplyServerPacket::ForWrongUser();
         EXPECT_CALL(*client, Send(PacketEq(expectedResponse))).Times(1);
 
         // client should never be closed
@@ -217,7 +218,7 @@ GTEST_TEST(LoginTests, TooManyRepeatedLoginAttemptsDisconnectsClient)
     MockClient client(&server);
 
     // Expect a WrongUser reply for each attempt
-    auto expectedResponse = net::server::LoginReplyServerPacket::ForWrongUser();
+    auto expectedResponse = server::LoginReplyServerPacket::ForWrongUser();
     EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(MaxLoginAttempts);
 
     // expect the client to be closed once
@@ -267,7 +268,7 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionDoesNotUpgradeOnWrongPassword)
     MockClient client(&server);
 
     // Expect a WrongUserPassword reply
-    auto expectedResponse = net::server::LoginReplyServerPacket::ForWrongUserPassword();
+    auto expectedResponse = server::LoginReplyServerPacket::ForWrongUserPassword();
     EXPECT_CALL(client, Send(PacketEq(expectedResponse))).Times(1);
 
     auto r = LoginRequest(ExpectedUsername, UnhashedPassword);
@@ -351,7 +352,7 @@ GTEST_TEST(LoginTests, LoginWithOldPasswordVersionUpgradesInBackground)
         clientRefs.push_back(client);
 
         // Expect an Ok reply for each attempt
-        auto expectedResponse = net::server::LoginReplyServerPacket::ForOk({});
+        auto expectedResponse = server::LoginReplyServerPacket::ForOk({});
         EXPECT_CALL(*dynamic_cast<MockClient*>(client.get()), Send(PacketEq(expectedResponse))).Times(1);
 
         // always connected - ensures the Ok reply is sent
@@ -409,7 +410,7 @@ GTEST_TEST(LoginTests, LoginWithSeoseCompatAndShortPassword_ChecksSeoseHashedPas
 
     std::shared_ptr<MockClient> client(new MockClient(&server));
     EXPECT_CALL(*client, Connected()).WillRepeatedly(Return(true));
-    EXPECT_CALL(*client, Send(PacketEq(net::server::LoginReplyServerPacket::ForOk({})))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::LoginReplyServerPacket::ForOk({})))).Times(1);
 
     Handlers::Login_Request(client.get(), LoginRequest(ExpectedUsername, UnhashedPassword));
 
@@ -430,7 +431,7 @@ GTEST_TEST(LoginTests, Request_AccountLoginPending_KeepsPendingLogin)
     server.world->SetPendingLogin("testuser", true);
 
     MockClient client(&server);
-    EXPECT_CALL(client, Send(PacketEq(net::server::LoginReplyServerPacket::ForLoggedIn()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::LoginReplyServerPacket::ForLoggedIn()))).Times(1);
 
     Handlers::Login_Request(&client, LoginRequest("testuser", "test_pass"));
 
@@ -450,7 +451,7 @@ GTEST_TEST(LoginTests, Request_Completed_ClearsPendingLogin)
     EOServer server(IPAddress("127.0.0.1"), TestServerPort, mockDatabaseFactory, config, admin_config);
 
     MockClient client(&server);
-    EXPECT_CALL(client, Send(PacketEq(net::server::LoginReplyServerPacket::ForWrongUser()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::LoginReplyServerPacket::ForWrongUser()))).Times(1);
 
     Handlers::Login_Request(&client, LoginRequest("testuser", "test_pass"));
     EXPECT_TRUE(server.world->GetPendingLogin("testuser"));

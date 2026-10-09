@@ -100,10 +100,10 @@ void Jukebox_Use(Character* character, const client::JukeboxUseClientPacket& pac
 	character->PlayBard(instrument, packet.note_id, false);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_JUKEBOX)
+PACKET_HANDLER_REGISTER(Jukebox)
 	Register(Jukebox_Open, Playing);
 	Register(Jukebox_Msg, Playing);
 	Register(Jukebox_Use, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_JUKEBOX)
+PACKET_HANDLER_REGISTER_END(Jukebox)
 
 }

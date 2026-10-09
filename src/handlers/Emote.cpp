@@ -24,8 +24,8 @@ void Emote_Report(Character* character, const client::EmoteReportClientPacket& p
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_EMOTE)
+PACKET_HANDLER_REGISTER(Emote)
 	Register(Emote_Report, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_EMOTE)
+PACKET_HANDLER_REGISTER_END(Emote)
 
 }

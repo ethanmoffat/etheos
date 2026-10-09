@@ -91,10 +91,10 @@ void Paperdoll_Add(Character* character, const client::PaperdollAddClientPacket&
 	SendEquipmentChangeIfVisible(character, before);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_PAPERDOLL)
+PACKET_HANDLER_REGISTER(Paperdoll)
 	Register(Paperdoll_Request, Playing);
 	Register(Paperdoll_Remove, Playing);
 	Register(Paperdoll_Add, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_PAPERDOLL)
+PACKET_HANDLER_REGISTER_END(Paperdoll)
 
 }

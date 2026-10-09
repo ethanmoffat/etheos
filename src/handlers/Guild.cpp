@@ -677,7 +677,7 @@ void Guild_Rank(Character* character, const client::GuildRankClientPacket& packe
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_GUILD)
+PACKET_HANDLER_REGISTER(Guild)
 	Register(Guild_Request, Playing, 1.0);
 	Register(Guild_Accept, Playing);
 	Register(Guild_Remove, Playing);
@@ -693,6 +693,6 @@ PACKET_HANDLER_REGISTER(PACKET_GUILD)
 	Register(Guild_Junk, Playing);
 	Register(Guild_Kick, Playing);
 	Register(Guild_Rank, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_GUILD)
+PACKET_HANDLER_REGISTER_END(Guild)
 
 }

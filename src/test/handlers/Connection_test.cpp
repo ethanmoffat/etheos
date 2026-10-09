@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
 
 namespace
 {
@@ -29,9 +29,9 @@ protected:
         server = std::make_unique<EOServer>(IPAddress("127.0.0.1"), ConnectionTestServerPort, CreateMockDatabaseFactory(CreateMockDatabase()), config, admin_config);
     }
 
-    static net::client::ConnectionAcceptClientPacket AcceptRequest(const EOClient& client)
+    static client::ConnectionAcceptClientPacket AcceptRequest(const EOClient& client)
     {
-        net::client::ConnectionAcceptClientPacket packet;
+        client::ConnectionAcceptClientPacket packet;
         packet.server_encryption_multiple = client.server_encryption_multiple;
         packet.client_encryption_multiple = client.client_encryption_multiple;
         packet.player_id = client.id;
@@ -87,7 +87,7 @@ TEST_F(ConnectionTests, Ping_PongPending_ClearsPong)
     MockClient client(server.get());
     client.needpong = true;
 
-    Handlers::Connection_Ping(&client, net::client::ConnectionPingClientPacket());
+    Handlers::Connection_Ping(&client, client::ConnectionPingClientPacket());
 
     EXPECT_FALSE(client.needpong);
 }

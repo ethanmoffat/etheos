@@ -138,10 +138,10 @@ void Players_List(EOClient* client, const client::PlayersListClientPacket&)
 	client->Send(server::InitInitServerPacket::ForPlayersListFriends(std::move(data)));
 }
 
-PACKET_HANDLER_REGISTER(PACKET_PLAYERS)
+PACKET_HANDLER_REGISTER(Players)
 	Register(Players_Accept, Playing);
 	Register(Players_List, Any);
 	Register(Players_Request, Any);
-PACKET_HANDLER_REGISTER_END(PACKET_PLAYERS)
+PACKET_HANDLER_REGISTER_END(Players)
 
 }

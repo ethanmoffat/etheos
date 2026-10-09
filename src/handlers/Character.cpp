@@ -11,7 +11,6 @@
 #include "../config.hpp"
 #include "../eodata.hpp"
 #include "../eoclient.hpp"
-#include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 
@@ -29,17 +28,17 @@
 namespace Handlers
 {
 
-void Character_Request(Player* player, const net::client::CharacterRequestClientPacket& packet)
+void Character_Request(Player* player, const client::CharacterRequestClientPacket& packet)
 {
 	(void)packet;
 
 	player->NewCharacterOp();
 
 	// A reply code above 9 is the character creation session ID
-	player->Send(net::server::CharacterReplyServerPacket::ForReplyCodeDefault(static_cast<net::server::CharacterReply>(player->char_op_id)));
+	player->Send(server::CharacterReplyServerPacket::ForReplyCodeDefault(static_cast<server::CharacterReply>(player->char_op_id)));
 }
 
-void Character_Create(Player* player, const net::client::CharacterCreateClientPacket& packet)
+void Character_Create(Player* player, const client::CharacterCreateClientPacket& packet)
 {
 	if (!player->world->CheckSession(player->char_op_id, packet.session_id))
 	{
@@ -67,36 +66,36 @@ void Character_Create(Player* player, const net::client::CharacterCreateClientPa
 
 	if (player->characters.size() >= static_cast<std::size_t>(static_cast<int>(player->world->config["MaxCharacters"])))
 	{
-		player->Send(net::server::CharacterReplyServerPacket::ForFull());
+		player->Send(server::CharacterReplyServerPacket::ForFull());
 	}
 	else if (!Character::ValidName(name))
 	{
-		player->Send(net::server::CharacterReplyServerPacket::ForNotApproved());
+		player->Send(server::CharacterReplyServerPacket::ForNotApproved());
 	}
 	else if (player->world->CharacterExists(name))
 	{
-		player->Send(net::server::CharacterReplyServerPacket::ForExists());
+		player->Send(server::CharacterReplyServerPacket::ForExists());
 	}
 	else
 	{
 		player->AddCharacter(name, gender, hairstyle, haircolor, race);
 		Console::Out("New character: %s (%s)", name.c_str(), player->username.c_str());
 
-		net::server::CharacterReplyServerPacket::ReplyCodeDataOk ok;
+		server::CharacterReplyServerPacket::ReplyCodeDataOk ok;
 
 		UTIL_FOREACH(player->characters, character)
 		{
 			ok.characters.push_back(Converters::CharacterSelectionListEntryFrom(character));
 		}
 
-		player->Send(net::server::CharacterReplyServerPacket::ForOk(std::move(ok)));
+		player->Send(server::CharacterReplyServerPacket::ForOk(std::move(ok)));
 	}
 
 	player->char_op_id = 0;
 }
 
 // Delete a character from an account
-void Character_Remove(Player* player, const net::client::CharacterRemoveClientPacket& packet)
+void Character_Remove(Player* player, const client::CharacterRemoveClientPacket& packet)
 {
 	auto it = std::find_if(UTIL_RANGE(player->characters), [&](Character *c) -> bool
 	{
@@ -133,19 +132,19 @@ void Character_Remove(Player* player, const net::client::CharacterRemoveClientPa
 
 	player->characters.erase(it);
 
-	net::server::CharacterReplyServerPacket::ReplyCodeDataDeleted deleted;
+	server::CharacterReplyServerPacket::ReplyCodeDataDeleted deleted;
 
 	UTIL_FOREACH(player->characters, character)
 	{
 		deleted.characters.push_back(Converters::CharacterSelectionListEntryFrom(character));
 	}
 
-	player->Send(net::server::CharacterReplyServerPacket::ForDeleted(std::move(deleted)));
+	player->Send(server::CharacterReplyServerPacket::ForDeleted(std::move(deleted)));
 	player->char_op_id = 0;
 }
 
 // Request to delete a character from an account
-void Character_Take(Player* player, const net::client::CharacterTakeClientPacket& packet)
+void Character_Take(Player* player, const client::CharacterTakeClientPacket& packet)
 {
 	auto it = std::find_if(UTIL_CRANGE(player->characters), [&](Character *c) -> bool
 	{
@@ -160,17 +159,17 @@ void Character_Take(Player* player, const net::client::CharacterTakeClientPacket
 
 	player->NewCharacterOp();
 
-	net::server::CharacterPlayerServerPacket reply;
+	server::CharacterPlayerServerPacket reply;
 	reply.session_id = player->char_op_id;
 	reply.character_id = packet.character_id;
 	player->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_CHARACTER)
+PACKET_HANDLER_REGISTER(Character)
 	Register(Character_Request, Character_Menu);
 	Register(Character_Create, Character_Menu, 1.0);
 	Register(Character_Remove, Character_Menu, 1.0);
 	Register(Character_Take, Character_Menu);
-PACKET_HANDLER_REGISTER_END(PACKET_CHARACTER)
+PACKET_HANDLER_REGISTER_END(Character)
 
 }

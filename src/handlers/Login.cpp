@@ -11,7 +11,6 @@
 #include "../eoclient.hpp"
 #include "../eodata.hpp"
 #include "../eoserver.hpp"
-#include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 
@@ -30,7 +29,7 @@ namespace Handlers
 {
 
 // Log in to an account
-void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket& packet)
+void Login_Request(EOClient* client, const client::LoginRequestClientPacket& packet)
 {
 	if (packet.username.length() > std::size_t(int(client->server()->world->config["AccountMaxLength"]))
 	 || packet.password.length() > std::size_t(int(client->server()->world->config["PasswordMaxLength"])))
@@ -44,11 +43,11 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 	{
 		if (static_cast<bool>(client->server()->world->config["InitLoginBan"]))
 		{
-			client->Send(net::server::InitInitServerPacket::ForBannedPermanent());
+			client->Send(server::InitInitServerPacket::ForBannedPermanent());
 		}
 		else
 		{
-			client->Send(net::server::LoginReplyServerPacket::ForBanned());
+			client->Send(server::LoginReplyServerPacket::ForBanned());
 		}
 
 		client->Close();
@@ -57,7 +56,7 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 
 	if (username.length() < std::size_t(int(client->server()->world->config["AccountMinLength"])))
 	{
-		client->Send(net::server::LoginReplyServerPacket::ForWrongUser());
+		client->Send(server::LoginReplyServerPacket::ForWrongUser());
 		return;
 	}
 
@@ -66,13 +65,13 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 	if (!client->server()->world->config["SeoseCompat"]
 	 && packet.password.length() < std::size_t(int(client->server()->world->config["PasswordMinLength"])))
 	{
-		client->Send(net::server::LoginReplyServerPacket::ForWrongUserPassword());
+		client->Send(server::LoginReplyServerPacket::ForWrongUserPassword());
 		return;
 	}
 
 	if (client->server()->world->characters.size() >= static_cast<std::size_t>(static_cast<int>(client->server()->world->config["MaxPlayers"])))
 	{
-		client->Send(net::server::LoginReplyServerPacket::ForBusy());
+		client->Send(server::LoginReplyServerPacket::ForBusy());
 		client->Close();
 		return;
 	}
@@ -88,7 +87,7 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 		if (!c->player)
 		{
 			// Someone deleted the account between checking it and logging in
-			c->Send(net::server::LoginReplyServerPacket::ForWrongUser());
+			c->Send(server::LoginReplyServerPacket::ForWrongUser());
 		}
 		else
 		{
@@ -96,14 +95,14 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 			c->player->client = c;
 			c->state = EOClient::LoggedIn;
 
-			net::server::LoginReplyServerPacket::ReplyCodeDataOk ok;
+			server::LoginReplyServerPacket::ReplyCodeDataOk ok;
 
 			UTIL_FOREACH(c->player->characters, character)
 			{
 				ok.characters.push_back(Converters::CharacterSelectionListEntryFrom(character));
 			}
 
-			c->Send(net::server::LoginReplyServerPacket::ForOk(std::move(ok)));
+			c->Send(server::LoginReplyServerPacket::ForOk(std::move(ok)));
 		}
 	};
 
@@ -125,7 +124,7 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 	// PlayerOnline will also check for a pending login of 'username', preventing concurrent logins for the same account
 	if (client->server()->world->PlayerOnline(username))
 	{
-		failureCallback(client, net::server::LoginReplyServerPacket::ForLoggedIn());
+		failureCallback(client, server::LoginReplyServerPacket::ForLoggedIn());
 		return;
 	}
 
@@ -136,11 +135,11 @@ void Login_Request(EOClient* client, const net::client::LoginRequestClientPacket
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
 		->OnComplete([world, username]() { world->SetPendingLogin(username, false); })
-		->Execute(util::make_secure_shared(packet, &net::client::LoginRequestClientPacket::password));
+		->Execute(util::make_secure_shared(packet, &client::LoginRequestClientPacket::password));
 }
 
-PACKET_HANDLER_REGISTER(PACKET_LOGIN)
+PACKET_HANDLER_REGISTER(Login)
 	Register(Login_Request, Menu, 1.0);
-PACKET_HANDLER_REGISTER_END(PACKET_LOGIN)
+PACKET_HANDLER_REGISTER_END(Login)
 
 }

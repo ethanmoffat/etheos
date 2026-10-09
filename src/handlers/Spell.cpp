@@ -152,11 +152,11 @@ void Spell_Target_Group(Character* character, const client::SpellTargetGroupClie
 		character->SpellAct();
 }
 
-PACKET_HANDLER_REGISTER(PACKET_SPELL)
+PACKET_HANDLER_REGISTER(Spell)
 	Register(Spell_Request, Playing);
 	Register(Spell_Target_Self, Playing);
 	Register(Spell_Target_Other, Playing);
 	Register(Spell_Target_Group, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_SPELL)
+PACKET_HANDLER_REGISTER_END(Spell)
 
 }

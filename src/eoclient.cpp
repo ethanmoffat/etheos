@@ -13,7 +13,6 @@
 #include "eodata_file.hpp"
 #include "eoserver.hpp"
 #include "map.hpp"
-#include "packet.hpp"
 #include "player.hpp"
 #include "timer.hpp"
 #include "world.hpp"
@@ -21,6 +20,7 @@
 
 #include "console.hpp"
 #include "socket.hpp"
+#include "util.hpp"
 #include "util/affinity.hpp"
 
 #include <eolib/data/eo_numeric_limits.hpp>
@@ -141,9 +141,9 @@ void EOClient::Initialize()
 	this->start = Timer::GetTime();
 }
 
-void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz, const char * const actionStr)
+void EOClient::LogPacket(net::PacketFamily family, net::PacketAction action, size_t sz, const char * const actionStr)
 {
-	std::string ignoreFamilies = static_cast<std::string>(this->server()->world->config["IgnorePacketFamilies"]);
+	std::string ignoreFamilies = util::lowercase(static_cast<std::string>(this->server()->world->config["IgnorePacketFamilies"]));
 
 	if (ignoreFamilies != "*")
 	{
@@ -151,9 +151,9 @@ void EOClient::LogPacket(PacketFamily family, PacketAction action, size_t sz, co
 		time(&rawtime);
 		const tm * timeinfo = localtime(&rawtime);
 
-		std::string fam = PacketProcessor::GetFamilyName(family);
-		std::string act = PacketProcessor::GetActionName(action);
-		if (ignoreFamilies.find(fam) == std::string::npos)
+		std::string fam = net::ToString(family);
+		std::string act = net::ToString(action);
+		if (ignoreFamilies.find(util::lowercase(fam)) == std::string::npos)
 		{
 			Console::Out("%02d/%02d/%04d - %02d:%02d:%02d | %-12s | %4s Family: %-15s | Action: %-15s | SIZE=%d",
 				timeinfo->tm_mon + 1,
@@ -268,7 +268,7 @@ void EOClient::Execute(std::uint8_t* data, std::size_t length)
 	auto action = net::PacketAction(data[0]);
 	auto family = net::PacketFamily(data[1]);
 
-	this->LogPacket(PacketFamily(family), PacketAction(action), length, "RECV");
+	this->LogPacket(family, action, length, "RECV");
 
 	std::size_t payload_start = 2;
 
@@ -418,7 +418,7 @@ void EOClient::SendFrame(std::vector<std::uint8_t>& frame)
 	std::uint8_t* body = frame.data() + 2;
 	const std::size_t body_length = frame.size() - 2;
 
-	this->LogPacket(PacketFamily(body[1]), PacketAction(body[0]), body_length - 2, "SEND");
+	this->LogPacket(net::PacketFamily(body[1]), net::PacketAction(body[0]), body_length - 2, "SEND");
 
 	EOClient::EncryptPacket(body, body_length, this->server_encryption_multiple);
 

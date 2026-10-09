@@ -14,7 +14,7 @@ namespace Handlers
 {
 
 // Confirmation of initialization data
-void Connection_Accept(EOClient* client, const net::client::ConnectionAcceptClientPacket& packet)
+void Connection_Accept(EOClient* client, const client::ConnectionAcceptClientPacket& packet)
 {
 	if (client->server_encryption_multiple != packet.server_encryption_multiple
 	 || client->client_encryption_multiple != packet.client_encryption_multiple
@@ -28,7 +28,7 @@ void Connection_Accept(EOClient* client, const net::client::ConnectionAcceptClie
 }
 
 // Ping reply
-void Connection_Ping(EOClient* client, const net::client::ConnectionPingClientPacket& packet)
+void Connection_Ping(EOClient* client, const client::ConnectionPingClientPacket& packet)
 {
 	(void)packet;
 
@@ -38,9 +38,9 @@ void Connection_Ping(EOClient* client, const net::client::ConnectionPingClientPa
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_CONNECTION)
+PACKET_HANDLER_REGISTER(Connection)
 	Register(Connection_Accept, Menu);
 	Register(Connection_Ping, Any | OutOfBand);
-PACKET_HANDLER_REGISTER_END(PACKET_CONNECTION)
+PACKET_HANDLER_REGISTER_END(Connection)
 
 }

@@ -173,11 +173,11 @@ void Board_Open(Character* character, const client::BoardOpenClientPacket& packe
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_BOARD)
+PACKET_HANDLER_REGISTER(Board)
 	Register(Board_Remove, Playing);
 	Register(Board_Create, Playing);
 	Register(Board_Take, Playing);
 	Register(Board_Open, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_BOARD)
+PACKET_HANDLER_REGISTER_END(Board)
 
 }

@@ -9,7 +9,6 @@
 #include "../config.hpp"
 #include "../eoclient.hpp"
 #include "../eoserver.hpp"
-#include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 
@@ -28,17 +27,17 @@
 namespace Handlers
 {
 
-void Account_Request(EOClient* client, const net::client::AccountRequestClientPacket& packet)
+void Account_Request(EOClient* client, const client::AccountRequestClientPacket& packet)
 {
 	std::string username = util::lowercase(packet.username);
 
 	if (!Player::ValidName(username))
 	{
-		client->Send(net::server::AccountReplyServerPacket::ForNotApproved());
+		client->Send(server::AccountReplyServerPacket::ForNotApproved());
 	}
 	else if (client->server()->world->PlayerExists(username))
 	{
-		client->Send(net::server::AccountReplyServerPacket::ForExists());
+		client->Send(server::AccountReplyServerPacket::ForExists());
 	}
 	else
 	{
@@ -47,15 +46,15 @@ void Account_Request(EOClient* client, const net::client::AccountRequestClientPa
 		client->NewCreateID();
 
 		// A reply code above 9 is the account creation session ID
-		net::server::AccountReplyServerPacket::ReplyCodeDataDefault data;
+		server::AccountReplyServerPacket::ReplyCodeDataDefault data;
 		data.sequence_start = sequence_start.Value();
 
-		client->Send(net::server::AccountReplyServerPacket::ForReplyCodeDefault(static_cast<net::server::AccountReply>(client->create_id), data));
+		client->Send(server::AccountReplyServerPacket::ForReplyCodeDefault(static_cast<server::AccountReply>(client->create_id), data));
 	}
 }
 
 // Account creation
-void Account_Create(EOClient* client, const net::client::AccountCreateClientPacket& packet)
+void Account_Create(EOClient* client, const client::AccountCreateClientPacket& packet)
 {
 	if (!client->server()->world->CheckSession(client->create_id, packet.session_id))
 	{
@@ -88,11 +87,11 @@ void Account_Create(EOClient* client, const net::client::AccountCreateClientPack
 
 	if (!Player::ValidName(username))
 	{
-		client->Send(net::server::AccountReplyServerPacket::ForNotApproved());
+		client->Send(server::AccountReplyServerPacket::ForNotApproved());
 	}
 	else if (client->server()->world->PlayerExists(username))
 	{
-		client->Send(net::server::AccountReplyServerPacket::ForExists());
+		client->Send(server::AccountReplyServerPacket::ForExists());
 	}
 	else
 	{
@@ -102,7 +101,7 @@ void Account_Create(EOClient* client, const net::client::AccountCreateClientPack
 			// The client may disconnect if the password generation takes too long
 			if (c->Connected())
 			{
-				c->Send(net::server::AccountReplyServerPacket::ForCreated());
+				c->Send(server::AccountReplyServerPacket::ForCreated());
 
 				c->create_id = 0;
 			}
@@ -113,12 +112,12 @@ void Account_Create(EOClient* client, const net::client::AccountCreateClientPack
 		client->server()->world->CreateAccount(client)
 			->OnSuccess(successCallback)
 			->OnFailure([](EOClient* c, bool) { c->Close(); })
-			->Execute(util::make_secure_shared(packet, &net::client::AccountCreateClientPacket::password));
+			->Execute(util::make_secure_shared(packet, &client::AccountCreateClientPacket::password));
 	}
 }
 
 // Change password
-void Account_Agree(Player* player, const net::client::AccountAgreeClientPacket& packet)
+void Account_Agree(Player* player, const client::AccountAgreeClientPacket& packet)
 {
 	if (packet.username.length() < std::size_t(int(player->world->config["AccountMinLength"]))
 	 || packet.username.length() > std::size_t(int(player->world->config["AccountMaxLength"]))
@@ -132,7 +131,7 @@ void Account_Agree(Player* player, const net::client::AccountAgreeClientPacket& 
 
 	if (!Player::ValidName(packet.username))
 	{
-		player->Send(net::server::AccountReplyServerPacket::ForNotApproved());
+		player->Send(server::AccountReplyServerPacket::ForNotApproved());
 		return;
 	}
 	else if (!player->world->PlayerExists(packet.username))
@@ -146,7 +145,7 @@ void Account_Agree(Player* player, const net::client::AccountAgreeClientPacket& 
 		if (!c->Connected())
 			return;
 
-		c->Send(net::server::AccountReplyServerPacket::ForChanged());
+		c->Send(server::AccountReplyServerPacket::ForChanged());
 	};
 
 	auto failureCallback = [](EOClient* c, bool)
@@ -155,19 +154,19 @@ void Account_Agree(Player* player, const net::client::AccountAgreeClientPacket& 
 		if (!c->Connected())
 			return;
 
-		c->Send(net::server::AccountReplyServerPacket::ForChangeFailed());
+		c->Send(server::AccountReplyServerPacket::ForChangeFailed());
 	};
 
 	player->world->ChangePassword(player->client)
 		->OnSuccess(successCallback)
 		->OnFailure(failureCallback)
-		->Execute(util::make_secure_shared(packet, &net::client::AccountAgreeClientPacket::old_password, &net::client::AccountAgreeClientPacket::new_password));
+		->Execute(util::make_secure_shared(packet, &client::AccountAgreeClientPacket::old_password, &client::AccountAgreeClientPacket::new_password));
 }
 
-PACKET_HANDLER_REGISTER(PACKET_ACCOUNT)
+PACKET_HANDLER_REGISTER(Account)
 	Register(Account_Request, Menu, 0.5);
 	Register(Account_Create, Menu, 1.0);
 	Register(Account_Agree, Character_Menu, 1.0);
-PACKET_HANDLER_REGISTER_END(PACKET_ACCOUNT)
+PACKET_HANDLER_REGISTER_END(Account)
 
 }

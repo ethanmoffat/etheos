@@ -19,8 +19,8 @@ void Refresh_Request(Character* character, const client::RefreshRequestClientPac
 	character->Refresh();
 }
 
-PACKET_HANDLER_REGISTER(PACKET_REFRESH)
+PACKET_HANDLER_REGISTER(Refresh)
 	Register(Refresh_Request, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_REFRESH)
+PACKET_HANDLER_REGISTER_END(Refresh)
 
 }

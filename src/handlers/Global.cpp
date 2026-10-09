@@ -35,11 +35,11 @@ void Global_Close(Character*, const client::GlobalCloseClientPacket&)
 {
 }
 
-PACKET_HANDLER_REGISTER(PACKET_GLOBAL)
+PACKET_HANDLER_REGISTER(Global)
 	Register(Global_Remove, Playing);
 	Register(Global_Player, Playing);
 	Register(Global_Open, Playing);
 	Register(Global_Close, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_GLOBAL)
+PACKET_HANDLER_REGISTER_END(Global)
 
 }

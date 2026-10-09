@@ -13,7 +13,6 @@
 #include "fwd/eodata.hpp"
 #include "fwd/player.hpp"
 #include "eoserver.hpp"
-#include "packet.hpp"
 
 #include "socket.hpp"
 #include "util/context.hpp"
@@ -139,7 +138,7 @@ class EOClient : public Client
 		void Initialize();
 		EOClient();
 
-		void LogPacket(PacketFamily family, PacketAction action, size_t sz, const char * const actionStr);
+		void LogPacket(eolib::protocol::net::PacketFamily family, eolib::protocol::net::PacketAction action, size_t sz, const char * const actionStr);
 
 		eolib::packet::PacketSequencer sequencer;
 

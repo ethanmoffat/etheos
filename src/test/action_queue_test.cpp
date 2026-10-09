@@ -1,18 +1,20 @@
 #include "testhelper/mocks.hpp"
+#include "testhelper/packets.hpp"
 #include "testhelper/setup.hpp"
 
 #include "console.hpp"
 #include "eoclient.hpp"
 #include "eoserver.hpp"
-#include "packet.hpp"
 #include "handlers/handlers.hpp"
 
-#include <eolib/protocol/net/enums.hpp>
+#include <eolib/protocol/net/client/packets.hpp>
 
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace client = eolib::protocol::net::client;
 
 static constexpr unsigned short ActionQueueTestServerPort = 38079;
 static constexpr std::size_t QueueMax = 40;
@@ -47,21 +49,27 @@ static void RecordEvent(const char* name)
     events.emplace_back(name, current_tick);
 }
 
-static void Handle_P1(EOClient*, PacketReader&) { RecordEvent("P1"); }
-static void Handle_P2(EOClient*, PacketReader&) { RecordEvent("P2"); }
-static void Handle_P3(EOClient*, PacketReader&) { RecordEvent("P3"); }
-static void Handle_P4(EOClient*, PacketReader&) { RecordEvent("P4"); }
+using P1Packet = client::WalkPlayerClientPacket;
+using P2Packet = client::FacePlayerClientPacket;
+using P3Packet = client::EmoteReportClientPacket;
+using P4Packet = client::SitRequestClientPacket;
 
-static void RegisterTestHandler(PacketFamily family, PacketAction action, Handlers::client_handler_t f, unsigned short allow_states, double delay)
+static void Handle_P1(EOClient*, const P1Packet&) { RecordEvent("P1"); }
+static void Handle_P2(EOClient*, const P2Packet&) { RecordEvent("P2"); }
+static void Handle_P3(EOClient*, const P3Packet&) { RecordEvent("P3"); }
+static void Handle_P4(EOClient*, const P4Packet&) { RecordEvent("P4"); }
+
+template <typename TPacket>
+static void RegisterTestHandler(void (*f)(EOClient*, const TPacket&), unsigned short allow_states, double delay)
 {
-    Handlers::packet_handler_register_instance->Register(family, action,
-        Handlers::packet_handler(Handlers::packet_handler::ClientFn, reinterpret_cast<Handlers::void_fn_t>(f), allow_states, delay));
+    Handlers::packet_handler_register_helper<TPacket::FAMILY>().Register(f, allow_states, delay);
 }
 
 // Mirrors what EOClient::Execute queues for a received packet
-static void Receive(EOClient& client, PacketFamily family, PacketAction action)
+template <typename TPacket>
+static void Receive(EOClient& client)
 {
-    client.queue.AddAction(QueuedPacket{eolib::protocol::net::PacketFamily(family), eolib::protocol::net::PacketAction(action), {}}, ReceiveDelaySeconds, true);
+    client.queue.AddAction(QueuedPacket{TPacket::FAMILY, TPacket::ACTION, Payload(TPacket{})}, ReceiveDelaySeconds, true);
 }
 
 // Mirrors what Character::DeathRespawn queues
@@ -91,7 +99,7 @@ protected:
         EXPECT_CALL(*client, Connected()).WillRepeatedly(Return(true));
         client->state = EOClient::Playing;
 
-        RegisterTestHandler(PACKET_WALK, PACKET_PLAYER, Handle_P1, Handlers::Playing, 0.0);
+        RegisterTestHandler(Handle_P1, Handlers::Playing, 0.0);
 
         events.clear();
     }
@@ -122,10 +130,10 @@ GTEST_TEST(ActionQueueTests, DeathRespawn_PacketsQueuedAround_KeepOrderAndTiming
     EOServer server(IPAddress("127.0.0.1"), ActionQueueTestServerPort, mockDatabaseFactory, config, admin_config);
 
     // P1 and P4 are re-queued with no delay, P2 runs immediately (out of band), P3 is re-queued with a delay
-    RegisterTestHandler(PACKET_WALK, PACKET_PLAYER, Handle_P1, Handlers::Playing, 0.0);
-    RegisterTestHandler(PACKET_FACE, PACKET_PLAYER, Handle_P2, Handlers::Playing | Handlers::OutOfBand, 0.0);
-    RegisterTestHandler(PACKET_EMOTE, PACKET_REPORT, Handle_P3, Handlers::Playing, P3DelaySeconds);
-    RegisterTestHandler(PACKET_SIT, PACKET_REQUEST, Handle_P4, Handlers::Playing, 0.0);
+    RegisterTestHandler(Handle_P1, Handlers::Playing, 0.0);
+    RegisterTestHandler(Handle_P2, Handlers::Playing | Handlers::OutOfBand, 0.0);
+    RegisterTestHandler(Handle_P3, Handlers::Playing, P3DelaySeconds);
+    RegisterTestHandler(Handle_P4, Handlers::Playing, 0.0);
 
     MockClient client(&server);
     EXPECT_CALL(client, Connected()).WillRepeatedly(Return(true));
@@ -140,14 +148,14 @@ GTEST_TEST(ActionQueueTests, DeathRespawn_PacketsQueuedAround_KeepOrderAndTiming
     {
         if (current_tick == 0)
         {
-            Receive(client, PACKET_WALK, PACKET_PLAYER);
-            Receive(client, PACKET_FACE, PACKET_PLAYER);
-            Receive(client, PACKET_EMOTE, PACKET_REPORT);
+            Receive<P1Packet>(client);
+            Receive<P2Packet>(client);
+            Receive<P3Packet>(client);
             Die(client);
         }
         else if (current_tick == p4_receive_tick)
         {
-            Receive(client, PACKET_SIT, PACKET_REQUEST);
+            Receive<P4Packet>(client);
         }
 
         server_pump_client_queue(&client, current_tick * TickSeconds, QueueMax);
@@ -191,7 +199,7 @@ TEST_F(ActionQueueHoldTests, Hold_StateChangesWhileDraining_SkipsOnRelease)
 {
     EXPECT_CALL(*client, Close(_)).Times(0);
 
-    Receive(*client, PACKET_WALK, PACKET_PLAYER);
+    Receive<P1Packet>(*client);
     Die(*client);
 
     Pump(0, 1);
@@ -220,7 +228,7 @@ TEST_F(ActionQueueHoldTests, Hold_PacketsAfterHold_WaitForRelease)
 
     current_tick = 0;
     Die(*client);
-    Receive(*client, PACKET_WALK, PACKET_PLAYER);
+    Receive<P1Packet>(*client);
 
     Pump(0, 400);
 

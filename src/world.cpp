@@ -20,7 +20,6 @@
 #include "map.hpp"
 #include "npc.hpp"
 #include "npc_data.hpp"
-#include "packet.hpp"
 #include "party.hpp"
 #include "player.hpp"
 #include "quest.hpp"
@@ -51,6 +50,7 @@
 #include "json.hpp"
 
 namespace protocol = eolib::protocol;
+namespace net = eolib::protocol::net;
 namespace server = eolib::protocol::net::server;
 namespace client = eolib::protocol::net::client;
 namespace pub = eolib::protocol::pub;
@@ -323,13 +323,13 @@ void World::UpdateConfig()
 	double rate_walk = this->config["PacketRateWalk"];
 	double rate_attack = this->config["PacketRateAttack"];
 
-	Handlers::SetDelay(PACKET_FACE, PACKET_PLAYER, rate_face);
+	Handlers::SetDelay(net::PacketFamily::Face, net::PacketAction::Player, rate_face);
 
-	Handlers::SetDelay(PACKET_WALK, PACKET_ADMIN, rate_walk);
-	Handlers::SetDelay(PACKET_WALK, PACKET_PLAYER, rate_walk);
-	Handlers::SetDelay(PACKET_WALK, PACKET_SPEC, rate_walk);
+	Handlers::SetDelay(net::PacketFamily::Walk, net::PacketAction::Admin, rate_walk);
+	Handlers::SetDelay(net::PacketFamily::Walk, net::PacketAction::Player, rate_walk);
+	Handlers::SetDelay(net::PacketFamily::Walk, net::PacketAction::Spec, rate_walk);
 
-	Handlers::SetDelay(PACKET_ATTACK, PACKET_USE, rate_attack);
+	Handlers::SetDelay(net::PacketFamily::Attack, net::PacketAction::Use, rate_attack);
 
 	std::array<double, 7> npc_speed_table;
 

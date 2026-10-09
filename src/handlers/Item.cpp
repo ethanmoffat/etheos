@@ -404,11 +404,11 @@ void Item_Get(Character* character, const client::ItemGetClientPacket& packet)
 	character->map->DelSomeItem(item->uid, taken, character);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_ITEM)
+PACKET_HANDLER_REGISTER(Item)
 	Register(Item_Use, Playing);
 	Register(Item_Drop, Playing);
 	Register(Item_Junk, Playing);
 	Register(Item_Get, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_ITEM)
+PACKET_HANDLER_REGISTER_END(Item)
 
 }

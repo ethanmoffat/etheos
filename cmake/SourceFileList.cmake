@@ -77,7 +77,6 @@ set(eoserv_ALL_SOURCE_FILES
 	src/fwd/nanohttp.hpp
 	src/fwd/npc.hpp
 	src/fwd/npc_data.hpp
-	src/fwd/packet.hpp
 	src/fwd/party.hpp
 	src/fwd/player.hpp
 	src/fwd/quest.hpp
@@ -104,8 +103,6 @@ set(eoserv_ALL_SOURCE_FILES
 	src/npc.hpp
 	src/npc_data.cpp
 	src/npc_data.hpp
-	src/packet.cpp
-	src/packet.hpp
 	src/party.cpp
 	src/party.hpp
 	src/platform.h

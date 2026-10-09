@@ -4,11 +4,11 @@
 
 #include "console.hpp"
 #include "eoclient.hpp"
-#include "packet.hpp"
 #include "util/affinity.hpp"
 #include "world.hpp"
 
 #include <eolib/data/number_encoder.hpp>
+#include <eolib/protocol/net/enums.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
 
 #include <chrono>
@@ -19,17 +19,20 @@
 #include <utility>
 #include <vector>
 
+namespace net = eolib::protocol::net;
+namespace server = eolib::protocol::net::server;
+
 static constexpr unsigned short EOClientTestServerPort = 38080;
 
 namespace
 {
 
-const std::vector<std::pair<PacketFamily, PacketAction>> PacketIds{
-    {PACKET_WALK, PACKET_PLAYER},
-    {PACKET_TALK, PACKET_REPORT},
-    {PACKET_CONNECTION, PACKET_PING},
-    {PACKET_ACCOUNT, PACKET_REPLY},
-    {PACKET_NPC, PACKET_NET3},
+const std::vector<std::pair<net::PacketFamily, net::PacketAction>> PacketIds{
+    {net::PacketFamily::Walk, net::PacketAction::Player},
+    {net::PacketFamily::Talk, net::PacketAction::Report},
+    {net::PacketFamily::Connection, net::PacketAction::Ping},
+    {net::PacketFamily::Account, net::PacketAction::Reply},
+    {net::PacketFamily::Npc, net::PacketAction::Net242},
 };
 
 const std::vector<std::size_t> PayloadLengths{0, 1, 2, 3, 7, 8, 63, 64, 255, 1000};
@@ -48,7 +51,7 @@ Bytes MakePayload(std::size_t length, std::size_t seed)
 }
 
 // A packet body: [action][family][data]
-Bytes PacketBody(PacketFamily family, PacketAction action, const Bytes& data = {})
+Bytes PacketBody(net::PacketFamily family, net::PacketAction action, const Bytes& data = {})
 {
     Bytes body{std::uint8_t(action), std::uint8_t(family)};
     body.insert(body.end(), data.begin(), data.end());
@@ -62,7 +65,7 @@ Bytes EncodeSequence(int sequence)
     return sequence >= 253 ? Bytes{bytes[0], bytes[1]} : Bytes{bytes[0]};
 }
 
-Bytes ClientPacket(PacketFamily family, PacketAction action, int sequence, const Bytes& payload = {})
+Bytes ClientPacket(net::PacketFamily family, net::PacketAction action, int sequence, const Bytes& payload = {})
 {
     Bytes data = EncodeSequence(sequence);
     data.insert(data.end(), payload.begin(), payload.end());
@@ -108,7 +111,7 @@ GTEST_TEST(EOClientEncryptionTests, DecryptPacket_EncryptedPacket_RoundTrips)
 
 GTEST_TEST(EOClientEncryptionTests, EncryptPacket_InitInit_IsNotEncrypted)
 {
-    Bytes body = PacketBody(PACKET_F_INIT, PACKET_A_INIT, MakePayload(20, 0));
+    Bytes body = PacketBody(net::PacketFamily::Init, net::PacketAction::Init, MakePayload(20, 0));
 
     Bytes encrypted = body;
     Encrypt(encrypted, 6);
@@ -121,7 +124,7 @@ GTEST_TEST(EOClientEncryptionTests, EncryptPacket_InitInit_IsNotEncrypted)
 
 GTEST_TEST(EOClientEncryptionTests, EncryptPacket_ZeroMultiple_IsNotEncrypted)
 {
-    Bytes body = PacketBody(PACKET_WALK, PACKET_PLAYER, MakePayload(10, 0));
+    Bytes body = PacketBody(net::PacketFamily::Walk, net::PacketAction::Player, MakePayload(10, 0));
 
     Bytes encrypted = body;
     Encrypt(encrypted, 0);
@@ -167,7 +170,7 @@ TEST_F(EOClientExecuteTests, Execute_SequenceFromInitStart_IsAccepted)
     auto start = client->InitNewSequence();
 
     for (int i = 0; i < 25; ++i)
-        Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value() + (i % 10)));
+        Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value() + (i % 10)));
 
     EXPECT_EQ(25u, client->queue.Size());
 }
@@ -178,8 +181,8 @@ TEST_F(EOClientExecuteTests, Execute_InitPacket_AdvancesSequenceWithoutReadingIt
 
     auto start = client->InitNewSequence();
 
-    Execute(client.get(), PacketBody(PACKET_F_INIT, PACKET_A_INIT));
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value() + 1));
+    Execute(client.get(), PacketBody(net::PacketFamily::Init, net::PacketAction::Init));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value() + 1));
 
     EXPECT_EQ(2u, client->queue.Size());
 }
@@ -190,7 +193,7 @@ TEST_F(EOClientExecuteTests, Execute_WrongSequence_ClosesClient)
 
     auto start = client->InitNewSequence();
 
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value() + 1));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value() + 1));
 
     EXPECT_EQ(0u, client->queue.Size());
 }
@@ -202,9 +205,28 @@ TEST_F(EOClientExecuteTests, Execute_WrongSequenceNotEnforced_IsAccepted)
 
     auto start = client->InitNewSequence();
 
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value() + 1));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value() + 1));
 
     EXPECT_EQ(1u, client->queue.Size());
+}
+
+TEST_F(EOClientExecuteTests, Execute_IgnoredFamilyInDifferentCase_IsNotLogged)
+{
+    server->world->config["IgnorePacketFamilies"] = "WALK";
+    EXPECT_CALL(*client, Close(_)).Times(0);
+
+    auto start = client->InitNewSequence();
+
+    Console::SuppressOutput(false);
+    ::testing::internal::CaptureStdout();
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value()));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Talk, net::PacketAction::Report, start.Value() + 1));
+    std::string log = ::testing::internal::GetCapturedStdout();
+    Console::SuppressOutput(true);
+
+    EXPECT_THAT(log, Not(HasSubstr("Family: Walk")));
+    EXPECT_THAT(log, HasSubstr("Family: Talk"));
+    EXPECT_THAT(log, HasSubstr("Action: Report"));
 }
 
 TEST_F(EOClientExecuteTests, Execute_PingReply_SwitchesToPingStart)
@@ -212,14 +234,14 @@ TEST_F(EOClientExecuteTests, Execute_PingReply_SwitchesToPingStart)
     EXPECT_CALL(*client, Close(_)).Times(0);
 
     auto init_start = client->InitNewSequence();
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, init_start.Value()));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, init_start.Value()));
 
     auto ping_start = client->PingNewSequence();
 
     // The start only changes when the client replies to the ping
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, init_start.Value() + 1));
-    Execute(client.get(), ClientPacket(PACKET_CONNECTION, PACKET_PING, ping_start.Value() + 2, Bytes{'k'}));
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, ping_start.Value() + 3));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, init_start.Value() + 1));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Connection, net::PacketAction::Ping, ping_start.Value() + 2, Bytes{'k'}));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, ping_start.Value() + 3));
 
     EXPECT_EQ(4u, client->queue.Size());
 }
@@ -229,8 +251,8 @@ TEST_F(EOClientExecuteTests, Execute_PingReplyBeforeServerPing_KeepsSequenceStar
     EXPECT_CALL(*client, Close(_)).Times(0);
 
     auto start = client->InitNewSequence();
-    Execute(client.get(), ClientPacket(PACKET_CONNECTION, PACKET_PING, start.Value(), Bytes{'k'}));
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value() + 1));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Connection, net::PacketAction::Ping, start.Value(), Bytes{'k'}));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value() + 1));
 
     EXPECT_EQ(2u, client->queue.Size());
 }
@@ -241,7 +263,7 @@ TEST_F(EOClientExecuteTests, Execute_AccountReplyStart_IsUsedForFollowingPackets
 
     client->InitNewSequence();
     auto start = client->AccountReplyNewSequence();
-    Execute(client.get(), ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value()));
+    Execute(client.get(), ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value()));
 
     EXPECT_EQ(1u, client->queue.Size());
 }
@@ -254,7 +276,7 @@ TEST_F(EOClientExecuteTests, Execute_EncryptedPacket_IsDecryptedWithClientMultip
     client->client_encryption_multiple = 9;
     auto start = client->InitNewSequence();
 
-    Bytes data = ClientPacket(PACKET_WALK, PACKET_PLAYER, start.Value(), MakePayload(20, 0));
+    Bytes data = ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, start.Value(), MakePayload(20, 0));
     Encrypt(data, 9);
     Execute(client.get(), data);
 
@@ -306,7 +328,7 @@ protected:
 
     void SendPacket(std::size_t payload_length)
     {
-        const Bytes body = ClientPacket(PACKET_WALK, PACKET_PLAYER, 0, Bytes(payload_length, 'x'));
+        const Bytes body = ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, 0, Bytes(payload_length, 'x'));
         const auto length = eolib::data::NumberEncoder::EncodeNumber(int(body.size()));
 
         Bytes framed{length[0], length[1]};
@@ -359,7 +381,7 @@ TEST_F(EOClientRecvTests, Tick_PacketSplitAcrossTicks_QueuesOnceComplete)
 {
     Start(38101);
 
-    const Bytes body = ClientPacket(PACKET_WALK, PACKET_PLAYER, 0, Bytes(100, 'x'));
+    const Bytes body = ClientPacket(net::PacketFamily::Walk, net::PacketAction::Player, 0, Bytes(100, 'x'));
     const auto length = eolib::data::NumberEncoder::EncodeNumber(int(body.size()));
 
     auto send_part = [&](const Bytes& part, std::size_t expected_length_bytes, std::size_t expected_data)
@@ -399,7 +421,7 @@ TEST_F(EOClientRecvTests, Send_OtherThread_ThrowsThreadAffinityViolation)
 {
     Start(38144);
 
-    auto thrown = RunOffMainThread([this]() { client->Send(eolib::protocol::net::server::LoginReplyServerPacket::ForLoggedIn()); });
+    auto thrown = RunOffMainThread([this]() { client->Send(server::LoginReplyServerPacket::ForLoggedIn()); });
 
     ASSERT_TRUE(thrown != nullptr);
     EXPECT_THROW(std::rethrow_exception(thrown), util::ThreadAffinityViolation);

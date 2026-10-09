@@ -202,11 +202,11 @@ void Priest_Use(Character* character, const client::PriestUseClientPacket& packe
 	character->map->wedding->IDo(character);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_PRIEST)
+PACKET_HANDLER_REGISTER(Priest)
 	Register(Priest_Accept, Playing);
 	Register(Priest_Open, Playing);
 	Register(Priest_Request, Playing);
 	Register(Priest_Use, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_PRIEST)
+PACKET_HANDLER_REGISTER_END(Priest)
 
 }

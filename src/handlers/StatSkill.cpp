@@ -206,12 +206,12 @@ void StatSkill_Junk(Character* character, const client::StatSkillJunkClientPacke
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_STATSKILL)
+PACKET_HANDLER_REGISTER(StatSkill)
 	Register(StatSkill_Open, Playing);
 	Register(StatSkill_Take, Playing);
 	Register(StatSkill_Remove, Playing);
 	Register(StatSkill_Add, Playing);
 	Register(StatSkill_Junk, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_STATSKILL)
+PACKET_HANDLER_REGISTER_END(StatSkill)
 
 }

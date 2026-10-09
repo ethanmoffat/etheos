@@ -246,13 +246,13 @@ void Trade_Close(Character* character, const client::TradeCloseClientPacket&)
 	character->trade_partner = nullptr;
 }
 
-PACKET_HANDLER_REGISTER(PACKET_TRADE)
+PACKET_HANDLER_REGISTER(Trade)
 	Register(Trade_Request, Playing, 0.5);
 	Register(Trade_Accept, Playing);
 	Register(Trade_Remove, Playing);
 	Register(Trade_Agree, Playing);
 	Register(Trade_Add, Playing);
 	Register(Trade_Close, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_TRADE)
+PACKET_HANDLER_REGISTER_END(Trade)
 
 }

@@ -49,6 +49,7 @@
 
 namespace protocol = eolib::protocol;
 namespace emf = eolib::protocol::map;
+namespace client = eolib::protocol::net::client;
 namespace server = eolib::protocol::net::server;
 namespace pub = eolib::protocol::pub;
 
@@ -1942,7 +1943,7 @@ void Map::SpellAttackPK(Character *from, Character *victim, unsigned short spell
 		server::SpellTargetOtherServerPacket packet;
 		packet.victim_id = victim->PlayerID();
 		packet.caster_id = from->PlayerID();
-		packet.target_type = eolib::protocol::net::client::SpellTargetType::Player;
+		packet.target_type = client::SpellTargetType::Player;
 		packet.spell_id = spell_id;
 		packet.spell_heal_hp = displayhp;
 		packet.hp_percentage = util::clamp<int>(static_cast<int>(double(victim->hp) / double(victim->maxhp) * 100.0), 0, 100);

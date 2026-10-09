@@ -97,10 +97,10 @@ void Bank_Take(Character* character, const client::BankTakeClientPacket& packet)
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_BANK)
+PACKET_HANDLER_REGISTER(Bank)
 	Register(Bank_Open, Playing);
 	Register(Bank_Add, Playing);
 	Register(Bank_Take, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_BANK)
+PACKET_HANDLER_REGISTER_END(Bank)
 
 }

@@ -11,7 +11,6 @@
 #include "../config.hpp"
 #include "../eoclient.hpp"
 #include "../map.hpp"
-#include "../packet.hpp"
 #include "../player.hpp"
 #include "../world.hpp"
 
@@ -145,10 +144,10 @@ void Welcome_Agree(Player* player, const client::WelcomeAgreeClientPacket& packe
 		throw std::runtime_error("Failed to upload file");
 }
 
-PACKET_HANDLER_REGISTER(PACKET_WELCOME)
+PACKET_HANDLER_REGISTER(Welcome)
 	Register(Welcome_Request, Character_Menu);
 	Register(Welcome_Msg, Logging_In);
 	Register(Welcome_Agree, Logging_In, 0.15);
-PACKET_HANDLER_REGISTER_END(PACKET_WELCOME)
+PACKET_HANDLER_REGISTER_END(Welcome)
 
 }

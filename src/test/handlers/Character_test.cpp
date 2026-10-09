@@ -11,6 +11,8 @@
 #include <memory>
 
 namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 namespace
 {
@@ -56,9 +58,9 @@ protected:
         return dynamic_cast<MockDatabase*>(database.get());
     }
 
-    static net::client::CharacterCreateClientPacket CharacterCreate(int session_id, const std::string& name)
+    static client::CharacterCreateClientPacket CharacterCreate(int session_id, const std::string& name)
     {
-        net::client::CharacterCreateClientPacket packet;
+        client::CharacterCreateClientPacket packet;
         packet.session_id = session_id;
         packet.gender = eolib::protocol::Gender::Male;
         packet.hair_style = 1;
@@ -75,14 +77,14 @@ TEST_F(CharacterTests, Request_New_RepliesWithSessionId)
 {
     player()->char_op_id = 0;
 
-    net::server::CharacterReplyServerPacket reply;
+    server::CharacterReplyServerPacket reply;
     EXPECT_CALL(*client, Send(An<const net::Packet&>()))
-        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const net::server::CharacterReplyServerPacket&>(packet); }));
+        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::CharacterReplyServerPacket&>(packet); }));
 
-    Handlers::Character_Request(player(), net::client::CharacterRequestClientPacket());
+    Handlers::Character_Request(player(), client::CharacterRequestClientPacket());
 
     EXPECT_GT(player()->char_op_id, 9);
-    EXPECT_EQ(net::server::CharacterReplyServerPacket::ForReplyCodeDefault(static_cast<net::server::CharacterReply>(player()->char_op_id)), reply);
+    EXPECT_EQ(server::CharacterReplyServerPacket::ForReplyCodeDefault(static_cast<server::CharacterReply>(player()->char_op_id)), reply);
 }
 
 TEST_F(CharacterTests, Create_WrongSessionId_ClosesClient)
@@ -97,7 +99,7 @@ TEST_F(CharacterTests, Create_WrongSessionIdWithEnforceSessionsOff_IsProcessed)
 {
     player()->world->config["EnforceSessions"] = false;
 
-    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::CharacterReplyServerPacket::ForNotApproved()))).Times(1);
     EXPECT_CALL(*client, Close(_)).Times(0);
 
     Handlers::Character_Create(player(), CharacterCreate(SessionId + 1, "test char!"));
@@ -118,7 +120,7 @@ TEST_F(CharacterTests, Create_TooManyCharacters_RepliesFull)
     server->world->config["MaxCharacters"] = 1;
     test_player->AddCharacter(1, "existing");
 
-    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForFull()))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::CharacterReplyServerPacket::ForFull()))).Times(1);
 
     Handlers::Character_Create(player(), CharacterCreate(SessionId, "testchar"));
 
@@ -127,7 +129,7 @@ TEST_F(CharacterTests, Create_TooManyCharacters_RepliesFull)
 
 TEST_F(CharacterTests, Create_InvalidName_RepliesNotApproved)
 {
-    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::CharacterReplyServerPacket::ForNotApproved()))).Times(1);
 
     Handlers::Character_Create(player(), CharacterCreate(SessionId, "test char!"));
 }
@@ -138,7 +140,7 @@ TEST_F(CharacterTests, Create_ExistingName_RepliesExists)
     result.push_back({{"1", util::variant(1)}});
     EXPECT_CALL(*mock_database(), RawQuery(HasSubstr("FROM characters"), _, _)).WillRepeatedly(Return(result));
 
-    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForExists()))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::CharacterReplyServerPacket::ForExists()))).Times(1);
 
     Handlers::Character_Create(player(), CharacterCreate(SessionId, "testchar"));
 }
@@ -151,11 +153,11 @@ TEST_F(CharacterTests, Remove_OwnedCharacter_DeletesAndRepliesWithRemainingChara
     EXPECT_CALL(*mock_database(), RawQuery(HasSubstr("DELETE FROM characters"), _, _)).Times(1);
     EXPECT_CALL(*mock_database(), RawQuery(HasSubstr("UPDATE characters SET partner"), _, _)).Times(1);
 
-    net::server::CharacterReplyServerPacket::ReplyCodeDataDeleted deleted;
+    server::CharacterReplyServerPacket::ReplyCodeDataDeleted deleted;
     deleted.characters.push_back(Converters::CharacterSelectionListEntryFrom(remaining));
-    EXPECT_CALL(*client, Send(PacketEq(net::server::CharacterReplyServerPacket::ForDeleted(deleted)))).Times(1);
+    EXPECT_CALL(*client, Send(PacketEq(server::CharacterReplyServerPacket::ForDeleted(deleted)))).Times(1);
 
-    net::client::CharacterRemoveClientPacket request;
+    client::CharacterRemoveClientPacket request;
     request.session_id = SessionId;
     request.character_id = 1;
     Handlers::Character_Remove(player(), request);
@@ -172,7 +174,7 @@ TEST_F(CharacterTests, Remove_WrongSessionId_ClosesClient)
     EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(0);
     EXPECT_CALL(*client, Close(false)).Times(1);
 
-    net::client::CharacterRemoveClientPacket request;
+    client::CharacterRemoveClientPacket request;
     request.session_id = SessionId + 1;
     request.character_id = 1;
     Handlers::Character_Remove(player(), request);
@@ -188,7 +190,7 @@ TEST_F(CharacterTests, Remove_UnknownCharacterWithEnforceSessionsOff_ClosesClien
     EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(0);
     EXPECT_CALL(*client, Close(false)).Times(1);
 
-    net::client::CharacterRemoveClientPacket request;
+    client::CharacterRemoveClientPacket request;
     request.session_id = SessionId + 1;
     request.character_id = 2;
     Handlers::Character_Remove(player(), request);
@@ -198,11 +200,11 @@ TEST_F(CharacterTests, Take_OwnedCharacter_RepliesWithNewSessionId)
 {
     test_player->AddCharacter(7, "first");
 
-    net::server::CharacterPlayerServerPacket reply;
+    server::CharacterPlayerServerPacket reply;
     EXPECT_CALL(*client, Send(An<const net::Packet&>()))
-        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const net::server::CharacterPlayerServerPacket&>(packet); }));
+        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::CharacterPlayerServerPacket&>(packet); }));
 
-    net::client::CharacterTakeClientPacket request;
+    client::CharacterTakeClientPacket request;
     request.character_id = 7;
     Handlers::Character_Take(player(), request);
 
@@ -217,7 +219,7 @@ TEST_F(CharacterTests, Take_UnknownCharacter_ClosesClient)
     EXPECT_CALL(*client, Send(An<const net::Packet&>())).Times(0);
     EXPECT_CALL(*client, Close(false)).Times(1);
 
-    net::client::CharacterTakeClientPacket request;
+    client::CharacterTakeClientPacket request;
     request.character_id = 8;
     Handlers::Character_Take(player(), request);
 }

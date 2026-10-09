@@ -1,11 +1,11 @@
 #include "testhelper/mocks.hpp"
+#include "testhelper/packets.hpp"
 #include "testhelper/setup.hpp"
 
 #include "config.hpp"
 #include "console.hpp"
 #include "eoclient.hpp"
 #include "eoserver.hpp"
-#include "packet.hpp"
 #include "world.hpp"
 #include "handlers/handlers.hpp"
 
@@ -22,6 +22,8 @@
 #include <vector>
 
 namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 static constexpr unsigned short PacketDispatchTestServerPort = 38081;
 
@@ -31,13 +33,13 @@ namespace
 int typed_calls;
 int last_player_id;
 
-void Handle_PaperdollRequest(EOClient*, const net::client::PaperdollRequestClientPacket& packet)
+void Handle_PaperdollRequest(EOClient*, const client::PaperdollRequestClientPacket& packet)
 {
     ++typed_calls;
     last_player_id = packet.player_id;
 }
 
-void Handle_PlayerRangeRequest(Player*, const net::client::PlayerRangeRequestClientPacket&)
+void Handle_PlayerRangeRequest(Player*, const client::PlayerRangeRequestClientPacket&)
 {
     ++typed_calls;
 }
@@ -59,13 +61,6 @@ public:
 void Handle_ThrowingRefreshRequest(EOClient*, const ThrowingRefreshRequestPacket&)
 {
     ++typed_calls;
-}
-
-template <typename TPacket> std::vector<std::uint8_t> Payload(const TPacket& packet)
-{
-    eolib::data::EoWriter writer;
-    packet.Serialize(writer);
-    return std::move(writer).ToByteArray();
 }
 
 }
@@ -91,9 +86,9 @@ protected:
         EXPECT_CALL(*client, Connected()).WillRepeatedly(Return(true));
         client->state = EOClient::Initialized;
 
-        Handlers::packet_handler_register_helper<PACKET_PAPERDOLL>().Register(Handle_PaperdollRequest, Handlers::Menu);
-        Handlers::packet_handler_register_helper<PACKET_PLAYER_RANGE>().Register(Handle_PlayerRangeRequest, Handlers::Menu);
-        Handlers::packet_handler_register_helper<PACKET_REFRESH>().Register(Handle_ThrowingRefreshRequest, Handlers::Menu);
+        Handlers::packet_handler_register_helper<net::PacketFamily::Paperdoll>().Register(Handle_PaperdollRequest, Handlers::Menu);
+        Handlers::packet_handler_register_helper<net::PacketFamily::PlayerRange>().Register(Handle_PlayerRangeRequest, Handlers::Menu);
+        Handlers::packet_handler_register_helper<net::PacketFamily::Refresh>().Register(Handle_ThrowingRefreshRequest, Handlers::Menu);
 
         typed_calls = 0;
         last_player_id = 0;
@@ -110,7 +105,7 @@ TEST_F(PacketDispatchTests, Handle_TypedHandler_ReceivesDeserializedPacket)
 {
     EXPECT_CALL(*client, Close(_)).Times(0);
 
-    net::client::PaperdollRequestClientPacket packet;
+    client::PaperdollRequestClientPacket packet;
     packet.player_id = 1234;
 
     Handlers::Handle(client.get(), QueuedPacket{packet.FAMILY, packet.ACTION, Payload(packet)});
@@ -124,7 +119,7 @@ TEST_F(PacketDispatchTests, Handle_TypedHandlerWrongState_IsNotCalled)
     EXPECT_CALL(*client, Close(_)).Times(0);
     client->state = EOClient::Uninitialized;
 
-    net::client::PaperdollRequestClientPacket packet;
+    client::PaperdollRequestClientPacket packet;
     Handlers::Handle(client.get(), QueuedPacket{packet.FAMILY, packet.ACTION, Payload(packet)});
 
     EXPECT_EQ(0, typed_calls);
@@ -132,7 +127,7 @@ TEST_F(PacketDispatchTests, Handle_TypedHandlerWrongState_IsNotCalled)
 
 TEST_F(PacketDispatchTests, Handle_PlayerHandlerBeforeLogin_ThrowsRuntimeError)
 {
-    net::client::PlayerRangeRequestClientPacket packet;
+    client::PlayerRangeRequestClientPacket packet;
 
     EXPECT_THROW(Handlers::Handle(client.get(), QueuedPacket{packet.FAMILY, packet.ACTION, Payload(packet)}), std::runtime_error);
     EXPECT_EQ(0, typed_calls);
@@ -181,9 +176,9 @@ TEST_F(PacketDispatchTests, Handle_PlayingHandlerNotFromQueue_IsQueuedWithDelay)
 {
     EXPECT_CALL(*client, Close(_)).Times(0);
     client->state = EOClient::Playing;
-    Handlers::packet_handler_register_helper<PACKET_PAPERDOLL>().Register(Handle_PaperdollRequest, Handlers::Playing, 0.25);
+    Handlers::packet_handler_register_helper<net::PacketFamily::Paperdoll>().Register(Handle_PaperdollRequest, Handlers::Playing, 0.25);
 
-    net::client::PaperdollRequestClientPacket packet;
+    client::PaperdollRequestClientPacket packet;
     packet.player_id = 7;
     Handlers::Handle(client.get(), QueuedPacket{packet.FAMILY, packet.ACTION, Payload(packet)});
     Handlers::Handle(client.get(), QueuedPacket{packet.FAMILY, packet.ACTION, Payload(packet)});
@@ -209,8 +204,8 @@ TEST_F(PacketDispatchTests, Send_SerializationFails_DropsPacketWithoutClosing)
     EXPECT_CALL(*client, Close(_)).Times(0);
     client->SetConnectedForTest();
 
-    net::server::InitInitServerPacket packet;
-    packet.reply_code = net::server::InitReply::Ok;
+    server::InitInitServerPacket packet;
+    packet.reply_code = server::InitReply::Ok;
 
     client->EOClient::Send(packet);
 }

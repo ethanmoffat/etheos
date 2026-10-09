@@ -9,7 +9,6 @@
 #include "../config.hpp"
 #include "../eoclient.hpp"
 #include "../eoserver.hpp"
-#include "../packet.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
 
@@ -30,7 +29,7 @@
 namespace Handlers
 {
 
-void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet)
+void Init_Init(EOClient* client, const client::InitInitClientPacket& packet)
 {
 	client->version = packet.version.patch;
 
@@ -77,13 +76,13 @@ void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet
 	{
 		if (ban_expires == 0)
 		{
-			client->Send(net::server::InitInitServerPacket::ForBannedPermanent());
+			client->Send(server::InitInitServerPacket::ForBannedPermanent());
 		}
 		else
 		{
-			net::server::InitInitServerPacket::ReplyCodeDataBanned::BanTypeDataTemporary temporary;
+			server::InitInitServerPacket::ReplyCodeDataBanned::BanTypeDataTemporary temporary;
 			temporary.minutes_remaining = int(std::min(255.0, std::ceil(double(ban_expires - std::time(0)) / 60.0)));
-			client->Send(net::server::InitInitServerPacket::ForBannedTemporary(temporary));
+			client->Send(server::InitInitServerPacket::ForBannedTemporary(temporary));
 		}
 
 		client->Close();
@@ -105,16 +104,16 @@ void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet
 	// The official server also rejects any protocol version other than 112
 	bool accepted_version = (client->version >= minversion)
 	                     && ((maxversion < 0) || (client->version <= maxversion))
-	                     && (packet.protocol_version == net::client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION);
+	                     && (packet.protocol_version == client::InitInitClientPacket::DEFAULT_PROTOCOL_VERSION);
 
 	if (client->server()->world->config["CheckVersion"] && !accepted_version)
 	{
-		net::server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
+		server::InitInitServerPacket::ReplyCodeDataOutOfDate out_of_date;
 		out_of_date.version.major = 0;
 		out_of_date.version.minor = 0;
 		out_of_date.version.patch = minversion;
 
-		client->Send(net::server::InitInitServerPacket::ForOutOfDate(out_of_date));
+		client->Send(server::InitInitServerPacket::ForOutOfDate(out_of_date));
 		client->Close();
 		return;
 	}
@@ -124,7 +123,7 @@ void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet
 
 	auto sequence_start = client->InitNewSequence();
 
-	net::server::InitInitServerPacket::ReplyCodeDataOk ok;
+	server::InitInitServerPacket::ReplyCodeDataOk ok;
 	ok.seq1 = sequence_start.Seq1();
 	ok.seq2 = sequence_start.Seq2();
 	ok.server_encryption_multiple = client->server_encryption_multiple;
@@ -132,15 +131,15 @@ void Init_Init(EOClient* client, const net::client::InitInitClientPacket& packet
 	ok.player_id = client->id;
 	ok.challenge_response = eolib::encrypt::ServerVerifier::Hash(packet.challenge);
 
-	client->Send(net::server::InitInitServerPacket::ForOk(ok));
+	client->Send(server::InitInitServerPacket::ForOk(ok));
 
 	client->state = EOClient::Initialized;
 
 	return;
 }
 
-PACKET_HANDLER_REGISTER(PACKET_F_INIT)
+PACKET_HANDLER_REGISTER(Init)
 	Register(Init_Init, Uninitialized);
-PACKET_HANDLER_REGISTER_END(PACKET_F_INIT)
+PACKET_HANDLER_REGISTER_END(Init)
 
 }

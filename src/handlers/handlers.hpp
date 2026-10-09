@@ -10,7 +10,6 @@
 #include "../fwd/character.hpp"
 #include "../fwd/eoclient.hpp"
 #include "../fwd/player.hpp"
-#include "../packet.hpp"
 
 #include <eolib/protocol/map/enums.hpp>
 #include <eolib/protocol/net/client/enums.hpp>
@@ -25,16 +24,15 @@
 #define PACKET_HANDLER_PASTE_AUX2(base, id) base##id
 #define PACKET_HANDLER_PASTE_AUX(base, id) PACKET_HANDLER_PASTE_AUX2(base, id)
 
+// Each family's constructor can only be defined once, so a duplicate registration block fails to compile or link
 #define PACKET_HANDLER_REGISTER(family) \
-namespace { struct PACKET_HANDLER_PASTE_AUX(packet_handler_register_helper_, family) : public packet_handler_register_helper<family> \
+template <> packet_handler_registration<net::PacketFamily::family>::packet_handler_registration() \
 { \
-	PACKET_HANDLER_PASTE_AUX(packet_handler_register_helper_, family)() \
-	{ \
 		packet_handler_register_init _init; \
 
 #define PACKET_HANDLER_REGISTER_END(family) ; \
-	} \
-} PACKET_HANDLER_PASTE_AUX(packet_handler_register_helper_instance_, family); }
+} \
+static packet_handler_registration<net::PacketFamily::family> PACKET_HANDLER_PASTE_AUX(packet_handler_register_instance_, family);
 
 namespace Handlers
 {
@@ -47,10 +45,6 @@ namespace pub = eolib::protocol::pub;
 namespace emf = eolib::protocol::map;
 
 typedef void (*void_fn_t)();
-typedef void (*client_handler_t)(EOClient *, PacketReader &);
-typedef void (*player_handler_t)(Player *, PacketReader &);
-typedef void (*character_handler_t)(Character *, PacketReader &);
-
 typedef void (*typed_invoker_t)(void_fn_t f, EOClient* client, const QueuedPacket& packet);
 
 enum AllowState
@@ -90,7 +84,6 @@ class packet_handler
 		double delay;
 		void (*f)();
 
-		// Set for handlers that take a typed eolib packet, instead of a PacketReader
 		typed_invoker_t typed_invoker;
 
 		packet_handler(FunctionType fn_type = Invalid, void_fn_t f = 0, unsigned short allow_states = 0, double delay = 0.0, typed_invoker_t typed_invoker = nullptr)
@@ -113,13 +106,13 @@ class packet_handler_register
 		std::array<std::array<packet_handler, 256>, 256> handlers;
 
 	public:
-		void Register(PacketFamily family, PacketAction action, packet_handler handler);
+		void Register(net::PacketFamily family, net::PacketAction action, packet_handler handler);
 
 		static bool StateCheck(EOClient *client, unsigned short allow_states);
 
 		void Handle(EOClient* client, const QueuedPacket& packet, bool from_queue = false) const;
 
-		void SetDelay(PacketFamily family, PacketAction action, double delay);
+		void SetDelay(net::PacketFamily family, net::PacketAction action, double delay);
 };
 
 extern packet_handler_register *packet_handler_register_instance;
@@ -182,7 +175,7 @@ template <typename TTarget, typename TPacket> void invoke_typed_handler(void_fn_
 	reinterpret_cast<void (*)(TTarget*, const TPacket&)>(f)(target, typed_packet);
 }
 
-template <PacketFamily family> class packet_handler_register_helper
+template <net::PacketFamily family> class packet_handler_register_helper
 {
 	public:
 		/**
@@ -191,26 +184,17 @@ template <PacketFamily family> class packet_handler_register_helper
 		template <typename TTarget, typename TPacket>
 		void Register(void (*f)(TTarget*, const TPacket&), unsigned short allow_states, double delay = 0.0) const
 		{
-			static_assert(static_cast<int>(TPacket::FAMILY) == static_cast<int>(family), "Packet type is registered under a different family");
+			static_assert(TPacket::FAMILY == family, "Packet type is registered under a different family");
 
-			packet_handler_register_instance->Register(PacketFamily(TPacket::FAMILY), PacketAction(TPacket::ACTION),
+			packet_handler_register_instance->Register(TPacket::FAMILY, TPacket::ACTION,
 				packet_handler(handler_function_type<TTarget>::value, reinterpret_cast<void_fn_t>(f), allow_states, delay, invoke_typed_handler<TTarget, TPacket>));
 		}
+};
 
-		void Register(PacketAction action, client_handler_t f, unsigned short allow_states, double delay = 0.0) const
-		{
-			packet_handler_register_instance->Register(family, action, packet_handler(packet_handler::ClientFn, reinterpret_cast<void_fn_t>(f), allow_states, delay));
-		}
-
-		void Register(PacketAction action, player_handler_t f, unsigned short allow_states, double delay = 0.0) const
-		{
-			packet_handler_register_instance->Register(family, action, packet_handler(packet_handler::PlayerFn, reinterpret_cast<void_fn_t>(f), allow_states, delay));
-		}
-
-		void Register(PacketAction action, character_handler_t f, unsigned short allow_states, double delay = 0.0) const
-		{
-			packet_handler_register_instance->Register(family, action, packet_handler(packet_handler::CharacterFn, reinterpret_cast<void_fn_t>(f), allow_states, delay));
-		}
+template <net::PacketFamily family> class packet_handler_registration : public packet_handler_register_helper<family>
+{
+	public:
+		packet_handler_registration();
 };
 
 inline void Handle(EOClient* client, const QueuedPacket& packet, bool from_queue = false)
@@ -218,7 +202,7 @@ inline void Handle(EOClient* client, const QueuedPacket& packet, bool from_queue
 	packet_handler_register_instance->Handle(client, packet, from_queue);
 }
 
-inline void SetDelay(PacketFamily family, PacketAction action, double delay)
+inline void SetDelay(net::PacketFamily family, net::PacketAction action, double delay)
 {
 	packet_handler_register_instance->SetDelay(family, action, delay);
 }

@@ -122,11 +122,11 @@ void Party_Take(Character* character, const client::PartyTakeClientPacket&)
 	character->party->RefreshMembers(character);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_PARTY)
+PACKET_HANDLER_REGISTER(Party)
 	Register(Party_Request, Playing, 0.5);
 	Register(Party_Accept, Playing);
 	Register(Party_Remove, Playing);
 	Register(Party_Take, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_PARTY)
+PACKET_HANDLER_REGISTER_END(Party)
 
 }

@@ -100,10 +100,10 @@ void Walk_Spec(Character* character, const client::WalkSpecClientPacket& packet)
 	walk_common(character, packet.walk_action, &Character::Walk);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_WALK)
+PACKET_HANDLER_REGISTER(Walk)
 	Register(Walk_Admin, Playing, 0.4);
 	Register(Walk_Player, Playing, 0.4);
 	Register(Walk_Spec, Playing, 0.4);
-PACKET_HANDLER_REGISTER_END(PACKET_WALK)
+PACKET_HANDLER_REGISTER_END(Walk)
 
 }

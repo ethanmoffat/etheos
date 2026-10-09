@@ -146,9 +146,9 @@ void Marriage_Request(Character* character, const client::MarriageRequestClientP
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_MARRIAGE)
+PACKET_HANDLER_REGISTER(Marriage)
 	Register(Marriage_Open, Playing);
 	Register(Marriage_Request, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_MARRIAGE)
+PACKET_HANDLER_REGISTER_END(Marriage)
 
 }

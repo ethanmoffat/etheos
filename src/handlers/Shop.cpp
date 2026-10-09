@@ -175,11 +175,11 @@ void Shop_Open(Character* character, const client::ShopOpenClientPacket& packet)
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_SHOP)
+PACKET_HANDLER_REGISTER(Shop)
 	Register(Shop_Create, Playing);
 	Register(Shop_Buy, Playing);
 	Register(Shop_Sell, Playing);
 	Register(Shop_Open, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_SHOP)
+PACKET_HANDLER_REGISTER_END(Shop)
 
 }

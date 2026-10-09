@@ -70,9 +70,9 @@ void Warp_Take(Character* character, const client::WarpTakeClientPacket& packet)
 		throw std::runtime_error("Failed to upload file");
 }
 
-PACKET_HANDLER_REGISTER(PACKET_WARP)
+PACKET_HANDLER_REGISTER(Warp)
 	Register(Warp_Accept, Playing);
 	Register(Warp_Take, Playing, 0.15);
-PACKET_HANDLER_REGISTER_END(PACKET_WARP)
+PACKET_HANDLER_REGISTER_END(Warp)
 
 }

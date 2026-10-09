@@ -1,10 +1,14 @@
 #pragma once
 
+#include <eolib/data/eo_writer.hpp>
 #include <eolib/protocol/net/packet.hpp>
 
 #include <gmock/gmock.h>
 
+#include <cstdint>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 MATCHER_P(TypedPacketEq, expected, "is " + expected.ToString())
 {
@@ -29,4 +33,11 @@ MATCHER_P(TypedPacketEq, expected, "is " + expected.ToString())
 template <typename TPacket> ::testing::Matcher<const eolib::protocol::net::Packet&> PacketEq(const TPacket& expected)
 {
     return TypedPacketEq(expected);
+}
+
+template <typename TPacket> std::vector<std::uint8_t> Payload(const TPacket& packet)
+{
+    eolib::data::EoWriter writer;
+    packet.Serialize(writer);
+    return std::move(writer).ToByteArray();
 }

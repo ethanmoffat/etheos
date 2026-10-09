@@ -53,8 +53,8 @@ void Attack_Use(Character* character, const client::AttackUseClientPacket& packe
 	character->Attack(direction);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_ATTACK)
+PACKET_HANDLER_REGISTER(Attack)
 	Register(Attack_Use, Playing, 0.5);
-PACKET_HANDLER_REGISTER_END(PACKET_ATTACK)
+PACKET_HANDLER_REGISTER_END(Attack)
 
 }

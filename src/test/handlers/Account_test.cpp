@@ -16,6 +16,8 @@
 #include <thread>
 
 namespace net = eolib::protocol::net;
+namespace client = eolib::protocol::net::client;
+namespace server = eolib::protocol::net::server;
 
 namespace
 {
@@ -76,16 +78,16 @@ protected:
         }
     }
 
-    static net::client::AccountRequestClientPacket AccountRequest(const std::string& username)
+    static client::AccountRequestClientPacket AccountRequest(const std::string& username)
     {
-        net::client::AccountRequestClientPacket packet;
+        client::AccountRequestClientPacket packet;
         packet.username = username;
         return packet;
     }
 
-    static net::client::AccountCreateClientPacket AccountCreate(int session_id, const std::string& username)
+    static client::AccountCreateClientPacket AccountCreate(int session_id, const std::string& username)
     {
-        net::client::AccountCreateClientPacket packet;
+        client::AccountCreateClientPacket packet;
         packet.session_id = session_id;
         packet.username = username;
         packet.password = "testpass";
@@ -97,9 +99,9 @@ protected:
         return packet;
     }
 
-    static net::client::AccountAgreeClientPacket AccountAgree(const std::string& username, const std::string& old_password, const std::string& new_password)
+    static client::AccountAgreeClientPacket AccountAgree(const std::string& username, const std::string& old_password, const std::string& new_password)
     {
-        net::client::AccountAgreeClientPacket packet;
+        client::AccountAgreeClientPacket packet;
         packet.username = username;
         packet.old_password = old_password;
         packet.new_password = new_password;
@@ -113,9 +115,9 @@ TEST_F(AccountTests, Request_AvailableName_RepliesWithSessionIdAndSequenceStart)
 {
     MockClient client(server.get());
 
-    net::server::AccountReplyServerPacket reply;
+    server::AccountReplyServerPacket reply;
     EXPECT_CALL(client, Send(An<const net::Packet&>()))
-        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const net::server::AccountReplyServerPacket&>(packet); }));
+        .WillOnce(Invoke([&](const net::Packet& packet) { reply = dynamic_cast<const server::AccountReplyServerPacket&>(packet); }));
 
     Handlers::Account_Request(&client, AccountRequest("testuser"));
 
@@ -128,7 +130,7 @@ TEST_F(AccountTests, Request_InvalidName_RepliesNotApproved)
 {
     MockClient client(server.get());
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
 
     Handlers::Account_Request(&client, AccountRequest("test user!"));
 
@@ -140,7 +142,7 @@ TEST_F(AccountTests, Request_ExistingName_RepliesExists)
     GivenAccountExists();
     MockClient client(server.get());
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForExists()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForExists()))).Times(1);
 
     Handlers::Account_Request(&client, AccountRequest("testuser"));
 }
@@ -162,7 +164,7 @@ TEST_F(AccountTests, Create_WrongSessionIdWithEnforceSessionsOff_IsProcessed)
     MockClient client(server.get());
     client.create_id = 12345;
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
     EXPECT_CALL(client, Close(_)).Times(0);
 
     Handlers::Account_Create(&client, AccountCreate(12346, "test user!"));
@@ -173,7 +175,7 @@ TEST_F(AccountTests, Create_InvalidName_RepliesNotApproved)
     MockClient client(server.get());
     client.create_id = 12345;
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForNotApproved()))).Times(1);
 
     Handlers::Account_Create(&client, AccountCreate(client.create_id, "test user!"));
 }
@@ -184,7 +186,7 @@ TEST_F(AccountTests, Create_ExistingName_RepliesExists)
     MockClient client(server.get());
     client.create_id = 12345;
 
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForExists()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForExists()))).Times(1);
 
     Handlers::Account_Create(&client, AccountCreate(client.create_id, "testuser"));
 }
@@ -210,7 +212,7 @@ TEST_F(AccountTests, Create_ValidRequest_InsertsAccountWithHashedPasswordAndRepl
 
     EXPECT_CALL(Db(), RawQuery(AllOf(StartsWith("INSERT INTO accounts"), HasSubstr(", testuser,"), HasSubstr(",1234567890,"), Not(HasSubstr("testpass"))), _, _))
         .WillOnce(Return(Database_Result()));
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForCreated()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForCreated()))).Times(1);
 
     Handlers::Account_Create(&client, AccountCreate(client.create_id, "TestUser"));
     WaitForAsyncOperation(client);
@@ -227,7 +229,7 @@ TEST_F(AccountTests, Agree_CorrectOldPassword_StoresNewPasswordAndRepliesChanged
 
     EXPECT_CALL(Db(), RawQuery(AllOf(StartsWith("UPDATE accounts SET password = "), HasSubstr("testuser"), Not(HasSubstr("newpass"))), _, _))
         .WillOnce(Return(Database_Result()));
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForChanged()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForChanged()))).Times(1);
 
     Handlers::Account_Agree(player.player.get(), AccountAgree("testuser", "oldpass", "newpass"));
     WaitForAsyncOperation(client);
@@ -241,7 +243,7 @@ TEST_F(AccountTests, Agree_WrongOldPassword_RepliesChangeFailed)
     EXPECT_CALL(client, Connected()).WillRepeatedly(Return(true));
 
     EXPECT_CALL(Db(), RawQuery(StartsWith("UPDATE accounts SET password = "), _, _)).Times(0);
-    EXPECT_CALL(client, Send(PacketEq(net::server::AccountReplyServerPacket::ForChangeFailed()))).Times(1);
+    EXPECT_CALL(client, Send(PacketEq(server::AccountReplyServerPacket::ForChangeFailed()))).Times(1);
 
     Handlers::Account_Agree(player.player.get(), AccountAgree("testuser", "wrongpass", "newpass"));
     WaitForAsyncOperation(client);

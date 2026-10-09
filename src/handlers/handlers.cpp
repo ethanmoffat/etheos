@@ -24,9 +24,14 @@
 namespace Handlers
 {
 
+static std::string PacketName(net::PacketFamily family, net::PacketAction action)
+{
+	return net::ToString(family) + "_" + net::ToString(action);
+}
+
 void HandleMalformedPacket(EOClient* client, net::PacketFamily family, net::PacketAction action, const std::string& reason)
 {
-	std::string packet_name = net::ToString(family) + "_" + net::ToString(action);
+	std::string packet_name = PacketName(family, action);
 	std::string address = static_cast<std::string>(client->GetRemoteAddr());
 
 	if (!client->server()->world->config["EnforcePacketFormat"])
@@ -119,38 +124,35 @@ bool packet_handler_register::StateCheck(EOClient *client, unsigned short allow_
 	return false;
 }
 
-void packet_handler_register::Register(PacketFamily family, PacketAction action, packet_handler handler)
+void packet_handler_register::Register(net::PacketFamily family, net::PacketAction action, packet_handler handler)
 {
 	if ((handler.allow_states & Uninitialized) && handler.fn_type != packet_handler::ClientFn)
-		Console::Wrn("Uninitialized state handler accepting non-client type: %s_%s", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Wrn("Uninitialized state handler accepting non-client type: %s", PacketName(family, action).c_str());
 	else if ((handler.allow_states & Menu) && handler.fn_type != packet_handler::ClientFn)
-		Console::Wrn("Menu state handler accepting non-client type: %s_%s", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Wrn("Menu state handler accepting non-client type: %s", PacketName(family, action).c_str());
 	else if ((handler.allow_states & Character_Menu) && handler.fn_type == packet_handler::CharacterFn)
-		Console::Wrn("Character_Menu state handler accepting character type: %s_%s", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Wrn("Character_Menu state handler accepting character type: %s", PacketName(family, action).c_str());
 
 	if (handlers[(unsigned char)family][(unsigned char)action])
-		Console::Wrn("Overriding previously registered handler: %s_%s", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Wrn("Overriding previously registered handler: %s", PacketName(family, action).c_str());
 
 	handlers[(unsigned char)family][(unsigned char)action] = handler;
 }
 
 void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packet, bool from_queue) const
 {
-	if (!net::client::PacketFactory::Contains(packet.family, packet.action))
+	if (!client::PacketFactory::Contains(packet.family, packet.action))
 	{
 		HandleMalformedPacket(client, packet.family, packet.action, "unrecognized packet family/action");
 		return;
 	}
 
-	auto family = PacketFamily(packet.family);
-	auto action = PacketAction(packet.action);
-
-	const packet_handler& handler = handlers[(unsigned char)family][(unsigned char)action];
+	const packet_handler& handler = handlers[(unsigned char)packet.family][(unsigned char)packet.action];
 
 	if (!handler)
 	{
 #ifdef DEBUG
-		Console::Dbg("Unhandled packet: %s_%s (not registered)", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Dbg("Unhandled packet: %s (not registered)", PacketName(packet.family, packet.action).c_str());
 #endif // DEBUG
 		return;
 	}
@@ -158,7 +160,7 @@ void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packe
 	if (!StateCheck(client, handler.allow_states))
 	{
 #ifdef DEBUG
-		Console::Dbg("Unhandled packet: %s_%s (wrong client state)", PacketProcessor::GetFamilyName(family).c_str(), PacketProcessor::GetActionName(action).c_str());
+		Console::Dbg("Unhandled packet: %s (wrong client state)", PacketName(packet.family, packet.action).c_str());
 #endif // DEBUG
 		return;
 	}
@@ -169,37 +171,10 @@ void packet_handler_register::Handle(EOClient* client, const QueuedPacket& packe
 		return;
 	}
 
-	if (handler.typed_invoker)
-	{
-		handler.typed_invoker(handler.f, client, packet);
-		return;
-	}
-
-	// Legacy handlers read the action and family too
-	std::string data{char(packet.action), char(packet.family)};
-	data.append(packet.payload.begin(), packet.payload.end());
-	PacketReader reader(data);
-
-	switch (handler.fn_type)
-	{
-		case packet_handler::Invalid:
-			break;
-
-		case packet_handler::ClientFn:
-			reinterpret_cast<client_handler_t>(handler.f)(client, reader);
-			break;
-
-		case packet_handler::PlayerFn:
-			reinterpret_cast<player_handler_t>(handler.f)(GetHandlerTarget<Player>(client), reader);
-			break;
-
-		case packet_handler::CharacterFn:
-			reinterpret_cast<character_handler_t>(handler.f)(GetHandlerTarget<Character>(client), reader);
-			break;
-	}
+	handler.typed_invoker(handler.f, client, packet);
 }
 
-void packet_handler_register::SetDelay(PacketFamily family, PacketAction action, double delay)
+void packet_handler_register::SetDelay(net::PacketFamily family, net::PacketAction action, double delay)
 {
 	if (handlers[(unsigned char)family][(unsigned char)action])
 	{

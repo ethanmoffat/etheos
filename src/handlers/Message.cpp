@@ -20,8 +20,8 @@ void Message_Ping(Character* character, const client::MessagePingClientPacket&)
 	character->Send(server::MessagePongServerPacket());
 }
 
-PACKET_HANDLER_REGISTER(PACKET_MESSAGE)
+PACKET_HANDLER_REGISTER(Message)
 	Register(Message_Ping, Playing | OutOfBand);
-PACKET_HANDLER_REGISTER_END(PACKET_MESSAGE)
+PACKET_HANDLER_REGISTER_END(Message)
 
 }

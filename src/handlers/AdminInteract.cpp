@@ -51,9 +51,9 @@ void AdminInteract_Report(Character* character, const client::AdminInteractRepor
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_ADMININTERACT)
+PACKET_HANDLER_REGISTER(AdminInteract)
 	Register(AdminInteract_Tell, Playing | OutOfBand);
 	Register(AdminInteract_Report, Playing | OutOfBand);
-PACKET_HANDLER_REGISTER_END(PACKET_ADMININTERACT)
+PACKET_HANDLER_REGISTER_END(AdminInteract)
 
 }

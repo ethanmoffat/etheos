@@ -163,7 +163,7 @@ void Talk_Announce(Character* character, const client::TalkAnnounceClientPacket&
 	character->world->AnnounceMsg(character, message, false);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_TALK)
+PACKET_HANDLER_REGISTER(Talk)
 	Register(Talk_Request, Playing);
 	Register(Talk_Open, Playing);
 	Register(Talk_Msg, Playing);
@@ -171,6 +171,6 @@ PACKET_HANDLER_REGISTER(PACKET_TALK)
 	Register(Talk_Report, Playing);
 	Register(Talk_Admin, Playing);
 	Register(Talk_Announce, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_TALK)
+PACKET_HANDLER_REGISTER_END(Talk)
 
 }

@@ -30,8 +30,8 @@ void Face_Player(Character* character, const client::FacePlayerClientPacket& pac
 	}
 }
 
-PACKET_HANDLER_REGISTER(PACKET_FACE)
+PACKET_HANDLER_REGISTER(Face)
 	Register(Face_Player, Playing, 0.12);
-PACKET_HANDLER_REGISTER_END(PACKET_FACE)
+PACKET_HANDLER_REGISTER_END(Face)
 
 }

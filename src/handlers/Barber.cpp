@@ -85,9 +85,9 @@ void Barber_Buy(Character* character, const client::BarberBuyClientPacket& packe
 	character->Send(reply);
 }
 
-PACKET_HANDLER_REGISTER(PACKET_BARBER)
+PACKET_HANDLER_REGISTER(Barber)
 	Register(Barber_Open, Playing);
 	Register(Barber_Buy, Playing);
-PACKET_HANDLER_REGISTER_END(PACKET_BARBER)
+PACKET_HANDLER_REGISTER_END(Barber)
 
 }
