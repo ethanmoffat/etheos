@@ -8,6 +8,7 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../map.hpp"
 #include "../timer.hpp"
 #include "../world.hpp"
@@ -152,14 +153,14 @@ void Board_Open(Character* character, const client::BoardOpenClientPacket& packe
 	if (boardid != static_cast<int>(character->world->config["AdminBoard"]) - 1
 	 || character->SourceAccess() >= character->world->AdminLevelSetting("reports"))
 	{
-		for (std::size_t y = 0; y < character->map->height; ++y)
+		auto matchSpec  = static_cast<emf::MapTileSpec>(static_cast<int>(emf::MapTileSpec::Board1) + boardid);
+
+		for (int y = 0; y < character->map->height; ++y)
 		{
-			for (std::size_t x = 0; x < character->map->width; ++x)
+			for (int x = 0; x < character->map->width; ++x)
 			{
-				auto xChar = static_cast<unsigned char>(x);
-				auto yChar = static_cast<unsigned char>(y);
-				if (character->InRange(xChar, yChar)
-				 && character->map->GetSpec(xChar, yChar) == static_cast<emf::MapTileSpec>(static_cast<int>(emf::MapTileSpec::Board1) + boardid))
+				const eolib::protocol::Coords coords = Converters::CoordsFrom(x, y);
+				if (character->InRange(coords) && character->map->GetSpec(coords) == matchSpec)
 				{
 					character->board = character->world->boards[boardid];
 				}

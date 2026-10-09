@@ -93,17 +93,17 @@ void Item_Use(Character* character, const client::ItemUseClientPacket& packet)
 			}
 			else
 			{
-				if (character->mapid == scroll.map && character->loc.x == scroll.x && character->loc.y == scroll.y)
+				if (character->mapid == scroll.map && character->loc == scroll.loc)
 					break;
 			}
 
 			if (scroll.map == 0)
 			{
-				character->Warp(character->SpawnMap(), character->SpawnLoc().x, character->SpawnLoc().y, WarpEffect::Scroll);
+				character->Warp(character->SpawnMap(), character->SpawnLoc(), WarpEffect::Scroll);
 			}
 			else
 			{
-				character->Warp(scroll.map, scroll.x, scroll.y, WarpEffect::Scroll);
+				character->Warp(scroll.map, scroll.loc, WarpEffect::Scroll);
 			}
 
 			UseItem(character, id);
@@ -300,14 +300,14 @@ void Item_Drop(Character* character, const client::ItemDropClientPacket& packet)
 		coords.y = DecodeByteCoord(packet.coords.y);
 	}
 
-	const int distance = util::path_length(coords.x, coords.y, character->loc.x, character->loc.y);
+	const int distance = util::path_length(coords, character->loc);
 
 	if (distance > static_cast<int>(character->world->config["DropDistance"]))
 	{
 		return;
 	}
 
-	if (!character->map->Walkable(coords.x, coords.y))
+	if (!character->map->Walkable(coords))
 	{
 		return;
 	}
@@ -317,7 +317,7 @@ void Item_Drop(Character* character, const client::ItemDropClientPacket& packet)
 		return;
 	}
 
-	std::shared_ptr<Map_Item> item = character->map->AddItem(id, amount, coords.x, coords.y, character);
+	std::shared_ptr<Map_Item> item = character->map->AddItem(id, amount, coords, character);
 
 	if (!item)
 	{
@@ -373,7 +373,7 @@ void Item_Get(Character* character, const client::ItemGetClientPacket& packet)
 		return;
 	}
 
-	const int distance = util::path_length(item->loc.x, item->loc.y, character->loc.x, character->loc.y);
+	const int distance = util::path_length(item->loc, character->loc);
 
 	if (distance > static_cast<int>(character->world->config["DropDistance"]))
 	{

@@ -6,6 +6,7 @@
 #include "map.hpp"
 
 #include "console.hpp"
+#include "converters.hpp"
 #include "eoserver.hpp"
 #include "npc.hpp"
 #include "world.hpp"
@@ -206,13 +207,13 @@ TEST_F(MapLoadTests, Load_ValidFile_LoadsMap)
     EXPECT_EQ(10, map->width);
     EXPECT_EQ(10, map->height);
     EXPECT_TRUE(map->scroll);
-    EXPECT_EQ(4, map->relog_x);
-    EXPECT_EQ(5, map->relog_y);
+    EXPECT_EQ(4, map->relog_loc.x);
+    EXPECT_EQ(5, map->relog_loc.y);
     EXPECT_EQ(static_cast<int>(content.size()), map->filesize);
 
-    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetTile(3, 2).tilespec);
+    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetTile(Converters::CoordsFrom(3, 2)).tilespec);
 
-    const Map_Warp& warp = map->GetTile(5, 4).warp;
+    const Map_Warp& warp = map->GetTile(Converters::CoordsFrom(5, 4)).warp;
     EXPECT_EQ(7, warp.map);
     EXPECT_EQ(1, warp.loc.x);
     EXPECT_EQ(2, warp.loc.y);
@@ -242,16 +243,26 @@ TEST_F(MapLoadTests, GetSpec_TileWithoutSpec_ReturnsNoTileSpec)
 {
     Map* map = GivenMap(Serialize(TestEmf()));
 
-    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetSpec(3, 2));
-    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(0, 0));
+    EXPECT_EQ(emf::MapTileSpec::Chest, map->GetSpec(Converters::CoordsFrom(3, 2)));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(Converters::CoordsFrom(0, 0)));
 }
 
 TEST_F(MapLoadTests, GetSpec_OutOfBounds_ReturnsNoTileSpec)
 {
     Map* map = GivenMap(Serialize(TestEmf()));
 
-    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(10, 0));
-    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(0, 10));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(Converters::CoordsFrom(10, 0)));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(Converters::CoordsFrom(0, 10)));
+}
+
+TEST_F(MapLoadTests, InBounds_NegativeCoords_ReturnsFalse)
+{
+    Map* map = GivenMap(Serialize(TestEmf()));
+
+    EXPECT_TRUE(map->InBounds(Converters::CoordsFrom(0, 0)));
+    EXPECT_FALSE(map->InBounds(Converters::CoordsFrom(-1, 0)));
+    EXPECT_FALSE(map->InBounds(Converters::CoordsFrom(0, -1)));
+    EXPECT_EQ(Map_Tile::NoSpec, map->GetSpec(Converters::CoordsFrom(-1, -1)));
 }
 
 TEST_F(MapLoadTests, Load_StationaryNpcSpawn_DecodesDirectionFromSpawnTime)
@@ -283,7 +294,7 @@ TEST_F(MapLoadTests, Load_OutOfBoundsEntries_AreSkipped)
 
     ASSERT_TRUE(map->exists);
     EXPECT_TRUE(map->chests.empty());
-    EXPECT_FALSE(map->GetTile(5, 4).warp);
+    EXPECT_FALSE(map->GetTile(Converters::CoordsFrom(5, 4)).warp);
     EXPECT_TRUE(map->npcs.empty());
 }
 
@@ -318,7 +329,7 @@ TEST_F(MapLoadTests, Reload_SameRid_KeepsLoadedMap)
     changed.relog_x = 9;
     map = GivenMap(Serialize(changed));
 
-    EXPECT_EQ(4, map->relog_x);
+    EXPECT_EQ(4, map->relog_loc.x);
 }
 
 TEST_F(MapLoadTests, ClientRid_GlobalPK_ReplacesFirstHalf)
@@ -348,6 +359,6 @@ TEST_F(MapLoadTests, Construct_MissingFile_HasEmptyHeaderFields)
     EXPECT_EQ(0, map->width);
     EXPECT_EQ(0, map->height);
     EXPECT_FALSE(map->scroll);
-    EXPECT_EQ(0, map->relog_x);
-    EXPECT_EQ(0, map->relog_y);
+    EXPECT_EQ(0, map->relog_loc.x);
+    EXPECT_EQ(0, map->relog_loc.y);
 }

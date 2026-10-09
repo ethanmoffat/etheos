@@ -142,7 +142,7 @@ void map_close_door(void *map_close_void)
 {
 	map_close_door_struct *close(static_cast<map_close_door_struct *>(map_close_void));
 
-	close->map->CloseDoor(close->loc.x, close->loc.y);
+	close->map->CloseDoor(close->loc);
 
 	delete close;
 }
@@ -352,7 +352,7 @@ void Map_Chest::Update(Map *map, Character *exclude) const
 			continue;
 		}
 
-		if (util::path_length(character->loc.x, character->loc.y, this->loc.x, this->loc.y) <= 1)
+		if (util::path_length(character->loc, this->loc) <= 1)
 		{
 			character->Send(agree);
 		}
@@ -371,8 +371,6 @@ Map::Map(int id, World *world)
 	this->width = 0;
 	this->height = 0;
 	this->scroll = false;
-	this->relog_x = 0;
-	this->relog_y = 0;
 	this->jukebox_protect = 0.0;
 	this->arena = nullptr;
 	this->wedding = nullptr;
@@ -438,19 +436,19 @@ void Map::LoadArena()
 				{
 					case 1:
 						s = new Arena_Spawn;
-						s->sx = util::to_int(spawn);
+						s->loc.x = util::to_int(spawn);
 						break;
 
 					case 2:
-						s->sy = util::to_int(spawn);
+						s->loc.y = util::to_int(spawn);
 						break;
 
 					case 3:
-						s->dx = util::to_int(spawn);
+						s->dest_loc.x = util::to_int(spawn);
 						break;
 
 					case 0:
-						s->dy = util::to_int(spawn);
+						s->dest_loc.y = util::to_int(spawn);
 						this->arena->spawns.push_back(s);
 						s = 0;
 						break;
@@ -475,7 +473,7 @@ void Map::LoadArena()
 
 		if (!this->arena)
 		{
-			character->Warp(character->map->id, character->map->relog_x, character->map->relog_y);
+			character->Warp(character->map->id, character->map->relog_loc);
 		}
 	}
 }
@@ -532,32 +530,29 @@ bool Map::Load()
 	this->tiles.resize(this->height * this->width);
 
 	this->scroll = file.can_scroll;
-	this->relog_x = file.relog_x;
-	this->relog_y = file.relog_y;
+	this->relog_loc = Converters::CoordsFrom(file.relog_x, file.relog_y);
 
 	for (const emf::MapTileSpecRow& row : file.tile_spec_rows)
 	{
 		for (const emf::MapTileSpecRowTile& tile : row.tiles)
 		{
-			const unsigned char xloc = tile.x;
-			const unsigned char yloc = row.y;
+			const eolib::protocol::Coords coords = Converters::CoordsFrom(tile.x, row.y);
 			const emf::MapTileSpec spec = tile.tile_spec;
 
-			if (!this->InBounds(xloc, yloc))
+			if (!this->InBounds(coords))
 			{
-				Console::Wrn("Tile spec on map %i is outside of map bounds (%ix%i)", this->id, xloc, yloc);
+				Console::Wrn("Tile spec on map %i is outside of map bounds (%ix%i)", this->id, coords.x, coords.y);
 				continue;
 			}
 
-			this->GetTile(xloc, yloc).tilespec = spec;
+			this->GetTile(coords).tilespec = spec;
 
 			if (spec == emf::MapTileSpec::Chest)
 			{
 				Map_Chest chest;
 				chest.maxchest = static_cast<int>(this->world->config["MaxChest"]);
 				chest.chestslots = static_cast<int>(this->world->config["ChestSlots"]);
-				chest.loc.x = xloc;
-				chest.loc.y = yloc;
+				chest.loc = coords;
 				chest.slots = 0;
 				chest.key = 0;
 				this->chests.push_back(std::make_shared<Map_Chest>(chest));
@@ -574,8 +569,7 @@ bool Map::Load()
 	{
 		for (const emf::MapWarpRowTile& tile : row.tiles)
 		{
-			const unsigned char xloc = tile.x;
-			const unsigned char yloc = row.y;
+			const eolib::protocol::Coords coords = Converters::CoordsFrom(tile.x, row.y);
 
 			Map_Warp newwarp;
 			newwarp.map = tile.warp.destination_map;
@@ -583,21 +577,19 @@ bool Map::Load()
 			newwarp.levelreq = tile.warp.level_required;
 			newwarp.spec = static_cast<Map_Warp::WarpSpec>(tile.warp.door);
 
-			if (!this->InBounds(xloc, yloc))
+			if (!this->InBounds(coords))
 			{
-				Console::Wrn("Warp on map %i is outside of map bounds (%ix%i)", this->id, xloc, yloc);
+				Console::Wrn("Warp on map %i is outside of map bounds (%ix%i)", this->id, coords.x, coords.y);
 				continue;
 			}
 
-			this->GetTile(xloc, yloc).warp = newwarp;
+			this->GetTile(coords).warp = newwarp;
 		}
 	}
 
 	int index = 0;
 	for (const emf::MapNpc& spawn : file.npcs)
 	{
-		const unsigned char x = spawn.coords.x;
-		const unsigned char y = spawn.coords.y;
 		const short npc_id = spawn.id;
 
 		// Stationary spawns store the facing direction in spawn_time instead of a respawn time
@@ -607,14 +599,14 @@ bool Map::Load()
 
 		if (!this->world->enf->Exists(npc_id))
 		{
-			Console::Wrn("An NPC spawn on map %i uses a non-existent NPC (#%i at %ix%i)", this->id, npc_id, x, y);
+			Console::Wrn("An NPC spawn on map %i uses a non-existent NPC (#%i at %ix%i)", this->id, npc_id, spawn.coords.x, spawn.coords.y);
 		}
 
 		for (int ii = 0; ii < spawn.amount; ++ii)
 		{
-			if (!this->InBounds(x, y))
+			if (!this->InBounds(spawn.coords))
 			{
-				Console::Wrn("An NPC spawn on map %i is outside of map bounds (%s at %ix%i)", this->id, this->world->enf->Get(npc_id).name.c_str(), x, y);
+				Console::Wrn("An NPC spawn on map %i is outside of map bounds (%s at %ix%i)", this->id, this->world->enf->Get(npc_id).name.c_str(), spawn.coords.x, spawn.coords.y);
 				continue;
 			}
 
@@ -630,8 +622,6 @@ bool Map::Load()
 
 	for (const emf::MapItem& item : file.items)
 	{
-		const unsigned char x = item.coords.x;
-		const unsigned char y = item.coords.y;
 		const short key = item.key;
 		const short slot = item.chest_slot;
 		const short itemid = item.item_id;
@@ -640,23 +630,23 @@ bool Map::Load()
 
 		if (!this->world->eif->Exists(itemid))
 		{
-			Console::Wrn("A chest spawn on map %i uses a non-existent item (#%i at %ix%i)", this->id, itemid, x, y);
+			Console::Wrn("A chest spawn on map %i uses a non-existent item (#%i at %ix%i)", this->id, itemid, item.coords.x, item.coords.y);
 		}
 
 		if (amount == 0)
 		{
-			Console::Wrn("A chest spawn on map %i has an amount of 0 (#%i at %ix%i) and will be ignored", this->id, itemid, x, y);
+			Console::Wrn("A chest spawn on map %i has an amount of 0 (#%i at %ix%i) and will be ignored", this->id, itemid, item.coords.x, item.coords.y);
 			continue;
 		}
 
 		auto chest = std::find_if(UTIL_CRANGE(this->chests), [&](const std::shared_ptr<Map_Chest>& c)
 		{
-			return c->loc.x == x && c->loc.y == y;
+			return c->loc == item.coords;
 		});
 
 		if (chest == this->chests.end())
 		{
-			Console::Wrn("A chest spawn on map %i points to a non-chest (%s x%i at %ix%i)", this->id, this->world->eif->Get(itemid).name.c_str(), amount, x, y);
+			Console::Wrn("A chest spawn on map %i points to a non-chest (%s x%i at %ix%i)", this->id, this->world->eif->Get(itemid).name.c_str(), amount, item.coords.x, item.coords.y);
 			continue;
 		}
 
@@ -825,7 +815,7 @@ void Map::SendToNearby(const eolib::protocol::Coords& coords, const eolib::proto
 {
 	UTIL_FOREACH(this->characters, character)
 	{
-		if (character->InRange(coords.x, coords.y))
+		if (character->InRange(coords))
 		{
 			character->Send(packet);
 		}
@@ -891,65 +881,40 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 {
 	int seedistance = this->world->config["SeeDistance"];
 
-	unsigned char target_x = from->loc.x;
-	unsigned char target_y = from->loc.y;
+	eolib::protocol::Coords target = from->loc;
 
 	switch (direction)
 	{
 		case Direction::Up:
-			target_y -= 1;
-
-			if (target_y > from->loc.y)
-			{
-				return WalkFail;
-			}
-
+			target.y -= 1;
 			break;
 
 		case Direction::Right:
-			target_x += 1;
-
-			if (target_x < from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.x += 1;
 			break;
 
 		case Direction::Down:
-			target_y += 1;
-
-			if (target_x < from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.y += 1;
 			break;
 
 		case Direction::Left:
-			target_x -= 1;
-
-			if (target_x > from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.x -= 1;
 			break;
 	}
 
-	if (!this->InBounds(target_x, target_y))
+	if (!this->InBounds(target))
 		return WalkFail;
 
 	if (!admin)
 	{
-		if (!this->Walkable(target_x, target_y))
+		if (!this->Walkable(target))
 			return WalkFail;
 
-		if (this->Occupied(target_x, target_y, PlayerOnly) && (from->last_walk + double(this->world->config["GhostTimer"]) > Timer::GetTime()))
+		if (this->Occupied(target, PlayerOnly) && (from->last_walk + double(this->world->config["GhostTimer"]) > Timer::GetTime()))
 			return WalkFail;
 	}
 
-	const Map_Warp& warp = this->GetWarp(target_x, target_y);
+	const Map_Warp& warp = this->GetWarp(target);
 
 	if (warp)
 	{
@@ -963,7 +928,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 			}
 			else
 			{
-				from->Warp(warp.map, warp.loc.x, warp.loc.y);
+				from->Warp(warp.map, warp.loc);
 			}
 
 			return WalkWarped;
@@ -979,8 +944,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 	from->direction = direction;
 
-	from->loc.x = target_x;
-	from->loc.y = target_y;
+	from->loc = target;
 
 	int newx;
 	int newy;
@@ -1156,7 +1120,7 @@ Map::WalkResult Map::Walk(Character *from, Direction direction, bool admin)
 
 	from->CheckQuestRules();
 
-	emf::MapTileSpec spec = this->GetSpec(from->loc.x, from->loc.y);
+	emf::MapTileSpec spec = this->GetSpec(from->loc);
 
 	double spike_damage = this->world->config["SpikeDamage"];
 
@@ -1180,61 +1144,35 @@ Map::WalkResult Map::Walk(NPC *from, Direction direction)
 {
 	int seedistance = this->world->config["SeeDistance"];
 
-	unsigned char target_x = from->loc.x;
-	unsigned char target_y = from->loc.y;
+	eolib::protocol::Coords target = from->loc;
 
 	switch (direction)
 	{
 		case Direction::Up:
-			target_y -= 1;
-
-			if (target_y > from->loc.y)
-			{
-				return WalkFail;
-			}
-
+			target.y -= 1;
 			break;
 
 		case Direction::Right:
-			target_x += 1;
-
-			if (target_x < from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.x += 1;
 			break;
 
 		case Direction::Down:
-			target_y += 1;
-
-			if (target_x < from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.y += 1;
 			break;
 
 		case Direction::Left:
-			target_x -= 1;
-
-			if (target_x > from->loc.x)
-			{
-				return WalkFail;
-			}
-
+			target.x -= 1;
 			break;
 	}
 
 	bool adminghost = (from->PubData().type == pub::NpcType::Aggressive || from->parent);
 
-	if (!this->Walkable(target_x, target_y, true) || this->Occupied(target_x, target_y, Map::PlayerAndNPC, adminghost))
+	if (!this->Walkable(target, true) || this->Occupied(target, Map::PlayerAndNPC, adminghost))
 	{
 		return WalkFail;
 	}
 
-	from->loc.x = target_x;
-	from->loc.y = target_y;
+	from->loc = target;
 
 	int newx;
 	int newy;
@@ -1394,8 +1332,7 @@ void Map::Attack(Character *from, Direction direction)
 	if (!from->CanInteractCombat())
 		return;
 
-	int target_x = from->loc.x;
-	int target_y = from->loc.y;
+	eolib::protocol::Coords target = from->loc;
 
 	int range = 1;
 
@@ -1409,26 +1346,27 @@ void Map::Attack(Character *from, Direction direction)
 		switch (from->direction)
 		{
 			case Direction::Up:
-				target_y -= 1;
+				target.y -= 1;
 				break;
 
 			case Direction::Right:
-				target_x += 1;
+				target.x += 1;
 				break;
 
 			case Direction::Down:
-				target_y += 1;
+				target.y += 1;
 				break;
 
 			case Direction::Left:
-				target_x -= 1;
+				target.x -= 1;
 				break;
 		}
 
 		UTIL_FOREACH(this->npcs, npc)
 		{
-			if ((npc->PubData().type == pub::NpcType::Passive || npc->PubData().type == pub::NpcType::Aggressive || from->SourceDutyAccess() >= this->world->AdminLevelSetting("killnpc"))
-			 && npc->alive && npc->loc.x == target_x && npc->loc.y == target_y)
+			bool isPassiveOrAggressive = npc->PubData().type == pub::NpcType::Passive || npc->PubData().type == pub::NpcType::Aggressive;
+			bool adminKillNpc = from->SourceDutyAccess() >= this->world->AdminLevelSetting("killnpc");
+			if ((isPassiveOrAggressive || adminKillNpc) && npc->alive && npc->loc == target)
 			{
 				int amount = util::rand(from->mindam, from->maxdam);
 				double rand = util::rand(0.0, 1.0);
@@ -1470,7 +1408,7 @@ void Map::Attack(Character *from, Direction direction)
 			}
 		}
 
-		if (!this->Walkable(target_x, target_y, true))
+		if (!this->Walkable(target, true))
 		{
 			return;
 		}
@@ -1484,8 +1422,7 @@ bool Map::AttackPK(Character *from, Direction direction)
 
 	(void)direction;
 
-	int target_x = from->loc.x;
-	int target_y = from->loc.y;
+	eolib::protocol::Coords target = from->loc;
 
 	int range = 1;
 
@@ -1499,25 +1436,25 @@ bool Map::AttackPK(Character *from, Direction direction)
 		switch (from->direction)
 		{
 			case Direction::Up:
-				target_y -= 1;
+				target.y -= 1;
 				break;
 
 			case Direction::Right:
-				target_x += 1;
+				target.x += 1;
 				break;
 
 			case Direction::Down:
-				target_y += 1;
+				target.y += 1;
 				break;
 
 			case Direction::Left:
-				target_x -= 1;
+				target.x -= 1;
 				break;
 		}
 
 		UTIL_FOREACH(this->characters, character)
 		{
-			if (character->mapid == this->id && !character->nowhere && character->loc.x == target_x && character->loc.y == target_y)
+			if (character->mapid == this->id && !character->nowhere && character->loc == target)
 			{
 				int amount = util::rand(from->mindam, from->maxdam);
 				double rand = util::rand(0.0, 1.0);
@@ -1593,7 +1530,7 @@ bool Map::AttackPK(Character *from, Direction direction)
 			}
 		}
 
-		if (!this->Walkable(target_x, target_y, true))
+		if (!this->Walkable(target, true))
 		{
 			return false;
 		}
@@ -1653,9 +1590,9 @@ void Map::Emote(Character *from, eolib::protocol::Emote emote, bool echo)
 	this->SendToNearby(from, packet, echo);
 }
 
-bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target, bool adminghost) const
+bool Map::Occupied(const eolib::protocol::Coords& coords, Map::OccupiedTarget target, bool adminghost) const
 {
-	if (!InBounds(x, y))
+	if (!InBounds(coords))
 	{
 		return false;
 	}
@@ -1666,7 +1603,7 @@ bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target,
 		{
 			bool ghost = adminghost && (!character->CanInteractCombat() || character->IsHideNpc());
 
-			if (character->loc.x == x && character->loc.y == y && !ghost)
+			if (character->loc == coords && !ghost)
 			{
 				return true;
 			}
@@ -1677,7 +1614,7 @@ bool Map::Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target,
 	{
 		UTIL_FOREACH(this->npcs, npc)
 		{
-			if (npc->alive && npc->loc.x == x && npc->loc.y == y)
+			if (npc->alive && npc->loc == coords)
 			{
 				return true;
 			}
@@ -1694,12 +1631,12 @@ Map::~Map()
 
 bool Map::OpenDoor(Character *from, const eolib::protocol::Coords& coords)
 {
-	if (!this->InBounds(coords.x, coords.y) || (from && !from->InRange(coords.x, coords.y)))
+	if (!this->InBounds(coords) || (from && !from->InRange(coords)))
 	{
 		return false;
 	}
 
-	if (Map_Warp& warp = this->GetWarp(coords.x, coords.y))
+	if (Map_Warp& warp = this->GetWarp(coords))
 	{
 		if (warp.spec == Map_Warp::NoDoor || warp.open)
 		{
@@ -1739,12 +1676,12 @@ bool Map::OpenDoor(Character *from, const eolib::protocol::Coords& coords)
 	return false;
 }
 
-void Map::CloseDoor(unsigned char x, unsigned char y)
+void Map::CloseDoor(const eolib::protocol::Coords& coords)
 {
-	if (!this->InBounds(x, y))
+	if (!this->InBounds(coords))
 		return;
 
-	if (Map_Warp& warp = this->GetWarp(x, y))
+	if (Map_Warp& warp = this->GetWarp(coords))
 	{
 		if (warp.spec == Map_Warp::NoDoor || !warp.open)
 		{
@@ -2029,9 +1966,9 @@ void Map::SpellGroup(Character *from, unsigned short spell_id)
 	}
 }
 
-std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, unsigned char x, unsigned char y, Character *from)
+std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, const eolib::protocol::Coords& coords, Character *from)
 {
-	std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(0, id, amount, x, y, 0, 0));
+	std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(0, id, amount, coords, 0, 0));
 
 	if (from || (from && from->SourceAccess() <= protocol::AdminLevel::Guardian))
 	{
@@ -2041,7 +1978,7 @@ std::shared_ptr<Map_Item> Map::AddItem(short id, int amount, unsigned char x, un
 		UTIL_FOREACH(this->items, item)
 		{
 			++onmap;
-			if (item->loc.x == x && item->loc.y == y)
+			if (item->loc == coords)
 			{
 				++ontile;
 			}
@@ -2149,76 +2086,76 @@ void Map::DelSomeItem(short uid, int amount, Character *from)
 	}
 }
 
-bool Map::InBounds(unsigned char x, unsigned char y) const
+bool Map::InBounds(const eolib::protocol::Coords& coords) const
 {
-	return !(x >= this->width || y >= this->height);
+	return coords.x >= 0 && coords.y >= 0 && coords.x < this->width && coords.y < this->height;
 }
 
-bool Map::Walkable(unsigned char x, unsigned char y, bool npc) const
+bool Map::Walkable(const eolib::protocol::Coords& coords, bool npc) const
 {
-	if (!InBounds(x, y) || !this->GetTile(x, y).Walkable(npc))
+	if (!InBounds(coords) || !this->GetTile(coords).Walkable(npc))
 		return false;
 
-	if (this->world->config["GhostArena"] && this->GetTile(x, y).tilespec == emf::MapTileSpec::Arena && this->Occupied(x, y, PlayerAndNPC))
+	if (this->world->config["GhostArena"] && this->GetTile(coords).tilespec == emf::MapTileSpec::Arena && this->Occupied(coords, PlayerAndNPC))
 		return false;
 
 	return true;
 }
 
-Map_Tile& Map::GetTile(unsigned char x, unsigned char y)
+Map_Tile& Map::GetTile(const eolib::protocol::Coords& coords)
 {
-	if (!InBounds(x, y))
+	if (!InBounds(coords))
 		throw std::out_of_range("Map tile out of range");
 
-	return this->tiles[y * this->width + x];
+	return this->tiles[coords.y * this->width + coords.x];
 }
 
-const Map_Tile& Map::GetTile(unsigned char x, unsigned char y) const
+const Map_Tile& Map::GetTile(const eolib::protocol::Coords& coords) const
 {
-	if (!InBounds(x, y))
+	if (!InBounds(coords))
 		throw std::out_of_range("Map tile out of range");
 
-	return this->tiles[y * this->width + x];
+	return this->tiles[coords.y * this->width + coords.x];
 }
 
-emf::MapTileSpec Map::GetSpec(unsigned char x, unsigned char y) const
+emf::MapTileSpec Map::GetSpec(const eolib::protocol::Coords& coords) const
 {
-	if (!InBounds(x, y))
+	if (!InBounds(coords))
 		return Map_Tile::NoSpec;
 
-	return this->GetTile(x, y).tilespec;
+	return this->GetTile(coords).tilespec;
 }
 
-Map_Warp& Map::GetWarp(unsigned char x, unsigned char y)
+Map_Warp& Map::GetWarp(const eolib::protocol::Coords& coords)
 {
-	return this->GetTile(x, y).warp;
+	return this->GetTile(coords).warp;
 }
 
-const Map_Warp& Map::GetWarp(unsigned char x, unsigned char y) const
+const Map_Warp& Map::GetWarp(const eolib::protocol::Coords& coords) const
 {
-	return this->GetTile(x, y).warp;
+	return this->GetTile(coords).warp;
 }
 
-std::vector<Character *> Map::CharactersInRange(unsigned char x, unsigned char y, unsigned char range)
+std::vector<Character *> Map::CharactersInRange(const eolib::protocol::Coords& coords, unsigned char range)
 {
 	std::vector<Character *> characters;
 
 	UTIL_FOREACH(this->characters, character)
 	{
-		if (util::path_length(character->loc.x, character->loc.y, x, y) <= range)
+		if (util::path_length(character->loc, coords) <= range)
 			characters.push_back(character);
 	}
 
 	return characters;
 }
 
-std::vector<NPC *> Map::NPCsInRange(unsigned char x, unsigned char y, unsigned char range)
+std::vector<NPC *> Map::NPCsInRange(const eolib::protocol::Coords& coords, unsigned char range)
 {
 	std::vector<NPC *> npcs;
 
 	UTIL_FOREACH(this->npcs, npc)
 	{
-		if (util::path_length(npc->loc.x, npc->loc.y, x, y) <= range)
+		if (util::path_length(npc->loc, coords) <= range)
 			npcs.push_back(npc);
 	}
 
@@ -2232,11 +2169,10 @@ void Map::Quake(int strength)
 	this->SendToMap(server::EffectUseServerPacket::ForQuake(quake));
 }
 
-void Map::TileEffect(unsigned char x, unsigned char y, unsigned short effect)
+void Map::TileEffect(const eolib::protocol::Coords& coords, unsigned short effect)
 {
 	server::TileEffect tile_effect;
-	tile_effect.coords.x = x;
-	tile_effect.coords.y = y;
+	tile_effect.coords = coords;
 	tile_effect.effect_id = effect;
 
 	server::EffectAgreeServerPacket packet;
@@ -2363,7 +2299,7 @@ void Map::TimedSpikes()
 		if (character->nowhere || character->IsHideInvisible())
 			continue;
 
-		emf::MapTileSpec spec = this->GetSpec(character->loc.x, character->loc.y);
+		emf::MapTileSpec spec = this->GetSpec(character->loc);
 
 		if (spike_damage > 0.0 && spec == emf::MapTileSpec::TimedSpikes)
 		{

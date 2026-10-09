@@ -1180,9 +1180,9 @@ bool Character::Equip(short item, unsigned char subloc)
 	}
 }
 
-bool Character::InRange(unsigned char x, unsigned char y) const
+bool Character::InRange(const eolib::protocol::Coords& coords) const
 {
-	return util::path_length(this->loc.x, this->loc.y, x, y) <= static_cast<int>(this->world->config.at("SeeDistance"));
+	return util::path_length(this->loc, coords) <= static_cast<int>(this->world->config.at("SeeDistance"));
 }
 
 bool Character::InRange(const Character *other) const
@@ -1192,7 +1192,7 @@ bool Character::InRange(const Character *other) const
 		return false;
 	}
 
-	return this->InRange(other->loc.x, other->loc.y);
+	return this->InRange(other->loc);
 }
 
 bool Character::InRange(const NPC *other) const
@@ -1202,7 +1202,7 @@ bool Character::InRange(const NPC *other) const
 		return false;
 	}
 
-	return this->InRange(other->loc.x, other->loc.y);
+	return this->InRange(other->loc);
 }
 
 bool Character::InRange(const Map_Item &other) const
@@ -1212,7 +1212,7 @@ bool Character::InRange(const Map_Item &other) const
 		return false;
 	}
 
-	return this->InRange(other.loc.x, other.loc.y);
+	return this->InRange(other.loc);
 }
 
 int Character::NewNpcSession()
@@ -1221,7 +1221,7 @@ int Character::NewNpcSession()
 	return this->npc_session_id;
 }
 
-void Character::Warp(short map, unsigned char x, unsigned char y, WarpEffect effect)
+void Character::Warp(short map, const eolib::protocol::Coords& coords, WarpEffect effect)
 {
 	if (map <= 0 || map > int(this->world->maps.size()) || !this->world->GetMap(map)->exists)
 	{
@@ -1264,8 +1264,7 @@ void Character::Warp(short map, unsigned char x, unsigned char y, WarpEffect eff
 
 	this->map = this->world->GetMap(map);
 	this->mapid = this->map->id;
-	this->loc.x = x;
-	this->loc.y = y;
+	this->loc = coords;
 	this->sitting = SitState::Stand;
 
 	this->npc = 0;
@@ -1595,7 +1594,7 @@ void Character::DropAll(Character *killer)
 			continue;
 		}
 
-		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(it->id, it->amount, this->loc.x, this->loc.y, 0);
+		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(it->id, it->amount, this->loc, 0);
 
 		if (map_item)
 		{
@@ -1634,7 +1633,7 @@ void Character::DropAll(Character *killer)
 			continue;
 		}
 
-		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(id, 1, this->loc.x, this->loc.y, 0);
+		std::shared_ptr<Map_Item> map_item = this->player->character->map->AddItem(id, 1, this->loc, 0);
 
 		if (map_item)
 		{
@@ -1794,8 +1793,7 @@ void Character::DeathRespawn()
 
 		Character* character = client.player->character;
 		character->map = nullptr;
-		const eolib::protocol::Coords spawn_loc = character->SpawnLoc();
-		character->Warp(character->SpawnMap(), spawn_loc.x, spawn_loc.y, WarpEffect::None);
+		character->Warp(character->SpawnMap(), character->SpawnLoc(), WarpEffect::None);
 	});
 }
 

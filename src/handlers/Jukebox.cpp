@@ -26,11 +26,7 @@ namespace Handlers
 // Opened the jukebox listing
 void Jukebox_Open(Character* character, const client::JukeboxOpenClientPacket& packet)
 {
-	const unsigned char x = packet.coords.x;
-	const unsigned char y = packet.coords.y;
-
-	if (!character->InRange(x, y)
-	 || character->map->GetSpec(x, y) != emf::MapTileSpec::Jukebox)
+	if (!character->InRange(packet.coords) || character->map->GetSpec(packet.coords) != emf::MapTileSpec::Jukebox)
 	{
 		return;
 	}

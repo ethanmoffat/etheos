@@ -2,6 +2,7 @@
 
 // include the CPP file with the Item functions in it for testing
 #include "../../handlers/Item.cpp"
+#include "../../converters.hpp"
 
 #include "../../timer.hpp"
 
@@ -250,7 +251,7 @@ TEST_F(ItemTests, Get_PartOfPile_RepliesAndUpdatesPileForOthers)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& getter = GivenCharacter(2, 2);
     PlayingCharacter& observer = GivenCharacter(3, 2);
-    std::shared_ptr<Map_Item> pile = map->AddItem(GoldId, 50, 2, 2);
+    std::shared_ptr<Map_Item> pile = map->AddItem(GoldId, 50, Converters::CoordsFrom(2, 2));
     ASSERT_TRUE(pile);
     pile->owner = getter.character->PlayerID();
     server->world->config["MaxItem"] = 20;

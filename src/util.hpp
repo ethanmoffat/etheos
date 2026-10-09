@@ -7,6 +7,8 @@
 #ifndef UTIL_HPP_INCLUDED
 #define UTIL_HPP_INCLUDED
 
+#include <eolib/protocol/structs.hpp>
+
 #include <algorithm>
 #include <cstdlib>
 #include <iterator>
@@ -104,12 +106,12 @@ std::string text_cap(const std::string&, int width, const std::string& elipses =
 std::string text_word_wrap(const std::string&, int width);
 
 /**
- * Finds the distance IN TILES between a pair of x,y coordinates
+ * Finds the distance IN TILES between a pair of coordinates
  */
-static inline int path_length(int x1, int y1, int x2, int y2)
+static inline int path_length(const eolib::protocol::Coords& a, const eolib::protocol::Coords& b)
 {
-	int dx = std::abs(x1 - x2);
-	int dy = std::abs(y1 - y2);
+	int dx = std::abs(a.x - b.x);
+	int dy = std::abs(a.y - b.y);
 
 	return dx + dy;
 }

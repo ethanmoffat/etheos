@@ -114,7 +114,7 @@ void NPC::Spawn(NPC *parent)
 				this->loc.y = util::rand(this->spawn_loc.y-2, this->spawn_loc.y+2);
 			}
 
-			if (this->map->Walkable(this->loc.x, this->loc.y, true) && (i > 100 || !this->map->Occupied(this->loc.x, this->loc.y, Map::NPCOnly)))
+			if (this->map->Walkable(this->loc, true) && (i > 100 || !this->map->Occupied(this->loc, Map::NPCOnly)))
 			{
 				this->direction = static_cast<Direction>(util::rand(0,3));
 				found = true;
@@ -129,7 +129,7 @@ void NPC::Spawn(NPC *parent)
 			{
 				for (this->loc.y = this->spawn_loc.y-2; this->loc.y <= this->spawn_loc.y+2; ++this->loc.y)
 				{
-					if (this->map->Walkable(this->loc.x, this->loc.y, true))
+					if (this->map->Walkable(this->loc, true))
 					{
 						Console::Wrn("Placed at valid location: %i,%i", this->loc.x, this->loc.y);
 						found = true;
@@ -193,7 +193,7 @@ void NPC::Act()
 				continue;
 			}
 
-			int distance = util::path_length(opponent->attacker->loc.x, opponent->attacker->loc.y, this->loc.x, this->loc.y);
+			int distance = util::path_length(opponent->attacker->loc, this->loc);
 
 			if (distance == 0)
 				distance = 1;
@@ -215,7 +215,7 @@ void NPC::Act()
 					continue;
 				}
 
-				int distance = util::path_length(opponent->attacker->loc.x, opponent->attacker->loc.y, this->loc.x, this->loc.y);
+				int distance = util::path_length(opponent->attacker->loc, this->loc);
 
 				if (distance == 0)
 					distance = 1;
@@ -246,7 +246,7 @@ void NPC::Act()
 			if (character->IsHideNpc() || !character->CanInteractCombat())
 				continue;
 
-			int distance = util::path_length(character->loc.x, character->loc.y, this->loc.x, this->loc.y);
+			int distance = util::path_length(character->loc, this->loc);
 
 			if (distance == 0)
 				distance = 1;
@@ -367,7 +367,7 @@ void NPC::Talk()
 
 	UTIL_FOREACH(this->map->npcs, npc)
 	{
-		if (npc->id == this->id && npc->spawn_loc.x == this->spawn_loc.x && npc->spawn_loc.y == this->spawn_loc.y)
+		if (npc->id == this->id && npc->spawn_loc == this->spawn_loc)
 		{
 			npc->last_talk = this->last_talk;
 			if (npc->alive && npc->InCharacterRange())
@@ -605,7 +605,7 @@ void NPC::Killed(Character *from, int amount, int spell_id)
 
 		dropuid = this->map->GenerateItemID();
 
-		std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(dropuid, dropid, dropamount, this->loc.x, this->loc.y, from->PlayerID(), Timer::GetTime() + static_cast<int>(this->map->world->config["ProtectNPCDrop"])));
+		std::shared_ptr<Map_Item> newitem(std::make_shared<Map_Item>(dropuid, dropid, dropamount, this->loc, from->PlayerID(), Timer::GetTime() + static_cast<int>(this->map->world->config["ProtectNPCDrop"])));
 		this->map->items.push_back(newitem);
 
 		// Selects a random number between 0 and maxhp, and decides the winner based on that

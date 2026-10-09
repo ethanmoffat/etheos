@@ -12,6 +12,7 @@
 #include <eolib/protocol/enums.hpp>
 #include <eolib/protocol/pub/enums.hpp>
 #include <eolib/protocol/pub/structs.hpp>
+#include <eolib/protocol/structs.hpp>
 
 #include <string>
 #include <vector>
@@ -49,13 +50,16 @@ inline ItemTwoHandedSpec AsTwoHanded(const eolib::protocol::pub::EifRecord& item
 struct ItemScrollSpec
 {
 	int map;
-	int x;
-	int y;
+	eolib::protocol::Coords loc;
 };
 
 inline ItemScrollSpec AsScroll(const eolib::protocol::pub::EifRecord& item)
 {
-	return ItemScrollSpec{item.spec1, item.spec2, item.spec3};
+	ItemScrollSpec scroll;
+	scroll.map = item.spec1;
+	scroll.loc.x = item.spec2;
+	scroll.loc.y = item.spec3;
+	return scroll;
 }
 
 struct ItemExpRewardSpec

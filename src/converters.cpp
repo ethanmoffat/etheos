@@ -27,6 +27,14 @@ static bool ShouldHaveAdminIcon(const Character* character, protocol::AdminLevel
 	return character->SourceDutyAccess() >= minLevel && !character->IsHideAdmin();
 }
 
+protocol::Coords CoordsFrom(int x, int y)
+{
+	protocol::Coords coords;
+	coords.x = x;
+	coords.y = y;
+	return coords;
+}
+
 server::BigCoords BigCoordsFrom(const eolib::protocol::Coords& coords)
 {
 	server::BigCoords big_coords;

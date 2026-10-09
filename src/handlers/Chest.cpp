@@ -25,10 +25,10 @@ namespace Handlers
 
 static std::shared_ptr<Map_Chest> TryGetChest(Character* character, const eolib::protocol::Coords& coords)
 {
-	if (util::path_length(character->loc.x, character->loc.y, coords.x, coords.y) > 1)
+	if (util::path_length(character->loc, coords) > 1)
 		return nullptr;
 
-	if (character->map->GetSpec(coords.x, coords.y) != emf::MapTileSpec::Chest)
+	if (character->map->GetSpec(coords) != emf::MapTileSpec::Chest)
 		return nullptr;
 
 	auto& chests = character->map->chests;
@@ -97,7 +97,7 @@ void Chest_Take(Character* character, const client::ChestTakeClientPacket& packe
 // Opening a chest
 void Chest_Open(Character* character, const client::ChestOpenClientPacket& packet)
 {
-	if (util::path_length(character->loc.x, character->loc.y, packet.coords.x, packet.coords.y) > 1)
+	if (util::path_length(character->loc, packet.coords) > 1)
 		return;
 
 	std::shared_ptr<Map_Chest> chest = TryGetChest(character, packet.coords);

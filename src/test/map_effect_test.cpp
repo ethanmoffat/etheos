@@ -1,6 +1,7 @@
 #include "testhelper/playing.hpp"
 
 #include "arena.hpp"
+#include "converters.hpp"
 
 #include <eolib/protocol/map/structs.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
@@ -148,7 +149,7 @@ TEST_F(MapEffectTests, ArenaSpawn_Full_SendsDrop)
 {
     GivenMap(EmptyEmf(10, 10));
     Arena* arena = GivenArena(1);
-    arena->spawns.push_back(new Arena_Spawn{3, 3, 5, 5});
+    arena->spawns.push_back(new Arena_Spawn{Converters::CoordsFrom(3, 3), Converters::CoordsFrom(5, 5)});
     arena->occupants = 1;
     PlayingCharacter& waiting = GivenCharacter(3, 3);
 
@@ -162,7 +163,7 @@ TEST_F(MapEffectTests, ArenaSpawn_Open_LaunchesPlayers)
 {
     GivenMap(EmptyEmf(10, 10));
     Arena* arena = GivenArena(4);
-    arena->spawns.push_back(new Arena_Spawn{3, 3, 5, 5});
+    arena->spawns.push_back(new Arena_Spawn{Converters::CoordsFrom(3, 3), Converters::CoordsFrom(5, 5)});
     PlayingCharacter& waiting = GivenCharacter(3, 3);
 
     arena->Spawn();

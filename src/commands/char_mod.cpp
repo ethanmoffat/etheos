@@ -142,7 +142,7 @@ void SetXLimited(const std::vector<std::string>& arguments, Command_Source* from
 		{
 			// Easiest way to get the character to update on everyone nearby's screen
 			if (appearance)
-				victim->Warp(victim->map->id, victim->loc.x, victim->loc.y);
+				victim->Warp(victim->map->id, victim->loc);
 
 			if (stats || statpoints)
 			{

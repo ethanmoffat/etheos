@@ -38,12 +38,8 @@ struct Map_Item
 	unsigned int owner; // Player ID
 	double unprotecttime;
 
-	Map_Item(short uid_, short id_, int amount_, unsigned char x_, unsigned char y_, unsigned int owner_, double unprotecttime_)
-	 : uid(uid_), id(id_), amount(amount_), owner(owner_), unprotecttime(unprotecttime_)
-	{
-		loc.x = x_;
-		loc.y = y_;
-	}
+	Map_Item(short uid_, short id_, int amount_, const eolib::protocol::Coords& loc_, unsigned int owner_, double unprotecttime_)
+	 : uid(uid_), id(id_), amount(amount_), loc(loc_), owner(owner_), unprotecttime(unprotecttime_) { }
 };
 
 /**
@@ -199,8 +195,7 @@ class Map
 		unsigned char width;
 		unsigned char height;
 		bool scroll;
-		unsigned char relog_x;
-		unsigned char relog_y;
+		eolib::protocol::Coords relog_loc;
 		std::list<Character *> characters;
 		std::vector<NPC *> npcs;
 		std::vector<std::shared_ptr<Map_Chest>> chests;
@@ -269,7 +264,7 @@ class Map
 		void Stand(Character *from);
 		void Emote(Character *from, eolib::protocol::Emote emote, bool echo = true);
 		bool OpenDoor(Character *from, const eolib::protocol::Coords& coords);
-		void CloseDoor(unsigned char x, unsigned char y);
+		void CloseDoor(const eolib::protocol::Coords& coords);
 
 		void SpellSelf(Character *from, unsigned short spell_id);
 		void SpellAttack(Character *from, NPC *victim, unsigned short spell_id);
@@ -278,7 +273,7 @@ class Map
 
 		WalkResult Walk(NPC *from, Direction direction);
 
-		std::shared_ptr<Map_Item> AddItem(short id, int amount, unsigned char x, unsigned char y, Character *from = 0);
+		std::shared_ptr<Map_Item> AddItem(short id, int amount, const eolib::protocol::Coords& coords, Character *from = 0);
 
 		std::shared_ptr<Map_Item> GetItem(short uid);
 		std::shared_ptr<const Map_Item> GetItem(short uid) const;
@@ -287,20 +282,20 @@ class Map
 		void DelSomeItem(short uid, int amount, Character *from = 0);
 		std::list<std::shared_ptr<Map_Item>>::iterator DelItem(std::list<std::shared_ptr<Map_Item>>::iterator it, Character *from = 0);
 
-		bool InBounds(unsigned char x, unsigned char y) const;
-		bool Walkable(unsigned char x, unsigned char y, bool npc = false) const;
-		Map_Tile& GetTile(unsigned char x, unsigned char y);
-		const Map_Tile& GetTile(unsigned char x, unsigned char y) const;
-		eolib::protocol::map::MapTileSpec GetSpec(unsigned char x, unsigned char y) const;
-		Map_Warp& GetWarp(unsigned char x, unsigned char y);
-		const Map_Warp& GetWarp(unsigned char x, unsigned char y) const;
+		bool InBounds(const eolib::protocol::Coords& coords) const;
+		bool Walkable(const eolib::protocol::Coords& coords, bool npc = false) const;
+		Map_Tile& GetTile(const eolib::protocol::Coords& coords);
+		const Map_Tile& GetTile(const eolib::protocol::Coords& coords) const;
+		eolib::protocol::map::MapTileSpec GetSpec(const eolib::protocol::Coords& coords) const;
+		Map_Warp& GetWarp(const eolib::protocol::Coords& coords);
+		const Map_Warp& GetWarp(const eolib::protocol::Coords& coords) const;
 
-		std::vector<Character *> CharactersInRange(unsigned char x, unsigned char y, unsigned char range);
-		std::vector<NPC *> NPCsInRange(unsigned char x, unsigned char y, unsigned char range);
+		std::vector<Character *> CharactersInRange(const eolib::protocol::Coords& coords, unsigned char range);
+		std::vector<NPC *> NPCsInRange(const eolib::protocol::Coords& coords, unsigned char range);
 
 		void Quake(int strength);
 
-		void TileEffect(unsigned char x, unsigned char y, unsigned short effect);
+		void TileEffect(const eolib::protocol::Coords& coords, unsigned short effect);
 
 		bool Evacuate();
 
@@ -321,7 +316,7 @@ class Map
 			NPCOnly,
 			PlayerAndNPC
 		};
-		bool Occupied(unsigned char x, unsigned char y, Map::OccupiedTarget target, bool adminghost = false) const;
+		bool Occupied(const eolib::protocol::Coords& coords, Map::OccupiedTarget target, bool adminghost = false) const;
 
 		~Map();
 };

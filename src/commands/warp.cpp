@@ -8,6 +8,7 @@
 
 #include "../character.hpp"
 #include "../config.hpp"
+#include "../converters.hpp"
 #include "../i18n.hpp"
 #include "../map.hpp"
 #include "../world.hpp"
@@ -27,7 +28,7 @@ void Warp(const std::vector<std::string>& arguments, Character* from)
 	int y = util::to_int(arguments[2]);
 
 	bool bubbles = from->world->config["WarpBubbles"] && !from->IsHideWarp();
-	from->Warp(map, x, y, bubbles ? WarpEffect::Admin : WarpEffect::None);
+	from->Warp(map, Converters::CoordsFrom(x, y), bubbles ? WarpEffect::Admin : WarpEffect::None);
 }
 
 void WarpMeTo(const std::vector<std::string>& arguments, Character* from)
@@ -43,7 +44,7 @@ void WarpMeTo(const std::vector<std::string>& arguments, Character* from)
 		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
 			bool bubbles = from->world->config["WarpBubbles"] && !from->IsHideWarp() && !victim->IsHideWarp();
-			from->Warp(victim->mapid, victim->loc.x, victim->loc.y, bubbles ? WarpEffect::Admin : WarpEffect::None);
+			from->Warp(victim->mapid, victim->loc, bubbles ? WarpEffect::Admin : WarpEffect::None);
 		}
 		else
 		{
@@ -65,7 +66,7 @@ void WarpToMe(const std::vector<std::string>& arguments, Character* from)
 		if (!from->world->CommandProtected(victim->SourceAccess(), from->SourceAccess()))
 		{
 			bool bubbles = from->world->config["WarpBubbles"] && !from->IsHideWarp() && !victim->IsHideWarp();
-			victim->Warp(from->mapid, from->loc.x, from->loc.y, bubbles ? WarpEffect::Admin : WarpEffect::None);
+			victim->Warp(from->mapid, from->loc, bubbles ? WarpEffect::Admin : WarpEffect::None);
 		}
 		else
 		{

@@ -200,12 +200,14 @@ void world_warp_suck(void *world_void)
 			if (character->last_walk + delay >= now)
 				continue;
 
-			auto check_warp = [&](bool test, unsigned char x, unsigned char y)
+			auto check_warp = [&](bool test, int x, int y)
 			{
-				if (!test || !map->InBounds(x, y))
+				const eolib::protocol::Coords coords = Converters::CoordsFrom(x, y);
+
+				if (!test || !map->InBounds(coords))
 					return;
 
-				const Map_Warp& warp = map->GetWarp(x, y);
+				const Map_Warp& warp = map->GetWarp(coords);
 
 				if (!warp || warp.levelreq > character->level || (warp.spec != Map_Warp::Door && warp.spec != Map_Warp::NoDoor))
 					return;
@@ -232,7 +234,7 @@ void world_warp_suck(void *world_void)
 		}
 		else
 		{
-			act.character->Warp(act.map, act.loc.x, act.loc.y);
+			act.character->Warp(act.map, act.loc);
 		}
 	}
 }
@@ -857,8 +859,7 @@ void World::RestoreFromDump(const std::string& fileName)
 				i["uid"].get<short>(),
 				i["itemId"].get<short>(),
 				i["amount"].get<int>(),
-				i["x"].get<unsigned char>(),
-				i["y"].get<unsigned char>(),
+				Converters::CoordsFrom(i["x"].get<int>(), i["y"].get<int>()),
 				0, 0));
 
 #ifdef DEBUG
@@ -1088,9 +1089,21 @@ void World::LoadHome()
 		}
 	}
 
-	UTIL_FOREACH(temp_homes, home)
+	UTIL_FOREACH(temp_homes, entry)
 	{
-		this->homes.push_back(home.second);
+		Home& home = *entry.second;
+
+		// Each sleep value that's missing or 0 uses the home location's value
+		if (home.sleep_map <= 0)
+			home.sleep_map = home.map;
+
+		if (home.sleep_loc.x <= 0)
+			home.sleep_loc.x = home.loc.x;
+
+		if (home.sleep_loc.y <= 0)
+			home.sleep_loc.y = home.loc.y;
+
+		this->homes.push_back(entry.second);
 	}
 }
 
@@ -1140,17 +1153,16 @@ void World::Login(Character *character)
 {
 	this->characters.push_back(character);
 
-	if (this->GetMap(character->mapid)->relog_x || this->GetMap(character->mapid)->relog_y)
+	if (this->GetMap(character->mapid)->relog_loc != eolib::protocol::Coords())
 	{
-		character->loc.x = this->GetMap(character->mapid)->relog_x;
-		character->loc.y = this->GetMap(character->mapid)->relog_y;
+		character->loc = this->GetMap(character->mapid)->relog_loc;
 	}
 
 	Map* map = this->GetMap(character->mapid);
 
 	if (character->sitting == SitState::Chair)
 	{
-		emf::MapTileSpec spec = map->GetSpec(character->loc.x, character->loc.y);
+		emf::MapTileSpec spec = map->GetSpec(character->loc);
 
 		if (spec == emf::MapTileSpec::ChairDown)
 			character->direction = Direction::Down;
@@ -1841,7 +1853,7 @@ void World::Jail(Command_Source *from, Character *victim, bool announce)
 	if (charfrom && charfrom->IsHideWarp())
 		bubbles = false;
 
-	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["JailX"]), static_cast<int>(this->config["JailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
+	victim->Warp(static_cast<int>(this->config["JailMap"]), Converters::CoordsFrom(this->config["JailX"], this->config["JailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
 }
 
 void World::Unjail(Command_Source *from, Character *victim)
@@ -1856,7 +1868,7 @@ void World::Unjail(Command_Source *from, Character *victim)
 	if (victim->mapid != static_cast<int>(this->config["JailMap"]))
 		return;
 
-	victim->Warp(static_cast<int>(this->config["JailMap"]), static_cast<int>(this->config["UnJailX"]), static_cast<int>(this->config["UnJailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
+	victim->Warp(static_cast<int>(this->config["JailMap"]), Converters::CoordsFrom(this->config["UnJailX"], this->config["UnJailY"]), bubbles ? WarpEffect::Admin : WarpEffect::None);
 }
 
 void World::Ban(Command_Source *from, Character *victim, int duration, bool announce)

@@ -115,7 +115,7 @@ void Duty(const std::vector<std::string>& arguments, Character* from)
 	player->Send(server::WelcomeReplyServerPacket::ForEnterGame(
 		Converters::EnterGameFrom(swap, {}, std::move(nearby))));
 
-	swap->Warp(swap->mapid, swap->loc.x, swap->loc.y, WarpEffect::None);
+	swap->Warp(swap->mapid, swap->loc, WarpEffect::None);
 }
 
 void Audit(const std::vector<std::string>& arguments, Character* from)

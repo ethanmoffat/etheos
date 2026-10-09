@@ -321,12 +321,12 @@ class Character : public Command_Source
 		double SpellCooldownTime() const;
 		bool Unequip(short item, unsigned char subloc);
 		bool Equip(short item, unsigned char subloc);
-		bool InRange(unsigned char x, unsigned char y) const;
+		bool InRange(const eolib::protocol::Coords& coords) const;
 		bool InRange(const Character *) const;
 		bool InRange(const NPC *) const;
 		int NewNpcSession(); // Starts/replaces NPC dialog session
 		bool InRange(const Map_Item&) const;
-		void Warp(short map, unsigned char x, unsigned char y, WarpEffect effect = WarpEffect::None);
+		void Warp(short map, const eolib::protocol::Coords& coords, WarpEffect effect = WarpEffect::None);
 		void Refresh();
 		void ShowBoard(Board *board = 0);
 		std::string PaddedGuildTag();

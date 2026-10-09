@@ -87,11 +87,7 @@ void Citizen_Accept(Character* character, const client::CitizenAcceptClientPacke
 
 			if (home_info)
 			{
-				short map = home_info->sleep_map > 0 ? home_info->sleep_map : home_info->map;
-				unsigned char x = home_info->sleep_loc.x > 0 ? home_info->sleep_loc.x : home_info->loc.x;
-				unsigned char y = home_info->sleep_loc.y > 0 ? home_info->sleep_loc.y : home_info->loc.y;
-
-				character->Warp(map, x, y);
+				character->Warp(home_info->sleep_map, home_info->sleep_loc);
 			}
 
 			character->npc = nullptr;

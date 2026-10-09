@@ -2,6 +2,7 @@
 
 // include the CPP file with the Walk functions in it for testing
 #include "../../handlers/Walk.cpp"
+#include "../../converters.hpp"
 
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
@@ -82,7 +83,7 @@ TEST_F(WalkTests, Player_ItemComingIntoView_IsListedInReply)
 {
     GivenMap(EmptyEmf(20, 10));
     const int see_distance = server->world->config["SeeDistance"];
-    const auto item = map->AddItem(1, 5, 3 + see_distance, 2);
+    const auto item = map->AddItem(1, 5, Converters::CoordsFrom(3 + see_distance, 2));
     PlayingCharacter& walker = GivenCharacter(2, 2);
 
     Handlers::Walk_Player(walker.character, WalkPlayer(eolib::protocol::Direction::Right, 3, 2));

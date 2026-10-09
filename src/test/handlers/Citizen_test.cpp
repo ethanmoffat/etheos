@@ -3,6 +3,7 @@
 // include the CPP file with the Citizen functions in it for testing
 #include "../../handlers/Citizen.cpp"
 
+#include "../../converters.hpp"
 #include "../../npc.hpp"
 #include "../../npc_data.hpp"
 
@@ -12,6 +13,8 @@
 
 #include <cstdio>
 #include <memory>
+#include <optional>
+#include <string>
 
 namespace client = eolib::protocol::net::client;
 namespace pub = eolib::protocol::pub;
@@ -104,6 +107,25 @@ protected:
         return entry;
     }
 
+    void GivenTownHome(std::optional<std::string> sleep)
+    {
+        server->world->home_config["town.name"] = "Town";
+        server->world->home_config["town.location"] = std::to_string(CitizenTestMapId) + ",1,2";
+
+        if (sleep)
+            server->world->home_config["town.sleep"] = *sleep;
+
+        server->world->LoadHome();
+    }
+
+    static client::CitizenAcceptClientPacket Accept()
+    {
+        client::CitizenAcceptClientPacket packet;
+        packet.session_id = InnSessionId;
+        packet.behavior_id = InnBehaviorId;
+        return packet;
+    }
+
     static client::CitizenRequestClientPacket Request(int session_id, int behavior_id)
     {
         client::CitizenRequestClientPacket packet;
@@ -187,6 +209,36 @@ TEST_F(CitizenTests, Accept_EnoughGold_RestoresAndCharges)
     EXPECT_EQ(100 - 23, reply->gold_amount);
     EXPECT_EQ(10, entry.character->hp);
     EXPECT_EQ(10, entry.character->tp);
+}
+
+TEST_F(CitizenTests, Accept_Home_WarpsToSleepLocation)
+{
+    PlayingCharacter& entry = GivenCharacterAtInn();
+    GivenTownHome(std::to_string(CitizenTestMapId) + ",6,7");
+
+    Handlers::Citizen_Accept(entry.character, Accept());
+
+    EXPECT_EQ(Converters::CoordsFrom(6, 7), entry.character->loc);
+}
+
+TEST_F(CitizenTests, LoadHome_SleepValuesZeroOrMissing_UseHomeLocation)
+{
+    GivenTownHome("0,6");
+
+    const std::shared_ptr<Home> home = server->world->GetHome("town");
+    ASSERT_TRUE(home);
+    EXPECT_EQ(CitizenTestMapId, home->sleep_map);
+    EXPECT_EQ(Converters::CoordsFrom(6, 2), home->sleep_loc);
+}
+
+TEST_F(CitizenTests, LoadHome_NoSleepEntry_UsesHomeLocation)
+{
+    GivenTownHome(std::nullopt);
+
+    const std::shared_ptr<Home> home = server->world->GetHome("town");
+    ASSERT_TRUE(home);
+    EXPECT_EQ(CitizenTestMapId, home->sleep_map);
+    EXPECT_EQ(Converters::CoordsFrom(1, 2), home->sleep_loc);
 }
 
 TEST_F(CitizenTests, Reply_CorrectAnswers_SetsHome)

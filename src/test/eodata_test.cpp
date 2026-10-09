@@ -231,8 +231,8 @@ TEST(ItemHelperTests, AsScroll_ReadsMapXYFromSpec1To3)
     ItemScrollSpec scroll = AsScroll(item);
 
     EXPECT_EQ(300, scroll.map);
-    EXPECT_EQ(10, scroll.x);
-    EXPECT_EQ(20, scroll.y);
+    EXPECT_EQ(10, scroll.loc.x);
+    EXPECT_EQ(20, scroll.loc.y);
 }
 
 TEST(ItemHelperTests, AsEquipmentAndTwoHanded_ReadSpec1To3)

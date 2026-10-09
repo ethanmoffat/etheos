@@ -27,20 +27,20 @@ void Chair_Request(Character* character, const client::ChairRequestClientPacket&
 		const int x = sit->coords.x;
 		const int y = sit->coords.y;
 
-		if (util::path_length(character->loc.x, character->loc.y, x, y) > 1)
+		if (util::path_length(character->loc, sit->coords) > 1)
 		{
 			return;
 		}
 
 		UTIL_FOREACH(character->map->characters, c)
 		{
-			if (c->loc.x == x && c->loc.y == y)
+			if (c->loc == sit->coords)
 			{
 				return;
 			}
 		}
 
-		switch (character->map->GetSpec(x, y))
+		switch (character->map->GetSpec(sit->coords))
 		{
 			case emf::MapTileSpec::ChairDown:
 				if (character->loc.y == y+1 && character->loc.x == x)

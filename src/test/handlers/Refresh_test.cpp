@@ -2,6 +2,7 @@
 
 // include the CPP file with the Refresh functions in it for testing
 #include "../../handlers/Refresh.cpp"
+#include "../../converters.hpp"
 
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
@@ -34,8 +35,8 @@ TEST_F(RefreshTests, Request_SendsCharactersAndItemsInRange)
     PlayingCharacter& refresher = GivenCharacter(2, 2);
     PlayingCharacter& near = GivenCharacter(4, 4);
     GivenCharacter(30, 30);
-    const std::shared_ptr<Map_Item> near_item = map->AddItem(1, 5, 3, 3);
-    map->AddItem(2, 5, 35, 35);
+    const std::shared_ptr<Map_Item> near_item = map->AddItem(1, 5, Converters::CoordsFrom(3, 3));
+    map->AddItem(2, 5, Converters::CoordsFrom(35, 35));
 
     Handlers::Refresh_Request(refresher.character, client::RefreshRequestClientPacket());
 

@@ -59,7 +59,7 @@ void DropItem(const std::vector<std::string>& arguments, Character* from)
 
 	if (amount > 0 && from->HasItem(id) >= amount)
 	{
-		std::shared_ptr<Map_Item> item = from->map->AddItem(id, amount, x, y, from);
+		std::shared_ptr<Map_Item> item = from->map->AddItem(id, amount, Converters::CoordsFrom(x, y), from);
 
 		if (item)
 		{

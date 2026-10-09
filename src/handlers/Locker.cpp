@@ -25,8 +25,7 @@ namespace Handlers
 
 static bool LockerInReach(Character* character, const eolib::protocol::Coords& coords)
 {
-	return util::path_length(character->loc.x, character->loc.y, coords.x, coords.y) <= 1
-		&& character->map->GetSpec(coords.x, coords.y) == emf::MapTileSpec::BankVault;
+	return util::path_length(character->loc, coords) <= 1 && character->map->GetSpec(coords) == emf::MapTileSpec::BankVault;
 }
 
 static server::LockerReplyServerPacket MakeLockerReply(Character* character, int item_id)

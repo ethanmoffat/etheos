@@ -47,7 +47,7 @@ void Arena::Spawn(bool force)
 	{
 		UTIL_FOREACH(this->map->characters, character)
 		{
-			if (character->loc.x == spawn->sx && character->loc.y == spawn->sy)
+			if (character->loc == spawn->loc)
 			{
 				++newplayers;
 			}
@@ -69,14 +69,12 @@ void Arena::Spawn(bool force)
 	{
 		Character *character;
 		short map;
-		unsigned char x;
-		unsigned char y;
+		eolib::protocol::Coords loc;
 
-		Arena_Spawn_Action(Character *character, short map, unsigned char x, unsigned char y)
+		Arena_Spawn_Action(Character *character, short map, const eolib::protocol::Coords& loc)
 			: character(character)
 			, map(map)
-			, x(x)
-			, y(y)
+			, loc(loc)
 		{ }
 	};
 
@@ -86,11 +84,11 @@ void Arena::Spawn(bool force)
 	{
 		UTIL_FOREACH(this->map->characters, character)
 		{
-			if (character->loc.x == spawn->sx && character->loc.y == spawn->sy)
+			if (character->loc == spawn->loc)
 			{
 				character->next_arena = this;
 				character->arena_kills = 0;
-				actions.push_back({character, this->map->id, spawn->dx, spawn->dy});
+				actions.push_back({character, this->map->id, spawn->dest_loc});
 				break;
 			}
 		}
@@ -98,7 +96,7 @@ void Arena::Spawn(bool force)
 
 	UTIL_FOREACH(actions, act)
 	{
-		act.character->Warp(act.map, act.x, act.y);
+		act.character->Warp(act.map, act.loc);
 	}
 
 	server::ArenaUseServerPacket packet;
@@ -110,25 +108,24 @@ void Arena::Attack(Character *from, Direction direction)
 {
 	(void)direction;
 
-	int target_x = from->loc.x;
-	int target_y = from->loc.y;
+	eolib::protocol::Coords target = from->loc;
 
 	switch (from->direction)
 	{
 		case Direction::Up:
-			target_y -= 1;
+			target.y -= 1;
 			break;
 
 		case Direction::Right:
-			target_x += 1;
+			target.x += 1;
 			break;
 
 		case Direction::Down:
-			target_y += 1;
+			target.y += 1;
 			break;
 
 		case Direction::Left:
-			target_x -= 1;
+			target.x -= 1;
 			break;
 	}
 
@@ -136,14 +133,12 @@ void Arena::Attack(Character *from, Direction direction)
 	{
 		Character *character;
 		short map;
-		unsigned char x;
-		unsigned char y;
+		eolib::protocol::Coords loc;
 
-		Arena_Spawn_Action(Character *character, short map, unsigned char x, unsigned char y)
+		Arena_Spawn_Action(Character *character, short map, const eolib::protocol::Coords& loc)
 			: character(character)
 			, map(map)
-			, x(x)
-			, y(y)
+			, loc(loc)
 		{ }
 	};
 
@@ -151,14 +146,14 @@ void Arena::Attack(Character *from, Direction direction)
 
 	UTIL_FOREACH(this->map->characters, character)
 	{
-		if (character->arena == this && character->loc.x == target_x && character->loc.y == target_y)
+		if (character->arena == this && character->loc == target)
 		{
 			++from->arena_kills;
-			actions.push_back({character, this->map->id, this->map->relog_x, this->map->relog_y});
+			actions.push_back({character, this->map->id, this->map->relog_loc});
 
 			if (from->arena->occupants == 2)
 			{
-				actions.push_back({from, this->map->id, this->map->relog_x, this->map->relog_y});
+				actions.push_back({from, this->map->id, this->map->relog_loc});
 
 				server::ArenaAcceptServerPacket packet;
 				packet.winner_name = from->SourceName();
@@ -184,7 +179,7 @@ void Arena::Attack(Character *from, Direction direction)
 
 	UTIL_FOREACH(actions, act)
 	{
-		act.character->Warp(act.map, act.x, act.y);
+		act.character->Warp(act.map, act.loc);
 	}
 }
 

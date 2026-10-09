@@ -13,14 +13,14 @@
 #include "fwd/map.hpp"
 #include "fwd/timer.hpp"
 
+#include <eolib/protocol/structs.hpp>
+
 #include <vector>
 
 struct Arena_Spawn
 {
-	unsigned char sx;
-	unsigned char sy;
-	unsigned char dx;
-	unsigned char dy;
+	eolib::protocol::Coords loc;
+	eolib::protocol::Coords dest_loc;
 };
 
 class Arena

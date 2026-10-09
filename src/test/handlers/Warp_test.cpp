@@ -2,6 +2,7 @@
 
 // include the CPP file with the Warp functions in it for testing
 #include "../../handlers/Warp.cpp"
+#include "../../converters.hpp"
 
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
@@ -61,7 +62,7 @@ TEST_F(WarpTests, Warp_SameMap_SendsLocalRequestWithSessionId)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
 
-    warper.character->Warp(WarpTestMapId, 5, 6);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(5, 6));
 
     const auto request = LastSent<server::WarpRequestServerPacket>(warper);
     ASSERT_TRUE(request);
@@ -80,7 +81,7 @@ TEST_F(WarpTests, Warp_FromNowhere_SendsMapSwitchRequestWithMapFile)
     PlayingCharacter& warper = GivenCharacter(2, 2);
     warper.character->nowhere = true;
 
-    warper.character->Warp(WarpTestMapId, 5, 6);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(5, 6));
 
     const auto request = LastSent<server::WarpRequestServerPacket>(warper);
     ASSERT_TRUE(request);
@@ -97,7 +98,7 @@ TEST_F(WarpTests, Warp_ObserverInRange_SeesAvatarRemoveThenPlayersAgreeWithEffec
     PlayingCharacter& warper = GivenCharacter(2, 2);
     PlayingCharacter& observer = GivenCharacter(3, 3);
 
-    warper.character->Warp(WarpTestMapId, 4, 4, WarpEffect::Scroll);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4), WarpEffect::Scroll);
 
     const auto avatar_remove = LastSent<server::AvatarRemoveServerPacket>(observer);
     ASSERT_TRUE(avatar_remove);
@@ -120,7 +121,7 @@ TEST_F(WarpTests, Warp_NoEffect_AvatarRemoveOmitsEffect)
     PlayingCharacter& warper = GivenCharacter(2, 2);
     PlayingCharacter& observer = GivenCharacter(3, 3);
 
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     const auto avatar_remove = LastSent<server::AvatarRemoveServerPacket>(observer);
     ASSERT_TRUE(avatar_remove);
@@ -134,7 +135,7 @@ TEST_F(WarpTests, Warp_ObserverInRange_PlayersAgreeUsesSpecChunkLayout)
     PlayingCharacter& warper = GivenCharacter(2, 2);
     PlayingCharacter& observer = GivenCharacter(3, 3);
 
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     const SentPacket* players_agree = LastSentRaw(observer, server::PlayersAgreeServerPacket::FAMILY, server::PlayersAgreeServerPacket::ACTION);
     ASSERT_NE(nullptr, players_agree);
@@ -151,7 +152,7 @@ TEST_F(WarpTests, Accept_PendingWarp_SendsAgreeWithEffectAndNearby)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
     PlayingCharacter& observer = GivenCharacter(3, 3);
-    warper.character->Warp(WarpTestMapId, 4, 4, WarpEffect::Admin);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4), WarpEffect::Admin);
 
     Handlers::Warp_Accept(warper.character, WarpAccept(WarpTestMapId, warper.character->warp_session_id));
 
@@ -170,10 +171,10 @@ TEST_F(WarpTests, Warp_WhilePending_KeepsSessionId)
 {
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
     const int session_id = warper.character->warp_session_id;
 
-    warper.character->Warp(WarpTestMapId, 5, 5);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(5, 5));
 
     const auto request = LastSent<server::WarpRequestServerPacket>(warper);
     ASSERT_TRUE(request);
@@ -184,7 +185,7 @@ TEST_F(WarpTests, Accept_MismatchedSession_ClosesClient)
 {
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     EXPECT_CALL(*warper.client, Close(false)).Times(1);
 
@@ -198,7 +199,7 @@ TEST_F(WarpTests, Accept_MismatchedMap_ClosesClient)
 {
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     EXPECT_CALL(*warper.client, Close(false)).Times(1);
 
@@ -212,7 +213,7 @@ TEST_F(WarpTests, Accept_MismatchedSessionAndMapWithEnforceSessionsOff_SendsAgre
     server->world->config["EnforceSessions"] = false;
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     EXPECT_CALL(*warper.client, Close(testing::_)).Times(0);
 
@@ -225,7 +226,7 @@ TEST_F(WarpTests, Accept_NoPendingWarp_IsIgnored)
 {
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
     const int session_id = warper.character->warp_session_id;
     Handlers::Warp_Accept(warper.character, WarpAccept(WarpTestMapId, session_id));
     warper.sent.clear();
@@ -242,7 +243,7 @@ TEST_F(WarpTests, Take_PendingWarp_UploadsMap)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
     warper.character->nowhere = true;
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     Handlers::Warp_Take(warper.character, WarpTake(WarpTestMapId, warper.character->warp_session_id));
 
@@ -256,7 +257,7 @@ TEST_F(WarpTests, Take_MismatchedSession_ClosesClient)
     GivenMap(EmptyEmf(10, 10));
     PlayingCharacter& warper = GivenCharacter(2, 2);
     warper.character->nowhere = true;
-    warper.character->Warp(WarpTestMapId, 4, 4);
+    warper.character->Warp(WarpTestMapId, Converters::CoordsFrom(4, 4));
 
     EXPECT_CALL(*warper.client, Close(false)).Times(1);
 

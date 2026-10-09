@@ -2,6 +2,7 @@
 
 // include the CPP file with the Door functions in it for testing
 #include "../../handlers/Door.cpp"
+#include "../../converters.hpp"
 
 #include <eolib/protocol/net/client/packets.hpp>
 #include <eolib/protocol/net/server/packets.hpp>
@@ -54,7 +55,7 @@ TEST_F(DoorTests, Open_UnlockedDoorInRange_OpensForNearby)
 
     Handlers::Door_Open(opener.character, OpenAt(DoorX, DoorY));
 
-    EXPECT_TRUE(map->GetWarp(DoorX, DoorY).open);
+    EXPECT_TRUE(map->GetWarp(Converters::CoordsFrom(DoorX, DoorY)).open);
     EXPECT_FALSE(LastSent<server::DoorOpenServerPacket>(far_away));
 
     for (const PlayingCharacter* entry : {&opener, &observer})
@@ -85,7 +86,7 @@ TEST_F(DoorTests, Open_LockedDoorWithoutKey_RepliesWithKeyNumber)
 
     Handlers::Door_Open(opener.character, OpenAt(DoorX, DoorY));
 
-    EXPECT_FALSE(map->GetWarp(DoorX, DoorY).open);
+    EXPECT_FALSE(map->GetWarp(Converters::CoordsFrom(DoorX, DoorY)).open);
     EXPECT_FALSE(LastSent<server::DoorOpenServerPacket>(opener));
 
     const auto close = LastSent<server::DoorCloseServerPacket>(opener);
@@ -120,6 +121,6 @@ TEST_F(DoorTests, Open_OutOfRange_IsIgnored)
 
     Handlers::Door_Open(opener.character, OpenAt(DoorX, DoorY));
 
-    EXPECT_FALSE(map->GetWarp(DoorX, DoorY).open);
+    EXPECT_FALSE(map->GetWarp(Converters::CoordsFrom(DoorX, DoorY)).open);
     EXPECT_TRUE(opener.sent.empty());
 }

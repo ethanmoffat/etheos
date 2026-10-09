@@ -262,7 +262,7 @@ static bool modify_stat(std::string name, std::function<int(int)> f, Character* 
 
 	// Easiest way to get the character to update on everyone nearby's screen
 	if (appearance)
-		victim->Warp(victim->map->id, victim->loc.x, victim->loc.y);
+		victim->Warp(victim->map->id, victim->loc);
 
 	if (stats || statpoints)
 	{
@@ -556,7 +556,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	}
 	else if (function_name == "setmap" || function_name == "setcoord")
 	{
-		this->character->Warp(int(action.expr.args[0]), int(action.expr.args[1]), int(action.expr.args[2]));
+		this->character->Warp(int(action.expr.args[0]), Converters::CoordsFrom(int(action.expr.args[1]), int(action.expr.args[2])));
 	}
 	else if (function_name == "playsound")
 	{
@@ -653,7 +653,7 @@ bool Quest_Context::DoAction(const EOPlus::Action& action)
 	else if (function_name == "setrace")
 	{
 		this->character->race = int(action.expr.args[0]);
-		this->character->Warp(this->character->map->id, this->character->loc.x, this->character->loc.y);
+		this->character->Warp(this->character->map->id, this->character->loc);
 	}
 	else if (function_name == "removekarma")
 	{
